@@ -1,0 +1,166 @@
+export interface WorkOrder {
+    _id: string;
+    assetId: Asset | null;
+    description: string;
+    status: "Open" | "In Progress" | "Closed";
+    scheduledDate: string;
+    completionDate?: string;
+    assignedTo: AssignedTo;
+    timeLogs: TimeLog[];
+    travelLogs: TravelLog[];
+    partsUsed: PartsUsed[];
+    testEquipmentUsed: Asset[];
+    updatedAt: string;
+    workOrderNumber: number;
+    workOrderType: string;
+    dueDate: string;
+    requestDate: string;
+    procedure?: Procedure;
+    taskResults: TaskResult[]; // Store task results at the work order level
+  }
+
+  export interface AssignedTo {
+    _id: string;
+    username: string;
+    email: string;
+  };
+  
+  export interface TimeLog {
+    userId: {
+      _id: string;
+      username: string;
+      email: string;
+    }
+    timeSpent: number;
+    description: string;
+    timestamp: string;
+  }
+  
+  export interface TravelLog {
+    userId: {
+      _id: string;
+      username: string;
+      email: string;
+    }
+    travelTime: number;
+    timestamp: string;
+    _id: string;
+  }
+  
+  export interface Part {
+    _id: string;
+    partNumber: string;
+    description: string;
+    quantityOnHand: number;
+    price?: number; // Optional: Include if needed
+    location?: string; // Optional: Include if needed
+    supplier?: string; // Optional: Include if needed
+  }
+
+  export interface PartsUsed {
+    partId: Part; // Populate returns full part object
+    quantity: number;
+  }
+  
+  export interface Equipment {
+    _id: string;
+    name: string;
+    serialNumber: string;
+  }  
+
+  export interface Asset {
+    _id: string;
+    ctrlNumber: string;
+    manufacturer: string;
+    model: string;
+    category: "Biomed" | "Test Equipment";
+    notes?: string;
+    maintenanceSchedule?: MaintenanceSchedule;
+    status: 'Active' | 'Inactive';
+    serialNumber: string;
+    workOrders: WorkOrder[];
+    createdAt?: string;
+    updatedAt?: string;
+  };
+
+  export interface MaintenanceSchedule {
+    frequency: "Monthly" | "Quarterly" | "Yearly";
+    lastMaintenance?: string;
+    nextMaintenance?: string; // Make this optional
+    procedure?: Procedure;
+  }
+  
+  export interface WorkOrderStatus {
+    name: string;
+    value: number;
+  };
+  
+  export interface AssetStatus {
+    name: string;
+    value: number;
+  };
+
+  export interface TechnicianTimeLog {
+    _id: string;
+    totalTime: number;
+  };
+
+  // Represents an individual task
+export interface Task {
+  _id: string; // MongoDB ID for the task
+  description: string; // Task description
+  type: "Pass/Fail" | "Measurement" | "Comment"; // Task type
+  minValue?: number; // Optional minimum value (for measurement)
+  maxValue?: number; // Optional maximum value (for measurement)
+  createdAt: string; // Timestamp when the task was created
+  updatedAt: string; // Timestamp when the task was last updated
+}
+
+// Represents the result of a task for a specific procedure
+export interface TaskResult {
+  taskId: string; // Reference to the associated Task
+  result: boolean | number | null; // Either Pass/Fail (boolean) or a measurement (number)
+  submittedBy: string;
+  timestamp: string; // Timestamp of when the result was recorded
+  _id?: string; // Optional MongoDB ID for the task result
+}
+
+// Represents a procedure, which groups multiple tasks and their results
+export interface Procedure {
+  _id: string; // MongoDB ID for the procedure
+  name: string; // Name of the procedure
+  tasks: Task[]; // List of associated tasks
+  taskResults: TaskResult[]; // Results for the tasks in this procedure
+  createdAt: string; // Timestamp when the procedure was created
+  updatedAt: string; // Timestamp when the procedure was last updated
+}
+
+  export interface DashboardData {
+    workOrdersByStatus: WorkOrderStatus[];
+    assetsSummary: {
+      activeAssets: number;
+      inactiveAssets: number;
+      dueMaintenance: number;
+    };
+    assets: Asset[];
+    totalParts: number;
+    lowStockParts: number;
+    totalTravelTime: number;
+    totalTimeLogged: TechnicianTimeLog[];
+  };
+
+  export interface BackendDashboardResponse {
+    workOrdersByStatus: {
+      _id: string;
+      count: number;
+    }[];
+    assetsSummary: {
+      activeAssets: number;
+      inactiveAssets: number;
+      dueMaintenance: number;
+    };
+    totalParts: number;
+    lowStockParts: number;
+    totalTravelTime: number;
+    totalTimeLogged: TechnicianTimeLog[];
+  };

@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["react", "react-dom", "react-to-print"],
+    //"typeRoots": ["./src/types", "node_modules/@types"],
+    "typeRoots": ["node_modules/@types"],
+    "include": ["src/**/**"],
+    "moduleResolution": "node"
+  }
+}
