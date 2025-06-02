@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Asset Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 {
+            margin: 0;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 15px;
+        }
+        nav a:hover {
+            text-decoration: underline;
+        }
+        .hero {
+            text-align: center;
+            padding: 50px 20px;
+            background: linear-gradient(to bottom right, #007bff, #0056b3);
+            color: white;
+        }
+        .hero h2 {
+            font-size: 2.5em;
+            margin: 0;
+        }
+        .hero p {
+            font-size: 1.2em;
+            margin: 20px 0;
+        }
+        .hero button {
+            padding: 10px 20px;
+            font-size: 1em;
+            color: #007bff;
+            background-color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .hero button:hover {
+            background-color: #f0f0f0;
+        }
+        .features {
+            display: flex;
+            justify-content: space-around;
+            padding: 40px 20px;
+        }
+        .features div {
+            text-align: center;
+            width: 30%;
+        }
+        .features div img {
+            width: 50px;
+            height: 50px;
+        }
+        .features div h3 {
+            margin-top: 10px;
+        }
+        footer {
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 10px 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Healthcare Asset Manager</h1>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/assets">Manage Assets</a>
+            <a href="/workorders">Work Orders</a>
+            <a href="/auth/login">Login</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h2>Streamline Your Healthcare Equipment Management</h2>
+        <p>Manage your assets and work orders efficiently with our simple yet powerful platform.</p>
+        <button onclick="location.href='/login'">Get Started</button>
+    </section>
+
+    <section class="features">
+        <div>
+            <img src="https://via.placeholder.com/50" alt="Asset Management">
+            <h3>Manage Assets</h3>
+            <p>Keep track of all your healthcare equipment in one place.</p>
+        </div>
+        <div>
+            <img src="https://via.placeholder.com/50" alt="Work Orders">
+            <h3>Track Work Orders</h3>
+            <p>Easily create, assign, and track work orders.</p>
+        </div>
+        <div>
+            <img src="https://via.placeholder.com/50" alt="Compliance">
+            <h3>Ensure Compliance</h3>
+            <p>Stay compliant with regulations and maintenance schedules.</p>
+        </div>
+    </section>
+    <footer>
+        <p>&copy; 2024 Healthcare Asset Manager. All rights reserved.</p>
+    </footer>
+</body>
+</html>

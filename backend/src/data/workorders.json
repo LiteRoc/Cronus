@@ -1,0 +1,37 @@
+[
+    {
+      "assetId": "673f13c336701d99ac0eea13",
+      "description": "Replace defective power supply.",
+      "status": "Open",
+      "scheduledDate": "2024-11-25T10:00:00Z",
+      "completionDate": null
+    },
+    {
+      "assetId": "673f13c336701d99ac0eea14",
+      "description": "Calibrate sensors.",
+      "status": "In Progress",
+      "scheduledDate": "2024-11-20T14:00:00Z",
+      "completionDate": null
+    },
+    {
+      "assetId": "673f13c336701d99ac0eea15",
+      "description": "Annual maintenance check.",
+      "status": "Closed",
+      "scheduledDate": "2024-10-15T09:00:00Z",
+      "completionDate": "2024-10-16T17:00:00Z"
+    },
+    {
+        "assetId": "673f13c336701d99ac0eea16",
+        "description": "Replace widget.",
+        "status": "Closed",
+        "scheduledDate": "2024-10-15T09:00:00Z",
+        "completionDate": "2024-10-16T17:00:00Z"
+    },
+    {
+        "assetId": "673f13c336701d99ac0eea17",
+        "description": "doesn't work",
+        "status": "Closed",
+        "scheduledDate": "2024-10-15T09:00:00Z",
+        "completionDate": "2024-10-16T17:00:00Z"
+    }
+  ]

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script src="/js/auth.js"></script>
+
+</head>
+<body>
+    <h1>Login</h1>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+        <label>
+            Email:
+            <input type="email" id="email" required />
+        </label><br />
+        <label>
+            Password:
+            <input type="password" id="password" required />
+        </label><br />
+        <button type="submit">Login</button>
+    </form>
+    <p id="errorMessage" style="color: red; display: none;"></p>
+
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.token) {
+                        localStorage.setItem('token', data.token); // Save the token in localStorage
+                        alert('Login Successful!');
+                        window.location.href = '/dashboard'; // Redirect to dashboard client-side
+                    } else {
+                        alert(data.error || 'Login failes');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during login', error);
+                    alert('An error occured.  Please try again');
+                });
+
+                /*if (!response.ok) {
+                    const errorData = await response.json();
+                    document.getElementById('errorMessage').textContent = errorData.error || 'Login failed';
+                    document.getElementById('errorMessage').style.display = 'block';
+                    return;
+                }
+
+                const { token } = await response.json();
+                localStorage.setItem('token', token); // Store the JWT in local storage
+                alert('Login successful!');
+                window.location.href = '/dashboard'; // Redirect to the homepage or dashboard
+            } catch (error) {
+                console.error('Error during login:', error);
+                document.getElementById('errorMessage').textContent = 'An error occurred. Please try again.';
+                document.getElementById('errorMessage').style.display = 'block';
+            }*/
+        }
+    </script>
+</body>
+</html>

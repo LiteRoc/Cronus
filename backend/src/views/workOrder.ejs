@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Orders</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ccc;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .form-container {
+            margin-bottom: 20px;
+        }
+        .form-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-container input, .form-container button, .form-container select {
+            margin-bottom: 10px;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .form-container button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .form-container button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Work Orders for Asset: <%= assetId %></h1>
+    <!-- Search Form -->
+
+    <form id="searchForm">
+        <input type="text" id="searchInput" placeholder="Search by Description or Notes" />
+        <select id="statusFilter">
+            <option value="">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="Completed">Completed</option>
+        </select>
+        <input type="date" id="dateFilter" />
+        <button type="submit">Search</button>
+    </form>
+
+    <!-- Work Orders Table -->
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Scheduled Date</th>
+                <th>Completion Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% workOrders.forEach(order => { %>
+            <tr>
+                <td><%= order._id %></td>
+                <td><%= order.description %></td>
+                <td><%= order.status %></td>
+                <td><%= new Date(order.scheduledDate).toLocaleDateString() %></td>
+                <td><%= order.completionDate ? new Date(order.completionDate).toLocaleDateString() : '' %></td>
+                <td>
+                    <button onclick="editWorkOrder('<%= order._id %>')">Edit</button>
+                    <button onclick="deleteWorkOrder('<%= order._id %>')">Delete</button>
+                </td>
+            </tr>
+            <% }); %>
+        </tbody>
+    </table>
+
+    <!-- Form to Add/Edit Work Order -->
+    <div class="form-container">
+        <h2>Add / Edit Work Order</h2>
+        <form id="workOrderForm">
+            <label for="workOrderId">ID</label>
+            <input type="text" id="workOrderId" name="workOrderId" disabled>
+            <label for="description">Description</label>
+            <input type="text" id="description" name="description" required>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Closed">Closed</option>
+            </select>
+            <label for="scheduledDate">Scheduled Date</label>
+            <input type="date" id="scheduledDate" name="scheduledDate" required>
+            <label for="completionDate">Completion Date</label>
+            <input type="date" id="completionDate" name="completionDate">
+            <button type="submit">Save Work Order</button>
+        </form>
+    </div>
+
+    <script>
+        const assetId = "<%= assetId %>"; // Asset ID from the backend
+
+        // Populate the form with the work order information
+    async function editWorkOrder(workOrderId) {
+        // Fetch work order details from the server
+        try {
+            const response = await fetch(`/workorders/${workOrderId}`);
+            if (!response.ok) {
+                throw new Error(`Error fetching work order: ${response.statusText}`);
+            }
+
+            const workOrder = await response.json();
+
+            // Populate the form fields
+            document.getElementById('workOrderId').value = workOrder._id;
+            document.getElementById('description').value = workOrder.description;
+            document.getElementById('status').value = workOrder.status;
+            document.getElementById('scheduledDate').value = workOrder.scheduledDate.slice(0, 10); // ISO date
+            document.getElementById('completionDate').value = workOrder.completionDate
+                ? workOrder.completionDate.slice(0, 10)
+                : '';
+
+            // Scroll to the form
+            document.getElementById('workOrderForm').scrollIntoView({ behavior: 'smooth' });
+        } catch (error) {
+            console.error('Error fetching work order details:', error);
+            alert('Failed to fetch work order details.');
+        }
+    }
+
+        // Delete a work order
+        async function deleteWorkOrder(workOrderId) {
+            const response = await fetch(`/api/workorders/${workOrderId}`, { method: 'DELETE' });
+            if (response.ok) {
+                alert('Work order deleted successfully');
+                window.location.reload();
+            } else {
+                alert('Error deleting work order');
+            }
+        }
+
+        // Save a work order (add or edit)
+        document.getElementById('workOrderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const workOrderId = document.getElementById('workOrderId').value;
+            const workOrderData = {
+                description: document.getElementById('description').value,
+                status: document.getElementById('status').value,
+                scheduledDate: document.getElementById('scheduledDate').value,
+                completionDate: document.getElementById('completionDate').value || null,
+                assetId: '<%= assetId %>', // Ensure assetId is passed from the server
+            };
+
+            const url = workOrderId
+                 ? `/workorders/${workOrderId}` // For editing existing work order
+                 : `/assets/${assetId}/workorders`; // For creating a new work order
+            const method = workOrderId ? 'PUT' : 'POST';
+
+            try {
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workOrderData),
+        });
+
+        if (response.ok) {
+            alert('Work order saved successfully');
+            window.location.reload();
+        } else {
+            const errorData = await response.json();
+            console.error('Error saving work order:', errorData);
+            alert(`Error: ${errorData.error}`);
+        }
+    } catch (error) {
+        console.error('Error during fetch request:', error);
+        alert('An error occurred while saving the work order');
+    }
+
+            if (response.ok) {
+                alert('Work order saved successfully');
+                window.location.reload();
+            } else {
+                alert('Error saving work order');
+            }
+        });
+
+    document.getElementById('searchForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const search = document.getElementById('searchInput').value;
+        const status = document.getElementById('statusFilter').value;
+        const date = document.getElementById('dateFilter').value;
+
+        const response = await fetch(`/workorders?search=${search}&status=${status}&date=${date}`);
+        const workOrders = await response.json();
+
+        const tableBody = document.querySelector('#workOrdersTable tbody');
+        tableBody.innerHTML = ''; // Clear previous results
+
+        workOrders.forEach(order => {
+            const row = `
+                <tr>
+                    <td>${order.description}</td>
+                    <td>${order.status}</td>
+                    <td>${order.scheduledDate}</td>
+                </tr>
+            `;
+            tableBody.innerHTML += row;
+        });
+    });
+
+    </script>
+</body>
+</html>

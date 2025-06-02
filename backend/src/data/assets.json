@@ -1,0 +1,43 @@
+[
+    {
+      "id": 1,
+      "ctrlNumber": "CTRL-001",
+      "manufacturer": "GE Healthcare",
+      "model": "Model A100",
+      "serialNumber": "SN123456",
+      "notes": "This is a demo asset used for testing."
+    },
+    {
+      "id": 2,
+      "ctrlNumber": "CTRL-002",
+      "manufacturer": "Siemens",
+      "model": "Model B200",
+      "serialNumber": "SN789012",
+      "notes": null
+    },
+    {
+      "id": 3,
+      "ctrlNumber": "CTRL-003",
+      "manufacturer": "Philips",
+      "model": "Model C300",
+      "serialNumber": "SN345678",
+      "notes": "Asset located in warehouse 1."
+    },
+    {
+      "id": 4,
+      "ctrlNumber": "CTRL-004",
+      "manufacturer": "Canon Medical",
+      "model": "Model D400",
+      "serialNumber": "SN901234",
+      "notes": "Scheduled for maintenance next month."
+    },
+    {
+      "id": 5,
+      "ctrlNumber": "CTRL-005",
+      "manufacturer": "Medtronic",
+      "model": "Model E500",
+      "serialNumber": "SN567890",
+      "notes": null
+    }
+  ]
+  

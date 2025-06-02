@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'Healthcare Asset Management' %></title>
+    <link rel="stylesheet" href="style.css"> <!-- Optional styling -->
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/assets">Manage Assets</a>
+            <a href="/workorders">Work Orders</a>
+            <a href="/login">Login</a>
+        </nav>
+    </header>
+
+    <main>
+        <%- body %> <!-- Dynamic content for each page -->
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Healthcare Asset Manager. All rights reserved.</p>
+    </footer>
+</body>
+</html>
