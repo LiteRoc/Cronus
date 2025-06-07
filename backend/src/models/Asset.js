@@ -4,6 +4,7 @@ const assetSchema = new mongoose.Schema({
     ctrlNumber: { type: String, required: true },  // Required field
     manufacturer: { type: String, required: true },
     model: { type: String, required: true },
+    description: { type: String, default: '' },
     serialNumber: { type: String, required: true },
     notes: { type: String, default: null },       // Optional field
     status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' }, // New field
@@ -22,4 +23,4 @@ const assetSchema = new mongoose.Schema({
 
 const Asset = mongoose.model('Asset', assetSchema, 'assets');
 
-module.exports = mongoose.model('Asset', assetSchema); // Ensure the model is exported
+module.exports = Asset;

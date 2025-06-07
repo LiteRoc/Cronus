@@ -8,6 +8,7 @@ import DashboardPage from "./pages/Dashboard/DashboardPage";
 import EditWorkOrderPage from "./pages/EditWorkOrder/EditWorkOrderPage";
 import EditAssetPage from "./pages/EditAsset/EditAssetPage"
 import PrivateRoute from "./components/PrivateRoute";
+import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           />
           <Route path="/workorders/edit/:id" element={<EditWorkOrderPage />} />
           <Route path="/assets/edit/:id" element={<EditAssetPage />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
     </>

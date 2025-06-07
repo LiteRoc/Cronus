@@ -27,7 +27,9 @@ export function isPart(item: any): item is Part {
 }
 
 export const isWorkOrderArray = (items: any[]): items is WorkOrder[] => {
-  return items.every((item) => "workOrderNumber" in item && "assignedTo" in item);
+  return Array.isArray(items) &&
+    items.length > 0 &&
+    items.every(item => "_id" in item && "description" in item && "assetId" in item);
 };
 
 export const isAssetArray = (items: any[]): items is Asset[] => {

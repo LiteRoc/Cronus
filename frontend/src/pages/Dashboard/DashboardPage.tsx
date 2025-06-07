@@ -207,7 +207,7 @@ const DashboardPage: React.FC = () => {
           onFilter={onFilter} 
           />
         }
-      </main>
+      
 
         {/* Filtered Data Section */}
         {filteredData && (
@@ -240,7 +240,8 @@ const DashboardPage: React.FC = () => {
             onCreate={handleCreateWorkOrderFromModal}
           />
         )}
-      </div>
+      </main>
+    </div>
   );
 };
 

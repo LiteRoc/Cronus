@@ -18,7 +18,7 @@ async function seedAdmin() {
       const notHashedPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin123';
 
       const newAdmin = new User({
-        username: 'jfeatherston',
+        username: process.env.DEFAULT_ADMIN_EMAIL,
         email: process.env.DEFAULT_ADMIN_EMAIL,
         password: notHashedPassword,
         role: 'admin'

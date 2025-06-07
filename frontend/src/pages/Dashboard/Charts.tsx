@@ -11,33 +11,39 @@ interface ChartsProps {
 const Charts: React.FC<ChartsProps> = ({ data, onFilter }) => {
   const handleChartClick = async (
     type: "workOrders" | "assets",
-    event: any // Raw event object from the chart click
+    event: any
   ) => {
     try {
+      let status: string | undefined;
+
+      // Normalize status from event
+      if (event?.name) {
+        status = event.name;
+      } else if (event?.activeLabel) {
+        status = event.activeLabel;
+      } else if (typeof event === "string") {
+        status = event;
+      }
+
+      if (!status) {
+        console.warn("Could not determine status from event:", event);
+        return;
+      }
+
+      console.log(`Fetching ${type} with status:`, status);
+
       if (type === "workOrders") {
-        const status = event.name || event; // If `event` is a string, use it directly
-        console.log(`Fetching work orders with status: ${status}`);
-  
-        const filteredWorkOrders = await workOrdersByStatus(status); // Fetch work orders
-        //const filteredWorkOrders = await api.get(`/workorders?status=${status}`);
-        console.log("Filtered Work Orders:", filteredWorkOrders);
-            
-        onFilter(type, filteredWorkOrders); // Update filtered data
+        const filteredWorkOrders = await workOrdersByStatus(status);
+        onFilter(type, filteredWorkOrders);
       } else if (type === "assets") {
-        const status = event.name; // Extract the status from the chart slice
-        console.log(`Fetching assets with status: ${status}`);
-  
-        const filteredAssets = await assetsByStatus(status); // Fetch assets
-        console.log("Filtered Assets:", filteredAssets);
-  
-        onFilter(type, filteredAssets); // Update filtered data
+        const filteredAssets = await assetsByStatus(status);
+        onFilter(type, filteredAssets);
       }
     } catch (error) {
       console.error(`Error fetching ${type}:`, error);
       alert(`Failed to load ${type}. Please try again.`);
     }
   };
-  
 
   return (
     <div className="grid grid-cols-2 gap-8">
@@ -47,9 +53,7 @@ const Charts: React.FC<ChartsProps> = ({ data, onFilter }) => {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
             data={data.workOrdersByStatus}
-            onClick={(e) => {
-              handleChartClick('workOrders', e.activeLabel); //Pass status as a string
-            }}
+            onClick={(e) => { handleChartClick("workOrders", e);  }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="_id" />

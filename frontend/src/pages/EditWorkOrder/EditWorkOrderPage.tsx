@@ -263,7 +263,6 @@ const EditWorkOrderPage: React.FC = () => {
             readOnly
           />
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <div className="form-group">
@@ -276,7 +275,6 @@ const EditWorkOrderPage: React.FC = () => {
                 onChange={handleInputChange}
               />
             </div>
-
             <div className="form-group">
                 <label htmlFor="dueDate">Due Date</label>
                 <input
@@ -290,7 +288,6 @@ const EditWorkOrderPage: React.FC = () => {
               </div>
             </div>
         </div>
-
         <div className="form-group col-span-2">
           <label className="block font-medium mb-1">Description</label>
           <textarea
@@ -302,7 +299,6 @@ const EditWorkOrderPage: React.FC = () => {
           />
         </div>
       </div>
-
       <div className="form-group">
           <label className="block font-medium mb-1">Status</label>
           <select
@@ -316,7 +312,6 @@ const EditWorkOrderPage: React.FC = () => {
             <option value="Closed">Closed</option>
           </select>
         </div>
-
         {editedWorkOrder?.completionDate && (
           <div className="form-group">
             <label className="block font-medium mb-1">Completion Date</label>
@@ -333,7 +328,6 @@ const EditWorkOrderPage: React.FC = () => {
             />
           </div>
         )}
-
       {/* Asset Information */}
       {asset && (
         <div className="border-t pt-4 mt-4">
@@ -354,7 +348,6 @@ const EditWorkOrderPage: React.FC = () => {
           </div>
         </div>
       )}
-
       {/* Time Logs */}
       <section className="border-t pt-4 mt-4">
         <h3 className="font-semibold mb-2 flex justify-between">
@@ -430,7 +423,6 @@ const EditWorkOrderPage: React.FC = () => {
           ))}
         </ul>
       </section>
-
       {/* AddTimeLogModal */}
       {isTimeLogModalOpen && (
         <AddTimeLogModal
@@ -438,7 +430,6 @@ const EditWorkOrderPage: React.FC = () => {
           onClose={() => setIsTimeLogModalOpen(false)}
         />
         )}
-
       {/* Parts Used */}
       <section className="border-t pt-4 mt-4">
         <h3 className="font-semibold mb-2 flex justify-between">
@@ -487,14 +478,12 @@ const EditWorkOrderPage: React.FC = () => {
     <p>No parts used yet.</p>
   )}
       </section>
-
       {/* AddPartModal */}
       <AddPartModal
         isOpen={isPartModalOpen}
         onClose={() => setIsPartModalOpen(false)}
         onSave={handleAddPart}
       />
-
       {/* Procedure Section */}
       <h3 className="font-semibold mb-2 flex justify-between border-t pt-4 mt-4">
         Procedure
@@ -567,7 +556,6 @@ const EditWorkOrderPage: React.FC = () => {
             )}
         </section>
       )}
-
       {/* Perform Procedure Modal */}
       {isProcedureModalOpen && editedWorkOrder?.procedure && (
         <PerformProcedureModal
@@ -578,7 +566,6 @@ const EditWorkOrderPage: React.FC = () => {
           onClose={() => setIsProcedureModalOpen(false)}
         />
       )}
-
       {/* Add Procedure Modal */}
       {isAddProcedureModalOpen && (
         <AddProcedureModal
@@ -588,7 +575,6 @@ const EditWorkOrderPage: React.FC = () => {
           onSave={(procedureId) => handleSaveProcedure(procedureId)}
         />
       )}
-
       {/* Test Equip Section */}
       {editedWorkOrder?.testEquipmentUsed && (
         <section className="border-t pt-4 mt-4">
@@ -622,7 +608,6 @@ const EditWorkOrderPage: React.FC = () => {
           )}
         </section>
       )}
-
       { /* Add Test Equip Modal*/ }
       {isTestEquipModalOpen && editedWorkOrder?.testEquipmentUsed && (
         <AddTestEquipmentModal
@@ -631,7 +616,6 @@ const EditWorkOrderPage: React.FC = () => {
           onAdd={handleAddTestEquip}
           />
       )}
-
       {/* Save Button */}
       <div className="mt-4">
         <button

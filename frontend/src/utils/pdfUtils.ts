@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { WorkOrder, Asset } from "../types/types";
 
 export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) => {
@@ -82,7 +82,7 @@ export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) 
       log.description || "N/A",
     ]);
 
-    pdf.autoTable({
+    autoTable(pdf, {
       head: [["Date", "Time Spent (min)", "Description"]],
       body: logs,
       startY: currentY,
@@ -106,7 +106,7 @@ export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) 
       log.travelTime || "N/A",
     ]);
 
-    pdf.autoTable({
+    autoTable(pdf, {
       head: [["Date", "Time Spent (min)"]],
       body: logs,
       startY: currentY,
@@ -132,7 +132,7 @@ export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) 
       `$${part.partId.price?.toFixed(2)}`,
     ]);
 
-    pdf.autoTable({
+    autoTable(pdf, {
       head: [["Part Number", "Description", "Quantity", "Unit Price"]],
       body: parts,
       startY: currentY,
@@ -180,7 +180,7 @@ export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) 
       ];
     });
 
-    pdf.autoTable({
+    autoTable(pdf, {
       head: [["Task Description", "Type", "Result", "Timestamp"]],
       body: taskData,
       startY: currentY,
@@ -208,7 +208,7 @@ export const generateWorkOrderPDF = (workOrder: WorkOrder, asset: Asset | null) 
       //eq.calibrationDate ? new Date(eq.calibrationDate).toLocaleDateString() : "N/A",
     ]);
 
-    pdf.autoTable({
+    autoTable(pdf, {
       head: [["Equipment ID", "Equipment Name", "Model"]],
       body: equipment,
       startY: currentY,
