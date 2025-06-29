@@ -73,7 +73,13 @@ authRouter.post(
 
             console.log('✅ User authenticated:', user.email);
 
-            const payload = { id: user._id, role: user.role };
+            const payload = { 
+                id: user._id, 
+                name: user.name || user.username,
+                username: user.username, 
+                email: user.email, 
+                role: user.role 
+            };
             const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
             console.log('JWT_SECRET:', JWT_SECRET); //Ensure consistency across routes and middleware
 

@@ -33,13 +33,13 @@ export const isWorkOrderArray = (items: any[]): items is WorkOrder[] => {
 };
 
 export const isAssetArray = (items: any[]): items is Asset[] => {
-  console.log('Validating Asset Array ...');
+  //console.log('Validating Asset Array ...', items);
 
   if (!Array.isArray(items)) {
     console.error("Items are not an array.");
     return false;
   }
-  
+  // return Array.isArray(items) && items.every(isAsset);
     return items.every((item, index) => {
       const hasValidProperties = item && 
         typeof item.ctrlNumber === "string" &&

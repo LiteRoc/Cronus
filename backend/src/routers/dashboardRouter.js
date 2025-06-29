@@ -6,70 +6,98 @@ const dashboardRouter = express.Router();
 
 // Main dashboard route
 dashboardRouter.get('/', async (req, res) => {
-    try {
-        const { startDate, endDate, status, userId } = req.query;
+  try {
+    const { startDate, endDate, status, userId } = req.query;
 
-        // Build date range filter for work orders
-        const dateFilter = {};
-        if (startDate) dateFilter.$gte = new Date(startDate);
-        if (endDate) dateFilter.$lte = new Date(endDate);
+    // Filters
+    const dateFilter = {};
+    if (startDate) dateFilter.$gte = new Date(startDate);
+    if (endDate) dateFilter.$lte = new Date(endDate);
 
-        // Build work order query filter
-        const workOrderFilter = {};
-        if (Object.keys(dateFilter).length > 0) workOrderFilter.scheduledDate = dateFilter;
-        if (status) workOrderFilter.status = status;
+    const workOrderFilter = {};
+    if (Object.keys(dateFilter).length > 0) workOrderFilter.scheduledDate = dateFilter;
+    if (status) workOrderFilter.status = status;
 
-        // Build user-specific filter
-        const userFilter = {};
-        if (userId) userFilter.userId = userId;
+    const userFilter = {};
+    if (userId) userFilter.userId = userId;
 
-        // Aggregate data
-        const totalWorkOrders = await WorkOrder.countDocuments(workOrderFilter);
-        const workOrdersByStatus = await WorkOrder.aggregate([
-            { $match: workOrderFilter },
-            { $group: { _id: '$status', count: { $sum: 1 } } }
-        ]);
+    // Queries
+    const workOrdersByStatus = await WorkOrder.aggregate([
+      { $match: workOrderFilter },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
 
-        const totalParts = await Part.countDocuments();
-        const lowStockParts = await Part.find({ stock: { $lt: 10 } }).countDocuments();
+    const countByStatus = workOrdersByStatus.reduce((acc, entry) => {
+      acc[entry._id] = entry.count;
+      return acc;
+    }, {});
 
-        const totalTravelTime = await WorkOrder.aggregate([
-            { $unwind: '$travelLogs' },
-            { $match: userFilter },
-            { $group: { _id: null, totalTravelTime: { $sum: '$travelLogs.travelTime' } } }
-        ]);
+    const totalParts = await Part.countDocuments();
+    const lowStockParts = await Part.countDocuments({ quantityOnHand: { $lt: 10 } });
 
-        const totalTimeLogged = await WorkOrder.aggregate([
-            { $unwind: '$timeLogs' },
-            { $match: userFilter },
-            { $group: { _id: '$timeLogs.userId', totalTime: { $sum: '$timeLogs.timeSpent' } } }
-        ]);
+    const travelAgg = await WorkOrder.aggregate([
+      { $unwind: '$travelLogs' },
+      { $match: userFilter },
+      { $group: { _id: null, total: { $sum: '$travelLogs.travelTime' } } },
+    ]);
 
-        // Asset summary
-        const activeAssets = await Asset.countDocuments({ status: 'Active' });
-        const inactiveAssets = await Asset.countDocuments({ status: 'Inactive' });
-        const dueMaintenance = await Asset.countDocuments({
-            'maintenanceSchedule.nextMaintenance': { $lte: new Date() },
-        });
+    const timeLogAgg = await WorkOrder.aggregate([
+      { $unwind: '$timeLogs' },
+      { $match: userFilter },
+      {
+        $group: {
+          _id: '$timeLogs.userId',
+          totalHours: { $sum: '$timeLogs.timeSpent' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      {
+        $unwind: '$user',
+      },
+      {
+        $project: {
+          name: '$user.username',
+          totalHours: 1,
+        },
+      },
+    ]);
 
-        res.status(200).json({
-            totalWorkOrders,
-            workOrdersByStatus,
-            totalParts,
-            lowStockParts,
-            totalTravelTime: totalTravelTime[0]?.totalTravelTime || 0,
-            totalTimeLogged,
-            assetsSummary: {
-                activeAssets,
-                inactiveAssets,
-                dueMaintenance,
-            },
-        });
-    } catch (error) {
-        console.error('Error generating dashboard:', error);
-        res.status(500).json({ error: 'Failed to generate dashboard data' });
-    }
+    const activeAssets = await Asset.countDocuments({ status: 'Active' });
+    const inactiveAssets = await Asset.countDocuments({ status: 'Inactive' });
+    const dueMaintenance = await Asset.countDocuments({
+      'maintenanceSchedule.nextMaintenance': { $lte: new Date() },
+    });
+
+    res.status(200).json({
+      workOrdersSummary: {
+        open: countByStatus.Open || 0,
+        completed: countByStatus.Completed || 0,
+        overdue: countByStatus.Overdue || 0,
+      },
+      assetSummary: {
+        active: activeAssets,
+        inactive: inactiveAssets,
+        upcomingMaintenance: dueMaintenance,
+      },
+      partsSummary: {
+        inStock: totalParts,
+        lowStock: lowStockParts,
+      },
+      technicianPerformance: timeLogAgg,
+    });
+  } catch (error) {
+    console.error('Error generating dashboard:', error);
+    res.status(500).json({ error: 'Failed to generate dashboard data' });
+  }
 });
+
 
 // Work orders summary route
 dashboardRouter.get('/workorders/summary', async (req, res) => {

@@ -10,6 +10,7 @@ const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
 const cron = require('node-cron');
 const { sendEmail } = require('../services/notificationService');
+const { error } = require('pdf-lib');
 
 // Allows assetsRouter to access workOrderRouter to query work orders
 const workOrderRouter = express.Router({ mergeParams: true }); // Merge parent params
@@ -76,10 +77,18 @@ workOrderRouter.get('/assigned/:userId', async (req, res) => {
 // GET all work orders for a specific asset or query by status
 workOrderRouter.get('/', async (req, res) => {
     const { assetId } = req.params;
-    const { status } = req.query;
+    const { search, status, type, page = 1, limit = 10 } = req.query;
+
+    console.log('Backend triggered by query:', req.query);
 
     try {
         const query = {};
+        if (search) {
+            query.$or = [
+                { status: { $regex: search, $options: 'i' } },
+                { type: { $regex: search, $options: 'i' } },
+            ]
+        }
 
         // Filter by assetId if present
         if (assetId) {
@@ -95,17 +104,42 @@ workOrderRouter.get('/', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid status value' });
             }
             query.status = status;
+            console.log('MongoDB Query:', query);
+        }
+        
+        // Filter by type if provided in query
+        if (type) {
+            if (!['Planned Maintenance', 'Corrective Maintenance'].includes(type)) {
+                return res.status(400).json({ error: 'Invalid type value' });
+            }
+            query.type = type;
+            console.log('MongoDB Query:', query);
         }
 
+        // Parse the `page` and `limit` to ensure they are numbers
+        const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
+        const limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Fetch total count and paginated work orders
+        const totalWorkOrders = await WorkOrder.countDocuments(query);
         const workOrders = await WorkOrder.find(query)
+            .skip(skip)
+            .limit(limitNumber)
             .populate('assetId')
-            .populate('assignedTo', 'username email'); // Include user details
+            .populate('assignedTo', 'username email') // Include user details
+            .lean();
 
         if (workOrders.length === 0) {
             return res.status(404).json({ message: 'No work orders found' });
         }
 
-        res.status(200).json(workOrders);
+        res.status(200).json({
+            workOrders,
+            totalPages: Math.ceil(totalWorkOrders / limitNumber),
+            currentPage: pageNumber,
+            totalWorkOrders,
+        });
     } catch (error) {
         debug('Error fetching work orders:', error);
         res.status(500).json({ error: 'Error fetching work orders' });
@@ -238,6 +272,17 @@ workOrderRouter.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { userId, ...updateFields } = req.body;
 
+    if (updateFields.status === "Complete") {
+       updateFields.status = "Closed";
+    }
+
+    if (updateFields.status === "Closed") {
+       updateFields.completionDate = new Date();
+    } else {
+       updateFields.completionDate = null;
+    }
+
+
     // Validate work order ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid work order ID format' });
@@ -266,13 +311,28 @@ workOrderRouter.put('/:id', async (req, res) => {
 // PUT: Update work orders based on status
 workOrderRouter.put('/:id/status', async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body;
+    let { status } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid work order ID format' });
     }
+
+    // Normalize "Complete" to "Closed"
+    if (status === "Complete") {
+        status = "Closed";
+    }
+
     if (!['Open', 'In Progress', 'Closed'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    const update = { status };
+    console.log('Status update triggered:', status, '→', update);
+
+    if (status === "Closed") {
+        update.completionDate = new Date(); // ✅ Set completion date only when closing
+    } else {
+        update.completionDate = null; // Optional: clear it if reopening
     }
 
     try {
@@ -364,6 +424,69 @@ workOrderRouter.patch('/:id/travelLogs', async (req, res) => {
     }
 });
 
+// PATCH: Update a specific time log
+workOrderRouter.patch('/:id/timelogs/:logId', async (req, res) => {
+  const { id, logId } = req.params;
+  const { timeSpent, description } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
+    return res.status(400).json({ error: 'Invalid work order or log ID' });
+  }
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
+    }
+
+    const log = workOrder.timeLogs.id(logId); // ✅ access subdocument
+    if (!log) {
+      return res.status(404).json({ error: 'Time log not found' });
+    }
+
+    if (typeof timeSpent === 'number') log.timeSpent = timeSpent;
+    if (typeof description === 'string') log.description = description;
+
+    await workOrder.save();
+    res.status(200).json({ message: 'Time log updated', log });
+  } catch (err) {
+    console.error('Error updating time log:', err);
+    res.status(500).json({ error: 'Failed to update time log' });
+  }
+});
+
+// PATCH: Update a specific travel log
+workOrderRouter.patch('/:id/travellogs/:logId', async (req, res) => {
+  const { id, logId } = req.params;
+  const { travelTime } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
+    return res.status(400).json({ error: 'Invalid work order or log ID' });
+  }
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
+    }
+
+    const log = workOrder.travelLogs.id(logId);
+    if (!log) {
+      return res.status(404).json({ error: 'Travel log not found' });
+    }
+
+    if (typeof travelTime === 'number') {
+      log.travelTime = travelTime;
+    }
+
+    await workOrder.save();
+    res.status(200).json({ message: 'Travel log updated', log });
+  } catch (err) {
+    console.error('Error updating travel log:', err);
+    res.status(500).json({ error: 'Failed to update travel log' });
+  }
+});
+
 // PATCH: Add parts to work orders
 workOrderRouter.patch('/:id/parts', async (req, res) => {
     const { id } = req.params;
@@ -407,6 +530,37 @@ workOrderRouter.patch('/:id/parts', async (req, res) => {
         debug('Error adding part to work order:', error);
         res.status(500).json({ error: 'Failed to add part to work order' });
     }
+});
+
+// PATCH: Update part quantity on a work order
+workOrderRouter.patch('/:id/parts/:partId', async (req, res) => {
+  const { id, partId } = req.params;
+  const { quantity } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(partId)) {
+    return res.status(400).json({ error: 'Invalid work order or part ID' });
+  }
+
+  console.log(`PATCH called for partId ${partId} on workOrder ${id}`, req.body);
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    const partEntry = workOrder.partsUsed.find(p => p.partId.toString() === partId);
+    if (!partEntry) return res.status(404).json({ error: 'Part not found in work order' });
+
+    if (typeof quantity === 'number' && quantity > 0) {
+      partEntry.quantity = quantity;
+      await workOrder.save();
+      return res.status(200).json({ message: 'Part quantity updated', part: partEntry });
+    } else {
+      return res.status(400).json({ error: 'Invalid quantity' });
+    }
+  } catch (err) {
+    console.error('Error updating part quantity:', err);
+    res.status(500).json({ error: 'Failed to update part' });
+  }
 });
 
 // PATCH:  Add test equip to WO
@@ -494,7 +648,7 @@ workOrderRouter.patch('/:id/procedure', async (req, res) => {
 });
 
 // PATCH: Save Task Results for a Work Order
-workOrderRouter.patch('/:workOrderId/task-results', async (req, res) => {
+/*workOrderRouter.patch('/:workOrderId/task-results', async (req, res) => {
     try {
         const { workOrderId } = req.params;
         const { taskResults } = req.body; // Array of results
@@ -518,27 +672,27 @@ workOrderRouter.patch('/:workOrderId/task-results', async (req, res) => {
         console.error('Error saving task results:', error);
         res.status(500).json({ success: false, message: 'Failed to save task results.' });
     }
-});
+});*/
 
-// Save Task Results for a Work Order
+// PATCH: Save Task Results for a Work Order
 workOrderRouter.patch('/:workOrderId/procedure/:procedureId/task-results', async (req, res) => {
-    try {
-        const { workOrderId, procedureId } = req.params;
-        const { taskResults } = req.body; // Array of results
+  try {
+    const { workOrderId } = req.params;
+    const { taskResults } = req.body;
 
-        for (const result of taskResults) {
-            await TaskResult.findOneAndUpdate(
-                { workOrderId, procedureId, taskId: result.taskId },
-                { result: result.result, submittedBy: result.submittedBy, timestamp: new Date() },
-                { upsert: true, new: true } // Insert if not exists
-            );
-        }
-
-        res.json({ success: true, message: 'Task results saved successfully.' });
-    } catch (error) {
-        console.error('Error saving task results:', error);
-        res.status(500).json({ success: false, message: 'Failed to save task results.' });
+    const workOrder = await WorkOrder.findById(workOrderId);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
     }
+
+    workOrder.taskResults = taskResults;
+    await workOrder.save();
+
+    res.json({ success: true, message: 'Task results saved successfully.', workOrder });
+  } catch (error) {
+    console.error('Error saving task results:', error);
+    res.status(500).json({ success: false, message: 'Failed to save task results.' });
+  }
 });
 
 // DELETE: Remove a work order by ID
@@ -560,7 +714,122 @@ workOrderRouter.delete('/:id', async (req, res) => {
     }
 });
 
-// Fetch Task Results for a Work Order
+// DELETE: Remove a specific time log
+workOrderRouter.delete('/:id/timelogs/:logId', async (req, res) => {
+  const { id, logId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
+    return res.status(400).json({ error: 'Invalid work order or log ID' });
+  }
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
+    }
+
+    const log = workOrder.timeLogs.id(logId);
+    if (!log) {
+      return res.status(404).json({ error: 'Time log not found' });
+    }
+
+    log.deleteOne(); // ✅ remove subdocument
+    await workOrder.save();
+
+    res.status(200).json({ message: 'Time log deleted' });
+  } catch (err) {
+    console.error('Error deleting time log:', err);
+    res.status(500).json({ error: 'Failed to delete time log' });
+  }
+});
+
+// DELETE: Remove a specific travel log
+workOrderRouter.delete('/:id/travellogs/:logId', async (req, res) => {
+  const { id, logId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
+    return res.status(400).json({ error: 'Invalid work order or log ID' });
+  }
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
+    }
+
+    const log = workOrder.travelLogs.id(logId);
+    if (!log) {
+      return res.status(404).json({ error: 'Travel log not found' });
+    }
+
+    log.deleteOne(); // ✅ modern Mongoose removal
+    await workOrder.save();
+
+    res.status(200).json({ message: 'Travel log deleted' });
+  } catch (err) {
+    console.error('Error deleting travel log:', err);
+    res.status(500).json({ error: 'Failed to delete travel log' });
+  }
+});
+
+// DELETE: Remove a part from a work order
+workOrderRouter.delete('/:id/parts/:partId', async (req, res) => {
+  const { id, partId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(partId)) {
+    return res.status(400).json({ error: 'Invalid work order or part ID' });
+  }
+
+  console.log(`DELETE called for partId ${partId} on workOrder ${id}`);
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    const initialCount = workOrder.partsUsed.length;
+
+    workOrder.partsUsed = workOrder.partsUsed.filter((p) => {
+        console.log("Comparing:", p.partId.toString(), "vs", partId.toString());
+        return p.partId.toString() !== partId.toString();
+    });
+
+
+    if (workOrder.partsUsed.length === initialCount) {
+      return res.status(404).json({ error: 'Part not found in work order' });
+    }
+
+    await workOrder.save();
+    res.status(200).json({ message: 'Part removed from work order' });
+  } catch (err) {
+    console.error('Error deleting part from work order:', err);
+    res.status(500).json({ error: 'Failed to delete part from work order' });
+  }
+});
+
+// DELETE: Remove procedure from a work order
+workOrderRouter.delete('/:id/procedure/:procedureId', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) {
+      return res.status(404).json({ error: 'Work order not found' });
+    }
+
+    // Remove the procedure reference and optionally clear taskResults
+    workOrder.procedure = undefined;
+    workOrder.taskResults = [];
+
+    await workOrder.save();
+
+    res.status(200).json({ message: 'Procedure removed from work order.' });
+  } catch (error) {
+    console.error('Error removing procedure:', error);
+    res.status(500).json({ error: 'Failed to remove procedure' });
+  }
+});
+
+// GET: Fetch Task Results for a Work Order
 workOrderRouter.get('/:workOrderId/procedure/:procedureId/task-results', async (req, res) => {
     try {
         const { workOrderId, procedureId } = req.params;

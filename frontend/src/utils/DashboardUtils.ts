@@ -27,13 +27,15 @@ export const filterByType = (
  * @param date - The date to format.
  * @returns Formatted date string.
  */
-export const formatDate = (date: string | Date): string => {
-  const options: Intl.DateTimeFormatOptions = {
+export const formatDate = (isoDate?: string | Date | null) => {
+  if (!isoDate) return "—"; // Return a dash or "N/A" if the date is null/undefined
+  const parsed = new Date(isoDate);
+  if (isNaN(parsed.getTime())) return "—"; // Extra safety for invalid date strings
+  return parsed.toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
-  };
-  return new Date(date).toLocaleDateString(undefined, options);
+  });
 };
 
 export const formatDateForInput = (date: string | Date): string => {

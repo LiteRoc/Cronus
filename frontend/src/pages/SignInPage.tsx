@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import apiClient from "../services/apiClient";
 import axios from 'axios';
 import { useUser } from "../context/UserContext";
 
@@ -15,7 +15,7 @@ export default function SignInPage() {
     e.preventDefault();
     console.log("Attempting to sign in with:", { email, password });
     try {
-      const response = await api.post("/auth/login", { email, password }); // Adjust the endpoint as needed
+      const response = await apiClient.post("/auth/login", { email, password }); // Adjust the endpoint as needed
       const userId = response.data.payload.id; // Extract the id from the payload
 
       console.log("Response from backend:", response.data);

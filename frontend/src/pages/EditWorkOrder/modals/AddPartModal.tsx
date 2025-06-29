@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { getParts } from "../../../services/api";
+import { getParts } from "../../../services/partAPI";
 import { Part } from "../../../types/types";
 
 interface AddPartModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (partId: string, quantity: number) => void;
+  onSave: (part: {partId: string, quantity: number}) => void;
 }
 
 const AddPartModal: React.FC<AddPartModalProps> = ({ isOpen, onClose, onSave }) => {
@@ -30,7 +30,7 @@ const AddPartModal: React.FC<AddPartModalProps> = ({ isOpen, onClose, onSave }) 
 
   const handleSave = () => {
     if (selectedPartId && quantity > 0) {
-      onSave(selectedPartId, quantity);
+      onSave({partId: selectedPartId, quantity});
       onClose();
     } else {
       alert("Please select a part and set a valid quantity.");

@@ -62,6 +62,17 @@ assetRouter.get('/', async (req, res) => {
     }
 });
 
+// GET: Return only test equipment
+assetRouter.get('/test-equipment', async (req, res) => {
+    try {
+        const testEquipment = await Asset.find({ category: 'test' }).lean();
+        res.status(200).json(testEquipment);
+    } catch (error) {
+        debug('Error fetching test equipment:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // GET a single asset by ID
 assetRouter.get('/:id', async (req, res) => {
     const { id } = req.params;
@@ -88,6 +99,29 @@ assetRouter.get('/:id', async (req, res) => {
         debug('Error fetching asset:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
+});
+
+// GET: Manufactures for a dropdown list
+assetRouter.get("/distinct/manufacturers", async (req, res) => {
+  try {
+    const manufacturers = await Asset.distinct("manufacturer");
+    res.status(200).json(manufacturers);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch manufacturers." });
+  }
+});
+
+// GET: Models for a dropdown list
+assetRouter.get("/distinct/models", async (req, res) => {
+  const { manufacturer } = req.query;
+  if (!manufacturer) return res.status(400).json({ error: "Manufacturer required." });
+
+  try {
+    const models = await Asset.distinct("model", { manufacturer });
+    res.status(200).json(models);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch models." });
+  }
 });
 
 // PUT: Update an asset by ID
@@ -125,17 +159,6 @@ assetRouter.delete('/:id', async (req, res) => {
         res.status(200).json({ message: 'Asset deleted successfully' });
     } catch (error) {
         debug('Error deleting asset:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-// GET: Return only test equipment
-assetRouter.get('/test-equipment', async (req, res) => {
-    try {
-        const testEquipment = await Asset.find({ category: 'test' }).lean();
-        res.status(200).json(testEquipment);
-    } catch (error) {
-        debug('Error fetching test equipment:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

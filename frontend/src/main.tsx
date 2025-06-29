@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { UserProvider } from "./context/UserContext";
+import { FilteredDataProvider } from "./hooks/useFilteredStore"
 import App from "./App";
 import "./styles/index.css";
 
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <UserProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <FilteredDataProvider>
+          <App />
+        </FilteredDataProvider>
       </QueryClientProvider>
     </UserProvider>
   </React.StrictMode>

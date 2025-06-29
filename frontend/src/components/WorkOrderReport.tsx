@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { getAssetById } from "../services/api";
+import { getAssetById } from "../services/assetAPI";
 import { WorkOrder, Asset } from "../types/types";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";

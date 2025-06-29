@@ -1,21 +1,36 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "../../../components/Modal"; // Import the shared Modal component
 import { Procedure } from "../../../types/types";
+import { getProcedures } from "../../../services/procedureAPI";
 
 interface AddProcedureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  procedures: Procedure[]; // List of available procedures
   onSave: (selectedProcedureId: string) => void;
 }
 
 const AddProcedureModal: React.FC<AddProcedureModalProps> = ({
   isOpen,
   onClose,
-  procedures,
   onSave,
 }) => {
   const [selectedProcedureId, setSelectedProcedureId] = useState<string>("");
+  const [availableProcedures, setAvailableProcedures] = useState<Procedure[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchProcedures();
+    }
+  }, [isOpen])
+
+  const fetchProcedures = async () => {
+    try {
+      const procedures = await getProcedures();
+      setAvailableProcedures(procedures)
+    } catch (err) {
+      console.error("Failed to fetch procedures:", err);
+    }
+  }
 
   const handleSave = () => {
     if (selectedProcedureId) {
@@ -40,7 +55,7 @@ const AddProcedureModal: React.FC<AddProcedureModalProps> = ({
           <option value="" disabled>
             Select a Procedure
           </option>
-          {procedures.map((procedure) => (
+          {availableProcedures.map((procedure) => (
             <option key={procedure._id} value={procedure._id}>
               {procedure.name}
             </option>

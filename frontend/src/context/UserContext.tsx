@@ -4,6 +4,7 @@ import { jwtDecode } from "jwt-decode";
 interface User {
   id: string;
   name: string;
+  username: string;
   role: string;
   email: string;
 }
@@ -25,7 +26,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const decoded: any = jwtDecode(token);
         setUser({
           id: decoded.id,
-          name: decoded.name, // Adjust according to your JWT payload structure
+          name: decoded.name || decoded.username,
+          username: decoded.username, // Adjust according to your JWT payload structure
           role: decoded.role,
           email: decoded.email,
         });
