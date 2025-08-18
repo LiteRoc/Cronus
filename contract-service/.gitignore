@@ -1,0 +1,4 @@
+# Ignore enviroment variables
+.env
+node_modules
+src/config/db.js

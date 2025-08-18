@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import CreateAssetModal from "../AddAsset/modals/CreateAssetModal";
 import { useFilteredStore } from "../../hooks/useFilteredStore";
 import { useFilteredFetcher } from "../../hooks/useFilterFetcher";
 import { isAssetArray } from "../../utils/typeGuards";
@@ -10,6 +11,7 @@ const FilteredAssetPage: React.FC = () => {
   const { fetchFilteredItems } = useFilteredFetcher();
   const [searchParams, setSearchParams] = useSearchParams();
   const status = searchParams.get("status");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
 
   // Convert search params to query object
@@ -47,15 +49,24 @@ const FilteredAssetPage: React.FC = () => {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">
-        Assets with Status: <span className="text-blue-600">{status}</span>
-      </h1>
+      <h1 className="text-2xl font-semibold mb-4">Assets</h1>
       
       <div className="p-6">
         <FilteredAssetControls />
         {/* your table and results below */}
       </div>
-      
+
+      <CreateAssetModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          + Add Asset
+        </button>
+      </div>
+
       <table className="w-full table-auto border-collapse border border-gray-300">
         <thead className="bg-gray-100">
           <tr>

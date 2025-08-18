@@ -30,13 +30,10 @@ const EditAssetPage: React.FC = () => {
           <AssetFormFields asset={asset} onChange={handleChange} />
 
           {/* Maintenance Schedule */}
-          {asset.maintenanceSchedule && (
             <MaintenanceScheduleForm
               schedule={asset.maintenanceSchedule}
               onChange={updateField}
             />
-
-          )}
 
           {/* Work Orders */}
           <h2 className="text-xl font-semibold mt-6 border-t pt-4">Work Orders</h2>

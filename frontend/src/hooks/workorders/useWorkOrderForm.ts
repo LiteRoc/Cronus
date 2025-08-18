@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { WorkOrder } from "../../types/types";
 import { getWorkOrderById } from "../../services/workOrderAPI";
 import { useWorkOrderActions } from "./useWorkOrderActions";
+import { toast } from "react-toastify";
 
 export const useWorkOrderForm = (workOrderId: string) => {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
@@ -51,17 +52,21 @@ export const useWorkOrderForm = (workOrderId: string) => {
   };
 
   const save = async (): Promise<boolean> => {
-    if (!workOrder) return false;
-    setIsSaving(true);
-    try {
-      await saveWorkOrder(workOrder);
-      return true;
-    } catch {
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  if (!workOrder) return false;
+  setIsSaving(true);
+  try {
+    const result = await saveWorkOrder(workOrder);
+    // console.log("Save response:", result);
+    // Optional: Add validation if result has a status code or error field
+    return true;
+  } catch (error) {
+    console.error("Save failed:", error);
+    toast.error("Failed to save work order.");
+    return false;
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   return {
     workOrder,

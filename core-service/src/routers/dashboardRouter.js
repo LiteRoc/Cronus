@@ -78,7 +78,7 @@ dashboardRouter.get('/', async (req, res) => {
     res.status(200).json({
       workOrdersSummary: {
         open: countByStatus.Open || 0,
-        completed: countByStatus.Completed || 0,
+        closed: countByStatus.Closed || 0,
         overdue: countByStatus.Overdue || 0,
       },
       assetSummary: {

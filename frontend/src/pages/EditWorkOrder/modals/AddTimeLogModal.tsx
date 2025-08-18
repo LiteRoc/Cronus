@@ -27,7 +27,7 @@ const AddTimeLogModal: React.FC<{ onSave: (timeLog: any, travelLog?: any) => voi
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Add Time Log">
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+      <div className="space-y-4">
         <div>
           <label htmlFor="timeSpent">Time Spent (minutes)</label>
           <input
@@ -70,7 +70,8 @@ const AddTimeLogModal: React.FC<{ onSave: (timeLog: any, travelLog?: any) => voi
             Cancel
           </button>
         </div>
-      </form>
+      </div>
+
       {isTravelTimeModalOpen && (
         <AddTravelTimeModal
           travelTime={travelTime}
@@ -79,6 +80,7 @@ const AddTimeLogModal: React.FC<{ onSave: (timeLog: any, travelLog?: any) => voi
         />
       )}
     </Modal>
+
   );
 };
 

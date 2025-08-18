@@ -63,6 +63,35 @@ export interface PartsUsed {
   quantity: number;
 };
 
+export interface EquipmentTemplate {
+  _id: string,
+  di: string,
+  manufacturer: string,
+  model: string,
+  description: string,
+  equipmentClass: string,
+  brandName?: string,
+  issuingAgency?: string,
+  fdaProductCode?: string,
+  gmdnTerm?: string,
+  gmdnCode?: string,
+  classificationName?: string,
+  kind: string,
+  alarm: boolean,
+  hipaa: boolean,
+  autoAddPMProcedure: boolean,
+  requirePmPlan: boolean,
+  excludeFromLifecycle: boolean,
+  excludeFromAEM: boolean,
+  manufacturerRecommendedPMFrequency: number,
+  verified: boolean
+};
+
+export interface TemplateListResponse {
+  templates: EquipmentTemplate[];
+  totalCount: number;
+};
+
 export interface Asset {
   _id: string;
   ctrlNumber: string;
@@ -72,10 +101,11 @@ export interface Asset {
   notes?: string;
   maintenanceSchedule?: MaintenanceSchedule;
   status: 'Active' | 'Inactive';
-  serialNumber: string;
+  serialNumber?: string;
   workOrders: WorkOrder[];
   createdAt?: string;
   updatedAt?: string;
+  kind?: string;
 };
 
 export interface MaintenanceSchedule {
@@ -107,6 +137,7 @@ export interface Task {
   type: "Pass/Fail" | "Measurement" | "Comment"; // Task type
   minValue?: number; // Optional minimum value (for measurement)
   maxValue?: number; // Optional maximum value (for measurement)
+  unit: string;
   createdAt: string; // Timestamp when the task was created
   updatedAt: string; // Timestamp when the task was last updated
 };
@@ -114,7 +145,7 @@ export interface Task {
 // Represents the result of a task for a specific procedure
 export interface TaskResult {
   taskId: string; // Reference to the associated Task
-  result: boolean | number | null; // Either Pass/Fail (boolean) or a measurement (number)
+  result: boolean | number | string | null; // Either Pass/Fail (boolean) or a measurement (number)
   submittedBy: string;
   submittedByName: string,
   timestamp: string; // Timestamp of when the result was recorded
@@ -133,7 +164,7 @@ export interface Procedure {
 
 export interface WorkOrderSummary {
   open: number;
-  completed: number;
+  closed: number;
   overdue: number;
 };
 

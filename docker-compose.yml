@@ -9,10 +9,10 @@ services:
     volumes:
       - mongo-data:/data/db
 
-  backend:
-    build: ./backend
+  core-service:
+    build: ./core-service
     volumes:
-      - ./backend:/app
+      - ./core-service:/app
       - /app/node_modules
     command: npm run dev
     ports:
@@ -20,6 +20,16 @@ services:
     environment:
       - MONGO_URI=mongodb://mongo:27017/aegisops
       - JWT_SECRET=your_secret_here
+    depends_on:
+      - mongo
+      
+  contract-service:
+    build: ./contract-service
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/aegisops
+      - JWT_SECRET=your_secret
     depends_on:
       - mongo
 
@@ -32,7 +42,8 @@ services:
       - "5173:5173"
     command: npm run dev
     depends_on:
-      - backend
+      - core-service
+      - contract-service
 
 volumes:
   mongo-data:

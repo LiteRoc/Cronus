@@ -76,74 +76,67 @@ workOrderRouter.get('/assigned/:userId', async (req, res) => {
 
 // GET all work orders for a specific asset or query by status
 workOrderRouter.get('/', async (req, res) => {
-    const { assetId } = req.params;
-    const { search, status, type, page = 1, limit = 10 } = req.query;
+  const { assetId } = req.params;
+  const { search, status, type, page = 1, limit = 10 } = req.query;
 
-    console.log('Backend triggered by query:', req.query);
+  console.log('Backend triggered by query:', req.query);
 
-    try {
-        const query = {};
-        if (search) {
-            query.$or = [
-                { status: { $regex: search, $options: 'i' } },
-                { type: { $regex: search, $options: 'i' } },
-            ]
-        }
+  try {
+    const query = {};
 
-        // Filter by assetId if present
-        if (assetId) {
-            if (!mongoose.Types.ObjectId.isValid(assetId)) {
-                return res.status(400).json({ error: 'Invalid assetId format' });
-            }
-            query.assetId = new mongoose.Types.ObjectId(assetId);
-        }
-
-        // Filter by status if provided in query
-        if (status) {
-            if (!['Open', 'In Progress', 'Closed', 'Overdue'].includes(status)) {
-                return res.status(400).json({ error: 'Invalid status value' });
-            }
-            query.status = status;
-            console.log('MongoDB Query:', query);
-        }
-        
-        // Filter by type if provided in query
-        if (type) {
-            if (!['Planned Maintenance', 'Corrective Maintenance'].includes(type)) {
-                return res.status(400).json({ error: 'Invalid type value' });
-            }
-            query.type = type;
-            console.log('MongoDB Query:', query);
-        }
-
-        // Parse the `page` and `limit` to ensure they are numbers
-        const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
-        const limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
-        const skip = (pageNumber - 1) * limitNumber;
-
-        // Fetch total count and paginated work orders
-        const totalWorkOrders = await WorkOrder.countDocuments(query);
-        const workOrders = await WorkOrder.find(query)
-            .skip(skip)
-            .limit(limitNumber)
-            .populate('assetId')
-            .populate('assignedTo', 'username email') // Include user details
-            .lean();
-
-        if (workOrders.length === 0) {
-            return res.status(404).json({ message: 'No work orders found' });
-        }
-
-        res.status(200).json({
-            workOrders,
-            totalPages: Math.ceil(totalWorkOrders / limitNumber),
-            currentPage: pageNumber,
-            totalWorkOrders,
-        });
-    } catch (error) {
-        debug('Error fetching work orders:', error);
-        res.status(500).json({ error: 'Error fetching work orders' });
+    if (search) {
+      query.$or = [
+        { status: { $regex: search, $options: 'i' } },
+        { type: { $regex: search, $options: 'i' } },
+      ];
     }
+
+    if (assetId) {
+      if (!mongoose.Types.ObjectId.isValid(assetId)) {
+        return res.status(400).json({ error: 'Invalid assetId format' });
+      }
+      query.assetId = new mongoose.Types.ObjectId(assetId);
+    }
+
+    if (status) {
+      if (!['Open', 'In Progress', 'Closed', 'Overdue'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status value' });
+      }
+      query.status = status;
+    }
+
+    if (type) {
+      if (!['Planned Maintenance', 'Corrective Maintenance'].includes(type)) {
+        return res.status(400).json({ error: 'Invalid type value' });
+      }
+      query.workOrderType = type;
+    }
+
+    console.log('MongoDB Query:', query);
+
+    const pageNumber = parseInt(page, 10) || 1;
+    const limitNumber = parseInt(limit, 10) || 10;
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const totalWorkOrders = await WorkOrder.countDocuments(query);
+    const workOrders = await WorkOrder.find(query)
+      .skip(skip)
+      .limit(limitNumber)
+      .populate('assetId')
+      .populate('assignedTo', 'username email')
+      .lean();
+
+    // ✅ Always return 200 with results, even if empty
+    res.status(200).json({
+      workOrders,
+      totalPages: Math.ceil(totalWorkOrders / limitNumber),
+      currentPage: pageNumber,
+      totalWorkOrders,
+    });
+  } catch (error) {
+    console.error('Error fetching work orders:', error);
+    res.status(500).json({ error: 'Error fetching work orders' });
+  }
 });
 
 // GET: Retrieve time logs for a specific work order
@@ -865,7 +858,7 @@ workOrderRouter.get('/:id', async (req, res) => {
                 path: 'procedure',
                 populate: {
                     path: 'tasks',
-                    select: '_id description',
+                    select: '-__v -createdAt -updatedAt', // exclude unneeded fields instead of specifying only some
                 },
             })
             .lean(); // Optional: Convert Mongoose document to plain object

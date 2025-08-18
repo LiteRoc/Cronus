@@ -5,6 +5,7 @@ const taskSchema = new mongoose.Schema({
     type: { type: String, enum: ['Pass/Fail', 'Measurement', 'Comment'], required: true }, // Task type
     minValue: { type: Number }, // For Measurement type
     maxValue: { type: Number }, // For Measurement type
+    unit: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema);

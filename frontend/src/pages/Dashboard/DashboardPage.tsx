@@ -109,7 +109,7 @@ const DashboardPage: React.FC = () => {
         <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
 
         <Charts
-          workOrdersSummary={workOrdersSummary || { open: 0, completed: 0, overdue: 0 }}
+          workOrdersSummary={workOrdersSummary || { open: 0, closed: 0, overdue: 0 }}
           assetSummary={assetSummary || { active: 0, inactive: 0, upcomingMaintenance: 0 }}
           partsSummary={partsSummary || { inStock: 0, lowStock: 0 }}
           technicianPerformance={technicianPerformance || []}

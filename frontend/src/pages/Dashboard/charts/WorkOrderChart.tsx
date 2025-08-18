@@ -11,7 +11,7 @@ interface Props {
 const WorkOrderChart: React.FC<Props> = ({ workOrdersSummary, onClick }) => {
   const data = [
     { status: "Open", count: workOrdersSummary.open },
-    { status: "Completed", count: workOrdersSummary.completed },
+    { status: "Closed", count: workOrdersSummary.closed },
     { status: "Overdue", count: workOrdersSummary.overdue },
   ];
 

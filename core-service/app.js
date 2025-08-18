@@ -13,6 +13,16 @@ const cors = require('cors');
 const connectDB = require('./src/config/db'); // MongoDB connection logic
 connectDB(); // Establish connection to MongoDB
 
+require('./src/models/discriminators/TestEquipment');
+require('./src/models/discriminators/InfusionPump');
+require('./src/models/discriminators/Ventilator');
+require('./src/models/discriminators/PatientMonitor');
+require('./src/models/discriminators/AnesthesiaMachine');
+require('./src/models/discriminators/Autoclave');
+require('./src/models/discriminators/WasherDisinfector');
+require('./src/models/discriminators/ImagingDevice');
+require('./src/models/discriminators/TempSensor');
+
 /*const bcrypt = require('bcrypt');
 const User = require('./src/models/User');
 (async function seedAdmin() {
@@ -33,6 +43,7 @@ const User = require('./src/models/User');
 const app = express();
 
 const assetRouter = require('./src/routers/assetsRouter');
+const templateRouter = require('./src/routers/templatesRouter');
 const adminRouter = require('./src/routers/adminRouter');
 const workOrderRouter = require('./src/routers/workOrderRouter');
 const authRouter = require('./src/routers/authRouter');
@@ -44,6 +55,10 @@ const procedureRouter = require('./src/routers/procedureRouter');
 const taskRouter = require('./src/routers/taskRouter');
 const dashboardRouter = require('./src/routers/dashboardRouter');
 const { title } = require('process');
+const vendorRouter = require('./src/routers/vendorRouter');
+const customerRouter = require('./src/routers/customerRouter');
+const contractRouter = require('./src/routers/contractRouter');
+const contractAnalysisRouter = require('./src/routers/contractAnalysisRouter');
 
 // View Engine
 app.set('views', './src/views');
@@ -71,6 +86,7 @@ app.use(express.static(path.join(__dirname, '/public')));
 
 // Routers
 app.use('/assets', assetRouter); // All asset-related routes, including nested work order routes
+app.use('/templates', templateRouter);
 app.use('/admin', adminRouter);
 app.use('/workorders', workOrderRouter); // path to view all Work Orders
 app.use('/auth', authRouter); // All authentication routes will start with `/auth`
@@ -81,6 +97,10 @@ app.use('/suppliers', supplierRouter);
 app.use('/procedures', procedureRouter);
 app.use('/tasks', taskRouter);
 app.use('/dashboard', dashboardRouter);
+app.use('/vendors', vendorRouter);
+app.use('/customer', customerRouter);
+app.use('/contracts', contractRouter);
+app.use('/contract-analysis', contractAnalysisRouter);
 
 scheduleMaintenanceJobs();
 

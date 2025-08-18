@@ -32,7 +32,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: decoded.email,
         });
         //setUserId(decoded.id); // Extract userId (id) from the token's payload
-        console.log('Decoded User:', decoded);
+        //console.log('Decoded User:', decoded);
       } catch (error) {
         console.error("Failed to decode token:", error);
       }

@@ -35,13 +35,14 @@ const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
           result: null, // or false / 0 depending on type
           submittedBy: "", // you can set this on save
           submittedByName: "",
+          unit: "",
           timestamp: new Date().toISOString(),
         }))
       );
     }
   }, [procedure]);
 
-  const handleResultChange = (taskId: string, value: boolean | number) => {
+  const handleResultChange = (taskId: string, value: boolean | number | string ) => {
     setTaskResults((prev) =>
       prev.map((result) =>
         result.taskId === taskId ? { ...result, result: value } : result
@@ -70,7 +71,20 @@ const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
     }
   };
 
-
+  // Helper function to safely extract the correct input value
+  const getSafeValue = (
+    result: boolean | number | string | null | undefined,
+    type: "Pass/Fail" | "Measurement" | "Comment"
+  ): string | number => {
+    if (type === "Measurement" && typeof result === "number") {
+      return result;
+    }
+    if (type === "Comment" && typeof result === "string") {
+      return result;
+    }
+    return ""; // Handles Pass/Fail and default fallback
+  };
+  
   return isOpen ? (
     <div className="modal-overlay">
       <div className="modal-content">
@@ -83,39 +97,57 @@ const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
             </tr>
           </thead>
           <tbody>
-            {/* Find the corresponding resutl */}
+            {/* Rendering input fields for each task */}
             {procedure?.tasks.map((task) => {
-              const result = taskResults.find((r) => r.taskId === task._id);
+              const matchingResult = taskResults.find((r) => r.taskId === task._id);
+              const normalizedType = task.type?.toLowerCase();
+
+              //console.log("Rendering task:", task.description, "→ type:", normalizedType);
+
               return (
-                <tr key={task._id}>
-                  <td>{task.description || "Unnamed Task"}</td>
-                  <td>
-                    {typeof result?.result === "boolean" ? (
-                      <select
-                        value={(result.result ? "Pass" : "Fail")}
-                        onChange={(e) =>
-                          handleResultChange(
-                            task._id,
-                            e.target.value === "Pass"
-                          )
-                        }
-                      >
-                        <option value="Pass">Pass</option>
-                        <option value="Fail">Fail</option>
-                      </select>
-                    ) : (
-                      <input
-                        type="number"
-                        value={result?.result ?? "" }
-                        onChange={(e) =>
-                          handleResultChange(task._id, Number(e.target.value))
-                        }
-                      />
-                    )}
-                  </td>
-                </tr>
+                <div key={task._id} className="mb-4">
+                  <label className="block font-medium mb-1">{task.description}</label>
+
+                  {normalizedType === "pass/fail" ? (
+                    <select
+                      value={
+                        matchingResult?.result === true
+                          ? "Pass"
+                          : matchingResult?.result === false
+                          ? "Fail"
+                          : ""
+                      }
+                      onChange={(e) =>
+                        handleResultChange(task._id, e.target.value === "Pass")
+                      }
+                      className="border rounded px-2 py-1 w-full"
+                    >
+                      <option value="">Select</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Fail">Fail</option>
+                    </select>
+                  ) : normalizedType === "measurement" ? (
+                    <input
+                      type="number"
+                      min={task.minValue}
+                      max={task.maxValue}
+                      value={getSafeValue(matchingResult?.result, task.type)}
+                      onChange={(e) =>
+                        handleResultChange(task._id, parseFloat(e.target.value))
+                      }
+                      className="border rounded px-2 py-1 w-full"
+                    />
+                  ) : (
+                    <textarea
+                      value={getSafeValue(matchingResult?.result, task.type) as string}
+                      onChange={(e) => handleResultChange(task._id, e.target.value)}
+                      className="border rounded px-2 py-1 w-full"
+                    />
+                  )}
+                </div>
               );
             })}
+
           </tbody>
         </table>
         <div className="modal-actions">

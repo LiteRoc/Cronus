@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FaTools, FaBoxes, FaUserShield, FaClipboardList } from 'react-icons/fa';
+import { FaTools, FaBoxes, FaUserShield, FaClipboardList, FaFileContract } from 'react-icons/fa';
 
 const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -9,6 +9,8 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     `flex items-center p-2 rounded hover:bg-gray-700 ${
       location.pathname.startsWith(path) ? 'bg-gray-700 font-semibold' : ''
     }`;
+
+    console.log('SIDEBAR route is:', location.pathname);
 
   return (
     <div className="flex min-h-screen">
@@ -25,6 +27,13 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <Link to="/parts" className={linkClasses('/parts')}>
             <FaTools className="mr-2" /> Parts
           </Link>
+          <p className="text-xs font-semibold text-gray-500 mt-6 mb-2 px-3">Management</p>
+          <Link to="/contracts" className="flex items-center p-2 rounded bg-red-600 text-white">
+            <FaFileContract className="mr-2" /> Contracts
+          </Link>
+          {/*<Link to="/contracts" className={linkClasses('/contracts')}>
+            <FaFileContract className="mr-2" /> Contracts
+          </Link>*/}
           <Link to="/admin" className={linkClasses('/admin')}>
             <FaUserShield className="mr-2" /> Admin
           </Link>

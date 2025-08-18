@@ -13,6 +13,11 @@ import EditAssetPage from "./pages/EditAsset/EditAssetPage"
 import PrivateRoute from "./components/PrivateRoute";
 import NotFound from "./pages/NotFound";
 import FilteredWorkOrderPage from "./pages/ListWorkOrders/FilteredWorkOrderPage";
+import TemplateListPage from "./pages/ListTemplates/TemplateListPage";
+import TemplateEditPage from "./pages/EditTemplates/TemplateEditPage";
+import TemplateCreatePage from "./pages/AddTemplate/TemplateCreatePage";
+import ContractTable from "./pages/Contracts/ContractTable";
+import ContractDetailPage from "./pages/Contracts/ContractDetailPage";
 
 export default function App() {
   return (
@@ -34,6 +39,11 @@ export default function App() {
           <Route path="/assets/edit/:id" element={<EditAssetPage />} />
           <Route path="/workorders" element={<FilteredWorkOrderPage />} />
           <Route path="/workorders/edit/:id" element={<EditWorkOrderPage />} />
+          <Route path="/templates" element={<TemplateListPage />} />
+          <Route path="/templates/edit/:id" element={<TemplateEditPage />} />
+          <Route path="/templates/new" element={<TemplateCreatePage />} />
+          <Route path="/contracts" element={<ContractTable />} />
+          <Route path="/contracts/:contractId" element={<ContractDetailPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>

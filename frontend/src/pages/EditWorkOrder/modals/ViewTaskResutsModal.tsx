@@ -25,32 +25,35 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({ isOpen, onClose, tasks, t
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => {
-              const result = taskResults.find((r) => r.taskId?.toString() === task._id?.toString());
+            {taskResults.map((result) => {
+              const task = tasks.find((t) => t._id === result.taskId);
+              const isPassFail = typeof result.result === "boolean";
+              const isMeasurement = typeof result.result === "number";
+              //const isComment = typeof result.result === "string" && !isPassFail;
+
               return (
-                <tr key={task._id}>
-                  <td>{task.description}</td>
+                <tr key={result._id}>
+                  <td>{task?.description}</td>
                   <td>
-                    {result?.result === undefined || result?.result === null ? (
-                      "Not recorded"
+                    {isPassFail ? (
+                      <span>{result.result ? "✅ Pass" : "❌ Fail"}</span>
+                    ) : isMeasurement ? (
+                      <span>
+                        {result.result}
+                        {task?.unit ? ` ${task.unit}` : ""}
+                      </span>
                     ) : (
-                      <>
-                        {typeof result.result === "boolean"
-                          ? result.result
-                            ? "✅ Pass"
-                            : "❌ Fail"
-                          : `🔢 ${result.result}`}
-                        <br />
-                        <small>
-                          by <strong>{result.submittedByName || result.submittedBy}</strong><br />
-                          at {new Date(result.timestamp).toLocaleString()}
-                        </small>
-                      </>
+                      <span>{result.result}</span>
                     )}
+                    <div className="text-xs text-gray-600 mt-1">
+                      by <strong>{result.submittedByName}</strong><br />
+                      at {new Date(result.timestamp).toLocaleString()}
+                    </div>
                   </td>
                 </tr>
               );
             })}
+
           </tbody>
         </table>
         <div className="modal-actions">

@@ -1,19 +1,16 @@
-import React, { useState } from "react";
+import React from "react";
 import { TaskResult, WorkOrder } from "../../../types/types";
-import PerformProcedureModal from "../modals/PerformProcedureModal";
-import ViewTaskResultsModal from "../modals/ViewTaskResutsModal";
 
 interface Props {
   workOrder: WorkOrder;
   onDeleteProcedure?: (procedureId: string) => void;
   onUpdateTask: (workOrderId: string, procedureId: string, taskResults: TaskResult[]) => void;
   onRefresh: () => void;
+  onShowPerformModal: () => void;
+  onShowResultsModal: () => void;
 }
 
-const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, onUpdateTask, onRefresh }) => {
-
-  const [showPerformModal, setShowPerformModal] = useState(false);
-  const [showResultsModal, setShowResultsModal] = useState(false);
+const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, onShowPerformModal, onShowResultsModal }) => {
 
   if (!workOrder.procedure) return null;
 
@@ -30,19 +27,22 @@ const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, o
       </h3>
       <div className="flex gap-2">
         <button
+          type="button"
           className="bg-blue-600 text-white px-3 py-1 rounded"
-          onClick={() => setShowPerformModal(true)}
+          onClick={onShowPerformModal}
         >
           Perform Procedure
         </button>
         <button
+          type="button"
           className="bg-gray-600 text-white px-3 py-1 rounded"
-          onClick={() => setShowResultsModal(true)}
+          onClick={onShowResultsModal}
         >
           View Results
         </button>
         {workOrder.status !== "Closed" && (
           <button
+            type="button"
             className="bg-red-600 text-white px-3 py-1 rounded"
             onClick={() => onDeleteProcedure?.(workOrder.procedure?._id as string)}
           >
@@ -51,7 +51,7 @@ const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, o
         )}
       </div>
     </div>
-    {showPerformModal && (
+    {/*{showPerformModal && (
       <PerformProcedureModal
         isOpen={showPerformModal}
         procedure={workOrder.procedure}
@@ -69,7 +69,7 @@ const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, o
         taskResults={workOrder.taskResults || []}
         onClose={() => setShowResultsModal(false)}
       />
-    )}
+    )}*/}
    </div>
   </div>
    

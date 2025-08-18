@@ -27,6 +27,7 @@ export default function SignInPage() {
         name: response.data.payload.name,
         email: response.data.payload.email,
         role: response.data.payload.role,
+        username: ""
       }); // Set the userId in UserContext
       console.log('After setUserId call:', userId);
       localStorage.setItem("token", response.data.token); // Save token in local storage

@@ -66,6 +66,8 @@ const AssetFormFields: React.FC<Props> = ({ asset, onChange }) => {
         >
           <option value="Biomed">Biomed</option>
           <option value="test">Test Equipment</option>
+          <option value="Biomed">Imaging</option>
+          <option value="Biomed">Sterilizer</option>
         </select>
       </div>
       <div>
