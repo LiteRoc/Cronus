@@ -1,0 +1,10 @@
+services:
+  cronusfrontend:
+    image: cronusfrontend
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - 5173:5173

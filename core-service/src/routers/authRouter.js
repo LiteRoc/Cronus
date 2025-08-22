@@ -6,7 +6,7 @@ const User = require('../models/User');
 const authRouter = express.Router();
 
 // Secret for JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
 
 // Register Route
 authRouter.post(
@@ -15,6 +15,8 @@ authRouter.post(
         body('username').notEmpty().withMessage('Username is required'),
         body('email').isEmail().withMessage('Valid email is required'),
         body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+        body('role').optional().isIn(['admin', 'tech', 'customer']).withMessage('Role must be admin, tech, or customer'),
+        body('customerId').optional().isMongoId().withMessage('customerId must be a valid Mongo ObjectId'),
     ],
     async (req, res) => {
         const errors = validationResult(req);
@@ -22,7 +24,7 @@ authRouter.post(
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { username, email, password } = req.body;
+        const { username, email, password, role = 'tech', customerId } = req.body;
 
         try {
             const existingUser = await User.findOne({ email });
@@ -30,7 +32,14 @@ authRouter.post(
                 return res.status(400).json({ error: 'Email is already registered' });
             }
 
-            const user = new User({ username, email, password });
+            // Enforce customerId requirement if role=customer
+            if (role === 'customer' && !customerId) {
+                return res
+                .status(400)
+                .json({ error: 'customerId is required when role is customer' });
+            }
+
+            const user = new User({ username, email, password, role, customerId });
             await user.save();
 
             res.status(201).json({ message: 'User registered successfully' });
@@ -43,54 +52,71 @@ authRouter.post(
 
 // Login Route
 authRouter.post(
-    '/login',
-    [
-        body('email').isEmail().withMessage('Valid email is required'),
-        body('password').notEmpty().withMessage('Password is required'),
-    ],
-    async (req, res) => {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            console.log('🚨 Validation errors:', errors.array());
-            return res.status(400).json({ errors: errors.array() });
-        }
-
-        const { email, password } = req.body;
-        console.log('Incoming login body:', req.body);
-
-        try {
-            const user = await User.findOne({ email });
-            if (!user) {
-                console.log('❌ User not found for email:', email);
-                return res.status(400).json({ error: 'Invalid email or password' });
-            }
-
-            const isMatch = await user.comparePassword(password);
-            if (!isMatch) {
-                console.log('❌ Password did not match for user:', user.email);
-                return res.status(400).json({ error: 'Invalid email or password' });
-            }
-
-            console.log('✅ User authenticated:', user.email);
-
-            const payload = { 
-                id: user._id, 
-                name: user.name || user.username,
-                username: user.username, 
-                email: user.email, 
-                role: user.role 
-            };
-            const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
-            console.log('JWT_SECRET:', JWT_SECRET); //Ensure consistency across routes and middleware
-
-            console.log('Generated Token:', token); // Debug log
-
-            res.json({ payload, token });
-        } catch (error) {
-            console.error('Error during login:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+  '/login',
+  [
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('password').notEmpty().withMessage('Password is required'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
+
+    const { email, password } = req.body;
+
+    try {
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ error: 'Invalid email or password' });
+      }
+
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(400).json({ error: 'Invalid email or password' });
+      }
+
+      // Minimal, standard payload
+      const payload = {
+        sub: user._id.toString(),         // standard JWT "subject"
+        role: user.role,                  // 'admin' | 'tech' | 'customer'
+        facilityId: user.facilityId
+      };
+
+      const token = jwt.sign(
+        payload,
+        JWT_SECRET,
+        {
+          expiresIn: '12h',
+          issuer: 'aegisops.api',         // optional but recommended
+          audience: 'aegisops.app'        // optional but recommended
+        }
+      );
+
+      // Optional: also set an HTTP-only cookie for browsers
+      // res.cookie('auth', token, {
+      //   httpOnly: true,
+      //   sameSite: 'lax',
+      //   secure: process.env.NODE_ENV === 'production',
+      //   maxAge: 12 * 60 * 60 * 1000, // 12h
+      // });
+
+      // Respond with a UI-friendly user object
+      res.json({
+        token,
+        user: {
+          id: user._id.toString(),
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          name: user.name || user.username, // if you want a display name
+        },
+      });
+    } catch (error) {
+      console.error('Error during login:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
 );
 
 // Protected Profile Route
@@ -122,31 +148,5 @@ function authenticateToken(req, res, next) {
 authRouter.get('/login', (req, res) => {
     res.render('login', { title: 'Login' }); // Ensure the login.ejs file exists in the views folder
 });
-
-
-// acceptes user credentials and returns a JWT token
-/*authRouter.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-
-    try {
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ error: 'Invalid email or password' });
-        }
-
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return res.status(400).json({ error: 'Invalid email or password' });
-        }
-
-        const payload = { id: user._id, role: user.role };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
-
-        res.json({ token });
-    } catch (error) {
-        console.error('Error during login:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});*/
 
 module.exports = authRouter;

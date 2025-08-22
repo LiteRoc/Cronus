@@ -7,7 +7,7 @@ interface SidebarLink {
   icon: ReactElement;
 }
 
-export const useSidebarLinks = (role: "admin" | "technician" | "viewer"): SidebarLink[] => {
+export const useSidebarLinks = (role: "admin" | "tech" | "customer" | "viewer"): SidebarLink[] => {
   const commonLinks: SidebarLink[] = [
     { to: "/assets", label: "Assets", icon: <FaBoxes /> },
     { to: "/workorders", label: "Work Orders", icon: <FaClipboardList /> },

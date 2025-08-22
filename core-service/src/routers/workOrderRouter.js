@@ -1,894 +1,420 @@
 const express = require('express');
-const WorkOrder = require('../models/WorkOrder');
-const debug = require('debug')('app:workOrderRouter');
-const Asset = require('../models/Asset');
-const Part = require('../models/Part'); // Import the Part model
-const Procedure = require('../models/Procedure'); // Import the Procedure Model
-const TaskResult = require('../models/TaskResults')
-const assetRouter = require('./assetsRouter');
-const { ObjectId } = require('mongodb');
 const mongoose = require('mongoose');
-const cron = require('node-cron');
-const { sendEmail } = require('../services/notificationService');
-const { error } = require('pdf-lib');
+const WorkOrder = require('../models/WorkOrder');
+const Asset = require('../models/Asset');
+const Procedure = require('../models/Procedure');
+const Ticket = require('../models/Tickets');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 
-// Allows assetsRouter to access workOrderRouter to query work orders
-const workOrderRouter = express.Router({ mergeParams: true }); // Merge parent params
+const router = express.Router();
+const isObjectId = (id) => mongoose.isValidObjectId(id);
 
-// Check for overdue work orders and send notifications
-cron.schedule('0 0 * * *', async () => {
-    try {
-        const overdueWorkOrders = await WorkOrder.find({
-            status: { $ne: 'Completed' },
-            scheduledDate: { $lt: new Date() },
-            notificationsSent: false
-        });
+// ---------- Helpers ----------
+async function deriveCustomerIdFromAsset(assetId) {
+  const asset = await Asset.findById(assetId).select('customerId');
+  return asset?.customerId || null;
+}
 
-        for (const workOrder of overdueWorkOrders) {
-            const user = await User.findById(workOrder.assignedTo);
-            if (user?.email) {
-                await sendEmail(
-                    user.email,
-                    'Overdue Work Order Reminder',
-                    `Work Order ID ${workOrder._id} is overdue. Please address it immediately.`
-                );
-            }
+async function ensureTenantOwnsWorkOrder(req, res, next) {
+  const { id } = req.params;
+  if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid work order ID' });
+  const wo = await WorkOrder.findOne({ _id: id, ...buildTenantFilter(req) }).select('_id');
+  if (!wo) return res.status(404).json({ error: 'Work order not found' });
+  next();
+}
 
-            workOrder.notificationsSent = true;
-            await workOrder.save();
-        }
-
-        console.log(`Processed ${overdueWorkOrders.length} overdue work orders.`);
-    } catch (error) {
-        debug('Error in notification cron job:', error);
-    }
-});
-
-// GET all work orders assigned to a specific user
-workOrderRouter.get('/assigned/:userId', async (req, res) => {
-    const { userId } = req.params;
-
-    debug('Received userId:', userId); // Log the incoming userId
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-        console.error('Invalid User ID Format:', userId);
-        return res.status(400).json({ error: 'Invalid user ID format' });
-    }
-
-    try {
-        const query = { assignedTo: new mongoose.Types.ObjectId(userId) };
-        debug('Database Query:', query);
-
-        const workOrders = await WorkOrder.find(query).populate('assetId');
-        debug('Work Orders Found:', workOrders); // Log the result
-        debug('Work Order(s) Found:', query);
-
-        if (workOrders.length === 0) {
-            debug.warn('No Work Orders Found for User:', userId);
-            return res.status(404).json({ message: 'No work orders found for this user'});
-        }
-        res.status(200).json(workOrders);
-    } catch (error) {
-        debug('Error fetching assigned work orders:', error);
-        res.status(500).json({ error: 'Error fetching assigned work orders' });
-    }
-});
-
-// GET all work orders for a specific asset or query by status
-workOrderRouter.get('/', async (req, res) => {
-  const { assetId } = req.params;
-  const { search, status, type, page = 1, limit = 10 } = req.query;
-
-  console.log('Backend triggered by query:', req.query);
-
+// ---------- List ----------
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const query = {};
+    const tf = buildTenantFilter(req);
+    const {
+      status, assignedTo, assetId, q, start, end,
+      page = '1', limit = '20',
+    } = req.query;
 
-    if (search) {
+    const query = { ...tf, status: { $ne: 'Archived' } };
+    if (status) query.status = status;
+    if (assignedTo && isObjectId(assignedTo)) query.assignedTo = assignedTo;
+    if (assetId && isObjectId(assetId)) query.assetId = assetId;
+    if (start || end) {
+      query.requestDate = {
+        ...(start ? { $gte: new Date(start) } : {}),
+        ...(end   ? { $lte: new Date(end)   } : {}),
+      };
+    }
+    if (q) {
       query.$or = [
-        { status: { $regex: search, $options: 'i' } },
-        { type: { $regex: search, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } },
+        { workOrderType: { $regex: q, $options: 'i' } },
       ];
     }
 
-    if (assetId) {
-      if (!mongoose.Types.ObjectId.isValid(assetId)) {
-        return res.status(400).json({ error: 'Invalid assetId format' });
-      }
-      query.assetId = new mongoose.Types.ObjectId(assetId);
-    }
+    const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
 
-    if (status) {
-      if (!['Open', 'In Progress', 'Closed', 'Overdue'].includes(status)) {
-        return res.status(400).json({ error: 'Invalid status value' });
-      }
-      query.status = status;
-    }
-
-    if (type) {
-      if (!['Planned Maintenance', 'Corrective Maintenance'].includes(type)) {
-        return res.status(400).json({ error: 'Invalid type value' });
-      }
-      query.workOrderType = type;
-    }
-
-    console.log('MongoDB Query:', query);
-
-    const pageNumber = parseInt(page, 10) || 1;
-    const limitNumber = parseInt(limit, 10) || 10;
-    const skip = (pageNumber - 1) * limitNumber;
-
-    const totalWorkOrders = await WorkOrder.countDocuments(query);
-    const workOrders = await WorkOrder.find(query)
-      .skip(skip)
-      .limit(limitNumber)
-      .populate('assetId')
-      .populate('assignedTo', 'username email')
+    const total = await WorkOrder.countDocuments(query);
+    const items = await WorkOrder.find(query)
+      .sort({ requestDate: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('assetId', 'ctrlNumber manufacturer model')
+      .populate('assignedTo', 'username role')
       .lean();
 
-    // ✅ Always return 200 with results, even if empty
-    res.status(200).json({
-      workOrders,
-      totalPages: Math.ceil(totalWorkOrders / limitNumber),
-      currentPage: pageNumber,
-      totalWorkOrders,
+    res.json({ items, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
+  } catch (err) {
+    console.error('List WOs error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Get one ----------
+router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const wo = await WorkOrder.findById(req.params.id)
+      .populate('assetId', 'ctrlNumber manufacturer model')
+      .populate('assignedTo', 'username role')
+      .lean();
+    if (!wo) return res.status(404).json({ error: 'Work order not found' });
+    res.json(wo);
+  } catch (err) {
+    console.error('Get WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Create (internal only) ----------
+router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  try {
+    const { assetId } = req.body || {};
+    if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
+
+    // derive customerId from asset (prevents cross-tenant WO creation)
+    const customerId = await deriveCustomerIdFromAsset(assetId);
+    if (!customerId) return res.status(400).json({ error: 'Asset has no customerId' });
+
+    const wo = await WorkOrder.create({
+      ...req.body,
+      customerId,
+      status: req.body.status || 'Open',
+      requestDate: req.body.requestDate || new Date(),
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
     });
-  } catch (error) {
-    console.error('Error fetching work orders:', error);
-    res.status(500).json({ error: 'Error fetching work orders' });
-  }
-});
 
-// GET: Retrieve time logs for a specific work order
-workOrderRouter.get('/:id/timelogs', async (req, res) => {
-    const { id } = req.params;
-    const { userId } = req.query;
-
-    // Validate work order ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
-
-    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({ error: 'Invalid user ID format' });
-    }
-
-    try {
-        const workOrder = await WorkOrder.findById(id).populate('timeLogs.userId', 'username email');
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        const filteredTimeLogs = userId
-            ? workOrder.timeLogs.filter(log => log.userId?._id?.toString() === userId)
-            : workOrder.timeLogs;
-
-        res.status(200).json({ timeLogs: filteredTimeLogs });
-    } catch (error) {
-        debug('Error retrieving time logs:', error);
-        res.status(500).json({ error: 'Error retrieving time logs' });
-    }
-});
-
-// GET: Total time spent on a work order
-workOrderRouter.get('/:id/total-time', async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
-
-    try {
-        const workOrder = await WorkOrder.findById(id);
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        const totalTime = workOrder.timeLogs.reduce((sum, log) => sum + log.timeSpent, 0);
-
-        res.status(200).json({ totalTime });
-    } catch (error) {
-        debug('Error calculating total time:', error);
-        res.status(500).json({ error: 'Error calculating total time' });
-    }
-});
-
-// GET: Retrieve Procedure for a Work Order
-workOrderRouter.get('/:id/procedure', async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID' });
-    }
-
-    try {
-        const workOrder = await WorkOrder.findById(id);
-
-        if (!workOrder || !workOrder.procedure) {
-            return res.status(404).json({ error: 'Procedure not found for this work order' });
-        }
-
-        res.status(200).json(workOrder.procedure);
-    } catch (error) {
-        console.error('Error retrieving procedure:', error);
-        res.status(500).json({ error: 'Failed to retrieve procedure' });
-    }
-});
-
-// POST: Create a new work order for an asset
-workOrderRouter.post('/', async (req, res) => {
-    const { assetId, description, status, assignedTo, scheduledDate, workOrderType } = req.body;
-
-    try {
-        // Validate input fields
-        if (!assetId || !description || !scheduledDate || !workOrderType) {
-            return res.status(400).json({ error: 'assetId, description, scheduledDate, and workOrderType are required' });
-        }
-
-        // Automatically set the requestDate to now and dueDate to 7 days from now
-        const requestDate = new Date();
-        const dueDate = new Date();
-        dueDate.setDate(requestDate.getDate() + 7);
-
-        // Create the work order
-        const newWorkOrder = new WorkOrder({
-            assetId,
-            description,
-            status: status || 'Open',
-            assignedTo: assignedTo || null,
-            scheduledDate,
-            requestDate,
-            dueDate,
-            workOrderType
-        });
-
-        // Add work order to the asset's workOrders array
-        await Asset.findByIdAndUpdate(
-            assetId,
-            { $push: { workOrders: newWorkOrder._id } },
-            { new: true }
-        );
-
-        await newWorkOrder.save();
-
-        res.status(201).json({ message: 'Work order created successfully', workOrder: newWorkOrder });
-    } catch (error) {
-        console.error('Error creating work order:', error);
-        res.status(500).json({ error: 'Failed to create work order' });
-    }
-});
-
-// PUT: Update a specific work order by ID
-workOrderRouter.put('/:id', async (req, res) => {
-    const { id } = req.params;
-    const { userId, ...updateFields } = req.body;
-
-    if (updateFields.status === "Complete") {
-       updateFields.status = "Closed";
-    }
-
-    if (updateFields.status === "Closed") {
-       updateFields.completionDate = new Date();
-    } else {
-       updateFields.completionDate = null;
-    }
-
-
-    // Validate work order ID
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
-
-    // Validate userId if it's provided
-    if (userId && !mongoose.Types.ObjectId.isValid(userId)) {
-        return res.status(400).json({ error: 'Invalid user ID format' });
-    }
-
-    try {
-        // Add userId to updateFields if provided
-        if (userId) {
-            updateFields.assignedTo = userId;
-        }
-        const updatedWorkOrder = await WorkOrder.findByIdAndUpdate(id, updateFields, { new: true });
-        if (!updatedWorkOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-        res.status(200).json(updatedWorkOrder);
-    } catch (error) {
-        res.status(500).json({ error: 'Error updating work order' });
-    }
-});
-
-// PUT: Update work orders based on status
-workOrderRouter.put('/:id/status', async (req, res) => {
-    const { id } = req.params;
-    let { status } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
-
-    // Normalize "Complete" to "Closed"
-    if (status === "Complete") {
-        status = "Closed";
-    }
-
-    if (!['Open', 'In Progress', 'Closed'].includes(status)) {
-        return res.status(400).json({ error: 'Invalid status value' });
-    }
-
-    const update = { status };
-    console.log('Status update triggered:', status, '→', update);
-
-    if (status === "Closed") {
-        update.completionDate = new Date(); // ✅ Set completion date only when closing
-    } else {
-        update.completionDate = null; // Optional: clear it if reopening
-    }
-
-    try {
-        const updatedWorkOrder = await WorkOrder.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
-
-        if (!updatedWorkOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        res.status(200).json(updatedWorkOrder);
-    } catch (error) {
-        debug('Error updating status:', error);
-        res.status(500).json({ error: 'Error updating status' });
-    }
-});
-
-// PATCH: Add a time log to a work order
-workOrderRouter.patch('/:id/timeLogs', async (req, res) => {
-    const { id } = req.params;
-    const { userId, timeSpent, description } = req.body;
-
-    try {
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ error: 'Invalid work order or user ID' });
-        }
-
-        if (!Number.isInteger(timeSpent) || timeSpent <= 0) {
-            return res.status(400).json({ error: 'timeSpent must be a positive integer' });
-        }
-
-        const workOrder = await WorkOrder.findById(id);
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        // Add new time log entry
-        workOrder.timeLogs.push({
-            userId,
-            timeSpent,
-            description: description || ''
-        });
-
-        await workOrder.save();
-
-        res.status(200).json({ message: 'Time log added successfully', workOrder });
-    } catch (error) {
-        console.error('Error adding time log:', error);
-        res.status(500).json({ error: 'Failed to add time log' });
-    }
-});
-
-// PATCH: Add Travel Logs
-workOrderRouter.patch('/:id/travelLogs', async (req, res) => {
-    const { id } = req.params;
-    const { userId, travelTime } = req.body;
-
-    try {
-        if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(userId)) {
-            return res.status(400).json({ error: 'Invalid work order or user ID' });
-        }
-
-        if (!Number.isInteger(travelTime) || travelTime <= 0) {
-            return res.status(400).json({ error: 'travelTime must be a positive integer' });
-        }
-
-        const workOrder = await WorkOrder.findById(id);
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        // Add new travel log entry
-        workOrder.travelLogs.push({
-            userId,
-            travelTime
-        });
-
-        await workOrder.save();
-
-        res.status(200).json({ message: 'Travel log added successfully', workOrder });
-    } catch (error) {
-        console.error('Error adding travel log:', error);
-        res.status(500).json({ error: 'Failed to add travel log' });
-    }
-});
-
-// PATCH: Update a specific time log
-workOrderRouter.patch('/:id/timelogs/:logId', async (req, res) => {
-  const { id, logId } = req.params;
-  const { timeSpent, description } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
-    return res.status(400).json({ error: 'Invalid work order or log ID' });
-  }
-
-  try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
-
-    const log = workOrder.timeLogs.id(logId); // ✅ access subdocument
-    if (!log) {
-      return res.status(404).json({ error: 'Time log not found' });
-    }
-
-    if (typeof timeSpent === 'number') log.timeSpent = timeSpent;
-    if (typeof description === 'string') log.description = description;
-
-    await workOrder.save();
-    res.status(200).json({ message: 'Time log updated', log });
+    res.status(201).json(wo);
   } catch (err) {
-    console.error('Error updating time log:', err);
-    res.status(500).json({ error: 'Failed to update time log' });
+    console.error('Create WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// PATCH: Update a specific travel log
-workOrderRouter.patch('/:id/travellogs/:logId', async (req, res) => {
-  const { id, logId } = req.params;
-  const { travelTime } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
-    return res.status(400).json({ error: 'Invalid work order or log ID' });
-  }
-
+// ---------- Customer: Request Service ----------
+/*router.post('/request', authenticateToken, authorizeRoles('customer'), async (req, res) => {
   try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
+    const { assetId, description, priority } = req.body || {};
+    if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
 
-    const log = workOrder.travelLogs.id(logId);
-    if (!log) {
-      return res.status(404).json({ error: 'Travel log not found' });
-    }
+    // enforce tenant owns asset
+    const owned = await Asset.exists({ _id: assetId, customerId: req.user.customerId });
+    if (!owned) return res.status(404).json({ error: 'Asset not found' });
 
-    if (typeof travelTime === 'number') {
-      log.travelTime = travelTime;
-    }
+    const wo = await WorkOrder.create({
+      assetId,
+      customerId: req.user.customerId,
+      description: description || 'Service requested by customer',
+      priority: priority || 'Normal',
+      status: 'Requested',
+      requestDate: new Date(),
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
+    });
 
-    await workOrder.save();
-    res.status(200).json({ message: 'Travel log updated', log });
+    res.status(201).json({ message: 'Service request created', workOrder: wo });
   } catch (err) {
-    console.error('Error updating travel log:', err);
-    res.status(500).json({ error: 'Failed to update travel log' });
+    console.error('WO request error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-});
-
-// PATCH: Add parts to work orders
-workOrderRouter.patch('/:id/parts', async (req, res) => {
-    const { id } = req.params;
-    const { partId, quantity } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(partId)) {
-        return res.status(400).json({ error: 'Invalid work order ID or part ID' });
-    }
-
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-        return res.status(400).json({ error: 'Invalid quantity' });
-    }
-
-    try {
-        const workOrder = await WorkOrder.findById(id);
-        const part = await Part.findById(partId);
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        if (!part) {
-            return res.status(404).json({ error: 'Part not found' });
-        }
-
-        if (part.quantityOnHand < quantity) {
-            return res.status(400).json({ error: 'Insufficient stock for this part' });
-        }
-
-        // Update partsUsed in the work order
-        workOrder.partsUsed.push({ partId, quantity });
-
-        // Decrement stock
-        part.quantityOnHand -= quantity;
-
-        await workOrder.save();
-        await part.save();
-
-        res.status(200).json({ message: 'Part added to work order', workOrder });
-    } catch (error) {
-        debug('Error adding part to work order:', error);
-        res.status(500).json({ error: 'Failed to add part to work order' });
-    }
-});
-
-// PATCH: Update part quantity on a work order
-workOrderRouter.patch('/:id/parts/:partId', async (req, res) => {
-  const { id, partId } = req.params;
-  const { quantity } = req.body;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(partId)) {
-    return res.status(400).json({ error: 'Invalid work order or part ID' });
-  }
-
-  console.log(`PATCH called for partId ${partId} on workOrder ${id}`, req.body);
-
-  try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
-
-    const partEntry = workOrder.partsUsed.find(p => p.partId.toString() === partId);
-    if (!partEntry) return res.status(404).json({ error: 'Part not found in work order' });
-
-    if (typeof quantity === 'number' && quantity > 0) {
-      partEntry.quantity = quantity;
-      await workOrder.save();
-      return res.status(200).json({ message: 'Part quantity updated', part: partEntry });
-    } else {
-      return res.status(400).json({ error: 'Invalid quantity' });
-    }
-  } catch (err) {
-    console.error('Error updating part quantity:', err);
-    res.status(500).json({ error: 'Failed to update part' });
-  }
-});
-
-// PATCH:  Add test equip to WO
-workOrderRouter.patch('/:id/test-equipment', async (req, res) => {
-    const { id } = req.params;
-    const { equipmentId } = req.body;
-    debug('Equipment Id to add:', equipmentId);
-
-    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(equipmentId)) {
-        return res.status(400).json({ error: 'Invalid work order ID or equipment ID' });
-    }
-
-    debug('Asset Model:', Asset); // Debug Log
-
-    try {
-        const workOrder = await WorkOrder.findById(id);
-        const equipment = await Asset.findById(equipmentId);
-        debug('Equipment being added:', equipment); // Debug Log
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        if (!equipment || equipment.category !== 'test') {
-            return res.status(400).json({ error: 'Equipment is not valid test equipment' });
-        }
-
-        // Add test equipment to the work order
-        if (!workOrder.testEquipmentUsed.includes(equipmentId)) {
-            workOrder.testEquipmentUsed.push(equipmentId);
-        }
-
-        await workOrder.save();
-
-        res.status(200).json({ message: 'Test equipment added to work order', workOrder });
-    } catch (error) {
-        debug('Error associating test equipment:', error);
-        res.status(500).json({ error: 'Failed to associate test equipment' });
-    }
-});
-
-// PATCH: Add or Update Procedure for a Work Order
-workOrderRouter.patch('/:id/procedure', async (req, res) => {
-    const { id } = req.params;
-    const { procedureId } = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(procedureId)) {
-        return res.status(400).json({ error: 'Invalid work order ID or procedure ID' });
-    }
-
-    try {
-        const workOrder = await WorkOrder.findById(id);
-        const procedure = await Procedure.findById(procedureId).populate('tasks');
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        if (!procedure) {
-            return res.status(404).json({ error: 'Procedure not found' });
-        }
-
-        // Initialize taskResults in the procedure if not already present
-        if (!procedure.taskResults || procedure.taskResults.length === 0) {
-            procedure.taskResults = procedure.tasks.map(task => ({
-                taskId: task._id,
-                result: null, // Initialize with null result
-            }));
-
-            // Save the updated procedure
-            await procedure.save();
-        }
-
-        // Assign the procedure to the work order
-        workOrder.procedure = procedureId;
-
-        debug('Work Order before saving:', JSON.stringify(workOrder, null, 2));
-        await workOrder.save();
-
-        res.status(200).json({ message: 'Procedure assigned to work order', workOrder });
-    } catch (error) {
-        debug('Error assigning procedure:', error);
-        res.status(500).json({ error: 'Failed to assign procedure' });
-    }
-});
-
-// PATCH: Save Task Results for a Work Order
-/*workOrderRouter.patch('/:workOrderId/task-results', async (req, res) => {
-    try {
-        const { workOrderId } = req.params;
-        const { taskResults } = req.body; // Array of results
-
-        const workOrder = await WorkOrder.findById(workOrderId);
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        // Update task results inside the work order
-        workOrder.taskResults = taskResults.map(result => ({
-            taskId: result.taskId,
-            result: result.result,
-            submittedBy: result.submittedBy,
-            timestamp: new Date()
-        }));
-
-        await workOrder.save();
-        res.json({ success: true, message: 'Task results saved successfully.', workOrder });
-    } catch (error) {
-        console.error('Error saving task results:', error);
-        res.status(500).json({ success: false, message: 'Failed to save task results.' });
-    }
 });*/
+// 🔒 Keep auth so only real customers hit the legacy route
+router.post(
+  '/request',
+  authenticateToken,
+  authorizeRoles('customer'),
+  (req, res) => {
+    // Optional: set a date when this endpoint will be fully removed
+    const sunset = new Date();
+    sunset.setMonth(sunset.getMonth() + 1); // e.g., remove in 1 month
 
-// PATCH: Save Task Results for a Work Order
-workOrderRouter.patch('/:workOrderId/procedure/:procedureId/task-results', async (req, res) => {
-  try {
-    const { workOrderId } = req.params;
-    const { taskResults } = req.body;
-
-    const workOrder = await WorkOrder.findById(workOrderId);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
-
-    workOrder.taskResults = taskResults;
-    await workOrder.save();
-
-    res.json({ success: true, message: 'Task results saved successfully.', workOrder });
-  } catch (error) {
-    console.error('Error saving task results:', error);
-    res.status(500).json({ success: false, message: 'Failed to save task results.' });
-  }
-});
-
-// DELETE: Remove a work order by ID
-workOrderRouter.delete('/:id', async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
-
-    try {
-        const deletedWorkOrder = await WorkOrder.findByIdAndDelete(id);
-        if (!deletedWorkOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-        res.status(200).json({ message: 'Work order deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error deleting work order' });
-    }
-});
-
-// DELETE: Remove a specific time log
-workOrderRouter.delete('/:id/timelogs/:logId', async (req, res) => {
-  const { id, logId } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
-    return res.status(400).json({ error: 'Invalid work order or log ID' });
-  }
-
-  try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
-
-    const log = workOrder.timeLogs.id(logId);
-    if (!log) {
-      return res.status(404).json({ error: 'Time log not found' });
-    }
-
-    log.deleteOne(); // ✅ remove subdocument
-    await workOrder.save();
-
-    res.status(200).json({ message: 'Time log deleted' });
-  } catch (err) {
-    console.error('Error deleting time log:', err);
-    res.status(500).json({ error: 'Failed to delete time log' });
-  }
-});
-
-// DELETE: Remove a specific travel log
-workOrderRouter.delete('/:id/travellogs/:logId', async (req, res) => {
-  const { id, logId } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(logId)) {
-    return res.status(400).json({ error: 'Invalid work order or log ID' });
-  }
-
-  try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
-
-    const log = workOrder.travelLogs.id(logId);
-    if (!log) {
-      return res.status(404).json({ error: 'Travel log not found' });
-    }
-
-    log.deleteOne(); // ✅ modern Mongoose removal
-    await workOrder.save();
-
-    res.status(200).json({ message: 'Travel log deleted' });
-  } catch (err) {
-    console.error('Error deleting travel log:', err);
-    res.status(500).json({ error: 'Failed to delete travel log' });
-  }
-});
-
-// DELETE: Remove a part from a work order
-workOrderRouter.delete('/:id/parts/:partId', async (req, res) => {
-  const { id, partId } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(partId)) {
-    return res.status(400).json({ error: 'Invalid work order or part ID' });
-  }
-
-  console.log(`DELETE called for partId ${partId} on workOrder ${id}`);
-
-  try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
-
-    const initialCount = workOrder.partsUsed.length;
-
-    workOrder.partsUsed = workOrder.partsUsed.filter((p) => {
-        console.log("Comparing:", p.partId.toString(), "vs", partId.toString());
-        return p.partId.toString() !== partId.toString();
+    // RFC-style deprecation headers (informative for clients & logs)
+    res.set({
+      'Deprecation': 'true',                               // signals deprecated
+      'Sunset': sunset.toUTCString(),                      // when it goes away
+      'Link': '</tickets>; rel="alternate"',               // preferred alt
+      'Migrate-To': '/tickets',                            // helpful custom header
     });
 
-
-    if (workOrder.partsUsed.length === initialCount) {
-      return res.status(404).json({ error: 'Part not found in work order' });
-    }
-
-    await workOrder.save();
-    res.status(200).json({ message: 'Part removed from work order' });
-  } catch (err) {
-    console.error('Error deleting part from work order:', err);
-    res.status(500).json({ error: 'Failed to delete part from work order' });
+    // Helpful JSON payload
+    return res.status(410).json({
+      error: 'DeprecatedEndpoint',
+      message: 'POST /workorders/request is deprecated. Use POST /tickets instead.',
+      migrateTo: '/tickets',
+      examples: {
+        service: {
+          method: 'POST',
+          path: '/tickets',
+          body: {
+            type: 'service',
+            subject: 'Service request for asset',
+            description: 'Noise from pump head',
+            assetId: '64f9e2...'
+          }
+        },
+        consumable: {
+          method: 'POST',
+          path: '/tickets',
+          body: {
+            type: 'consumable',
+            subject: 'Replace filter',
+            description: 'Monthly filter change',
+            assetId: '64f9e2...',
+            partId: '6501ab...',
+            quantity: 2
+          }
+        }
+      }
+    });
   }
-});
+);
 
-// DELETE: Remove procedure from a work order
-workOrderRouter.delete('/:id/procedure/:procedureId', async (req, res) => {
-  const { id } = req.params;
+// Promote a Ticket into a Work Order
+router.post(
+  '/from-ticket/:ticketId',
+  authenticateToken,
+  authorizeRoles('admin', 'tech'), // customers should NOT create WOs directly
+  async (req, res) => {
+    const { ticketId } = req.params;
 
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      const ticket = await Ticket.findById(ticketId).session(session);
+      if (!ticket) {
+        return res.status(404).json({ error: 'TicketNotFound', message: `No ticket ${ticketId}` });
+      }
+      if (ticket.status === 'closed' || ticket.status === 'resolved') {
+        return res.status(409).json({ error: 'TicketClosed', message: 'Ticket already resolved/closed' });
+      }
+
+      // Map ticket → work order (adjust field names to your models)
+      const woPayload = {
+        assetId: ticket.assetId ?? undefined,
+        description: ticket.description || ticket.subject,
+        workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
+        status: 'Open',
+        requestDate: new Date(),
+        dueDate: undefined,            // let your existing default/dueDate logic set this
+        scheduledDate: undefined,
+        createdFrom: 'ticket',
+        ticketId: ticket._id,
+        requestedBy: ticket.requestedBy || null,
+        // If you want: copy priority, facility/department, part request details, etc.
+      };
+
+      const workOrder = await WorkOrder.create([woPayload], { session });
+      const createdWO = workOrder[0];
+
+      // keep a backlink for convenience (optional but useful)
+      ticket.workOrderId = createdWO._id;
+      ticket.status = 'in_progress';   // or 'converted'
+      await ticket.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(201).json({ message: 'Work order created from ticket', workOrder: createdWO });
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      console.error('from-ticket error', err);
+      return res.status(500).json({ error: 'CreateFromTicketFailed' });
+    }
+  }
+);
+
+// ---------- Update (internal only) ----------
+router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const workOrder = await WorkOrder.findById(id);
-    if (!workOrder) {
-      return res.status(404).json({ error: 'Work order not found' });
-    }
-
-    // Remove the procedure reference and optionally clear taskResults
-    workOrder.procedure = undefined;
-    workOrder.taskResults = [];
-
-    await workOrder.save();
-
-    res.status(200).json({ message: 'Procedure removed from work order.' });
-  } catch (error) {
-    console.error('Error removing procedure:', error);
-    res.status(500).json({ error: 'Failed to remove procedure' });
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { ...req.body, updatedBy: req.user.id },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Work order not found' });
+    res.json({ message: 'Work order updated', workOrder: updated });
+  } catch (err) {
+    console.error('Update WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// GET: Fetch Task Results for a Work Order
-workOrderRouter.get('/:workOrderId/procedure/:procedureId/task-results', async (req, res) => {
-    try {
-        const { workOrderId, procedureId } = req.params;
+// ---------- Assign (internal) ----------
+router.patch('/:id/assign', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { assignedTo } = req.body || {};
+    if (!assignedTo || !isObjectId(assignedTo)) return res.status(400).json({ error: 'Valid assignedTo is required' });
 
-        const taskResults = await TaskResult.find({
-            workOrderId,
-            procedureId,
-        }).populate('taskId', 'description type'); // Include task details
-
-        res.json({ success: true, taskResults });
-    } catch (error) {
-        console.error('Error fetching task results:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch task results.' });
-    }
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { assignedTo, updatedBy: req.user.id },
+      { new: true }
+    ).populate('assignedTo', 'username role');
+    res.json({ message: 'Assigned', workOrder: updated });
+  } catch (err) {
+    console.error('Assign WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-// GET: get a single work order
-workOrderRouter.get('/:id', async (req, res) => {
-    const { id } = req.params;
+// ---------- Status update (internal) ----------
+router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    if (!status) return res.status(400).json({ error: 'status is required' });
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid work order ID format' });
-    }
+    const patch = { status, updatedBy: req.user.id };
+    if (status === 'Completed') patch.completionDate = new Date();
 
-    try {
-        const workOrder = await WorkOrder.findById(id)
-            .populate('partsUsed.partId') //, 'partNumber description price quantityOnHand')
-            .populate('timeLogs.userId')
-            .populate('travelLogs.userId')
-            .populate('testEquipmentUsed') // Populate test equipment details
-            .populate('procedure')
-            .populate({
-                path: 'procedure',
-                populate: {
-                    path: 'tasks',
-                    select: '-__v -createdAt -updatedAt', // exclude unneeded fields instead of specifying only some
-                },
-            })
-            .lean(); // Optional: Convert Mongoose document to plain object
-
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        res.status(200).json(workOrder);
-    } catch (error) {
-        debug('Error fetching work order:', error);
-        res.status(500).json({ error: 'Failed to fetch work order' });
-    }
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      patch,
+      { new: true }
+    );
+    res.json({ message: 'Status updated', workOrder: updated });
+  } catch (err) {
+    console.error('Status WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-// GET: Retrieve task results for a specific work order
-workOrderRouter.get('/:workOrderId/task-results', async (req, res) => {
-    try {
-        const { workOrderId } = req.params;
-
-        const workOrder = await WorkOrder.findById(workOrderId).populate('taskResults.taskId', 'description');
-        if (!workOrder) {
-            return res.status(404).json({ error: 'Work order not found' });
-        }
-
-        res.json({ success: true, taskResults: workOrder.taskResults });
-    } catch (error) {
-        console.error('Error fetching task results:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch task results.' });
-    }
+// ---------- Schedule (internal) ----------
+router.patch('/:id/schedule', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { scheduledDate, dueDate } = req.body || {};
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { ...(scheduledDate ? { scheduledDate } : {}), ...(dueDate ? { dueDate } : {}), updatedBy: req.user.id },
+      { new: true }
+    );
+    res.json({ message: 'Schedule updated', workOrder: updated });
+  } catch (err) {
+    console.error('Schedule WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
-module.exports = workOrderRouter;
+// ---------- Time logs (internal) ----------
+router.post('/:id/time-logs', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { timeSpent, description } = req.body || {};
+    if (!timeSpent || timeSpent <= 0) return res.status(400).json({ error: 'timeSpent must be > 0' });
+
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { $push: { timeLogs: { userId: req.user.id, timeSpent, description } }, $set: { updatedBy: req.user.id } },
+      { new: true }
+    );
+    res.json({ message: 'Time logged', workOrder: updated });
+  } catch (err) {
+    console.error('Time log error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Travel logs (internal) ----------
+router.post('/:id/travel-logs', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { travelTime, note } = req.body || {};
+    if (!travelTime || travelTime <= 0) return res.status(400).json({ error: 'travelTime must be > 0' });
+
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { $push: { travelLogs: { userId: req.user.id, travelTime, note } }, $set: { updatedBy: req.user.id } },
+      { new: true }
+    );
+    res.json({ message: 'Travel logged', workOrder: updated });
+  } catch (err) {
+    console.error('Travel log error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Attach procedure (internal) ----------
+router.put('/:id/procedure/:procedureId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { id, procedureId } = req.params;
+    if (!isObjectId(procedureId)) return res.status(400).json({ error: 'Invalid procedureId' });
+
+    const proc = await Procedure.findById(procedureId).select('name tasks');
+    if (!proc) return res.status(404).json({ error: 'Procedure not found' });
+
+    // initialize taskResults from procedure tasks
+    const taskResults = (proc.tasks || []).map(t => ({
+      taskId: t._id,
+      label: t.name,
+      type: t.type,
+      unitOfMeasure: t.unitOfMeasure || null,
+      value: null,
+      passed: null,
+      comment: '',
+    }));
+
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: id, ...buildTenantFilter(req) },
+      { procedure: { _id: proc._id, name: proc.name, taskResults }, updatedBy: req.user.id },
+      { new: true }
+    );
+    res.json({ message: 'Procedure attached', workOrder: updated });
+  } catch (err) {
+    console.error('Attach procedure error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Update task results (internal) ----------
+router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { id, procedureId } = req.params;
+    const { taskResults } = req.body || {};
+    if (!Array.isArray(taskResults)) return res.status(400).json({ error: 'taskResults array required' });
+
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: id, 'procedure._id': procedureId, ...buildTenantFilter(req) },
+      { $set: { 'procedure.taskResults': taskResults, updatedBy: req.user.id } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Work order or procedure not found' });
+    res.json({ message: 'Task results updated', workOrder: updated });
+  } catch (err) {
+    console.error('Task results error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// ---------- Soft delete (archive) — admin only ----------
+router.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const updated = await WorkOrder.findOneAndUpdate(
+      { _id: req.params.id, ...buildTenantFilter(req) },
+      { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Archived', updatedBy: req.user.id } },
+      { new: true }
+    );
+    res.json({ message: 'Work order archived', workOrder: updated });
+  } catch (err) {
+    console.error('Archive WO error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+module.exports = router;

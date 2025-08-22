@@ -12,6 +12,7 @@ import {
 } from "../../../types/types";
 
 interface Props {
+  isCustomer: boolean,
   workOrdersSummary: WorkOrderSummary;
   assetSummary: AssetSummary;
   partsSummary: PartsSummary;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 const Charts: React.FC<Props> = ({
+  isCustomer,
   workOrdersSummary,
   assetSummary,
   partsSummary,
@@ -38,7 +40,10 @@ const Charts: React.FC<Props> = ({
       <WorkOrderChart workOrdersSummary={workOrdersSummary} onClick={(status) => handleChartClick("workOrders", status)} />
       <AssetChart assetSummary={assetSummary} onClick={(status: string) => handleChartClick("assets", status)} />
       <PartsChart partsSummary={partsSummary} />
-      <TechnicianChart technicianPerformance={technicianPerformance} />
+      {!isCustomer && (
+        <TechnicianChart technicianPerformance={technicianPerformance} />
+      )}
+      
     </div>
   );
 };

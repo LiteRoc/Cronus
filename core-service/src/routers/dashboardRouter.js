@@ -2,52 +2,87 @@ const express = require('express');
 const WorkOrder = require('../models/WorkOrder');
 const Part = require('../models/Part');
 const Asset = require('../models/Asset');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
+
 const dashboardRouter = express.Router();
 
-// Main dashboard route
-dashboardRouter.get('/', async (req, res) => {
+const mongoose = require('mongoose');
+
+// Main dashboard route (all roles; always tenant-scoped)
+// to make /dashboard internal only, wrap thing with authorizeRoles('admin', 'user')
+dashboardRouter.get('/', authenticateToken, async (req, res) => {
   try {
+    const tf = buildTenantFilter(req); // {} for admin/user, {customerId} for customer
+
+    // ----- Filters -----
     const { startDate, endDate, status, userId } = req.query;
 
-    // Filters
-    const dateFilter = {};
-    if (startDate) dateFilter.$gte = new Date(startDate);
-    if (endDate) dateFilter.$lte = new Date(endDate);
+    const woDateMatch = (startDate || endDate)
+      ? { scheduledDate: {
+          ...(startDate ? { $gte: new Date(startDate) } : {}),
+          ...(endDate   ? { $lte: new Date(endDate)   } : {}),
+        }}
+      : {};
 
-    const workOrderFilter = {};
-    if (Object.keys(dateFilter).length > 0) workOrderFilter.scheduledDate = dateFilter;
-    if (status) workOrderFilter.status = status;
+    const statusMatch = status ? { status } : {};
 
-    const userFilter = {};
-    if (userId) userFilter.userId = userId;
+    const userObjectId = (userId && mongoose.isValidObjectId(userId))
+      ? new mongoose.Types.ObjectId(userId)
+      : null;
 
-    // Queries
-    const workOrdersByStatus = await WorkOrder.aggregate([
-      { $match: workOrderFilter },
+    // ----- Work Orders summary -----
+    // Note: using "Completed" as the closed status. Adjust if your app uses "Closed".
+    const now = new Date();
+    const woBaseMatch = { ...tf, status: { $ne: 'Archived' }, ...woDateMatch };
+
+    const [woCountsAgg] = await WorkOrder.aggregate([
+      { $match: woBaseMatch },
       { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $project: { _id: 0, k: '$_id', v: '$count' } },
+      { $group: { _id: null, map: { $push: { k: '$k', v: '$v' } } } },
+      { $project: { dict: { $arrayToObject: '$map' } } },
     ]);
 
-    const countByStatus = workOrdersByStatus.reduce((acc, entry) => {
-      acc[entry._id] = entry.count;
-      return acc;
-    }, {});
+    const woDict = woCountsAgg?.dict || {};
+    const totalWorkOrders   = Object.values(woDict).reduce((a, b) => a + b, 0);
+    const completedWorkOrders = woDict['Completed'] || woDict['Closed'] || 0;
+    const openWorkOrders      = totalWorkOrders - completedWorkOrders;
 
-    const totalParts = await Part.countDocuments();
-    const lowStockParts = await Part.countDocuments({ quantityOnHand: { $lt: 10 } });
+    // Overdue = not completed and dueDate < now
+    const overdueWorkOrders = await WorkOrder.countDocuments({
+      ...woBaseMatch,
+      status: { $ne: 'Completed' },
+      dueDate: { $lt: now },
+    });
 
-    const travelAgg = await WorkOrder.aggregate([
+    // ----- Parts summary (tenant-scoped if parts are per-tenant) -----
+    const partsBaseMatch = { ...tf, status: { $ne: 'Archived' } };
+    const totalParts     = await Part.countDocuments(partsBaseMatch);
+    const lowStockParts  = await Part.countDocuments({ ...partsBaseMatch, quantityOnHand: { $lt: 10 } });
+
+    // ----- Technician travel + time (tenant + optional user filter) -----
+    // Travel (minutes)
+    const travelPipeline = [
+      { $match: { ...woBaseMatch } },
       { $unwind: '$travelLogs' },
-      { $match: userFilter },
-      { $group: { _id: null, total: { $sum: '$travelLogs.travelTime' } } },
-    ]);
+      ...(userObjectId ? [{ $match: { 'travelLogs.userId': userObjectId } }] : []),
+      { $group: { _id: null, totalMinutes: { $sum: '$travelLogs.travelTime' } } },
+    ];
+    const [travelAgg] = await WorkOrder.aggregate(travelPipeline);
+    const totalTravelMinutes = travelAgg?.totalMinutes || 0;
 
-    const timeLogAgg = await WorkOrder.aggregate([
+    // Time logs by tech
+    const timePipeline = [
+      { $match: { ...woBaseMatch } },
       { $unwind: '$timeLogs' },
-      { $match: userFilter },
+      { $match: { 'timeLogs.timeSpent': { $gt: 0 } } },
+      ...(userObjectId ? [{ $match: { 'timeLogs.userId': userObjectId } }] : []),
       {
         $group: {
           _id: '$timeLogs.userId',
-          totalHours: { $sum: '$timeLogs.timeSpent' },
+          totalMinutes: { $sum: '$timeLogs.timeSpent' }, // assuming minutes
+          workOrders: { $addToSet: '$_id' },
         },
       },
       {
@@ -58,28 +93,35 @@ dashboardRouter.get('/', async (req, res) => {
           as: 'user',
         },
       },
-      {
-        $unwind: '$user',
+      { $project: {
+          userId: '$_id',
+          username: { $ifNull: [{ $arrayElemAt: ['$user.username', 0] }, 'Unknown'] },
+          role:     { $arrayElemAt: ['$user.role', 0] },
+          totalMinutes: 1,
+          totalHours: { $divide: ['$totalMinutes', 60] },
+          workOrdersCount: { $size: '$workOrders' },
+        }
       },
-      {
-        $project: {
-          name: '$user.username',
-          totalHours: 1,
-        },
-      },
-    ]);
+      { $sort: { totalMinutes: -1 } },
+    ];
+    const timeLogAgg = await WorkOrder.aggregate(timePipeline);
 
-    const activeAssets = await Asset.countDocuments({ status: 'Active' });
-    const inactiveAssets = await Asset.countDocuments({ status: 'Inactive' });
+    // ----- Asset summary (tenant + exclude archived) -----
+    const assetBaseMatch = { ...tf, status: { $ne: 'Archived' } };
+    const activeAssets   = await Asset.countDocuments({ ...assetBaseMatch, status: 'Active' });
+    const inactiveAssets = await Asset.countDocuments({ ...tf, status: 'Inactive' }); // if you want to include archived inactive, move status filter like above
     const dueMaintenance = await Asset.countDocuments({
-      'maintenanceSchedule.nextMaintenance': { $lte: new Date() },
+      ...assetBaseMatch,
+      'maintenanceSchedule.nextMaintenance': { $lte: now },
     });
 
+    // ----- Response -----
     res.status(200).json({
       workOrdersSummary: {
-        open: countByStatus.Open || 0,
-        closed: countByStatus.Closed || 0,
-        overdue: countByStatus.Overdue || 0,
+        total: totalWorkOrders,
+        open: openWorkOrders,
+        completed: completedWorkOrders,
+        overdue: overdueWorkOrders,
       },
       assetSummary: {
         active: activeAssets,
@@ -90,6 +132,10 @@ dashboardRouter.get('/', async (req, res) => {
         inStock: totalParts,
         lowStock: lowStockParts,
       },
+      travelSummary: {
+        totalMinutes: totalTravelMinutes,
+        totalHours: totalTravelMinutes / 60,
+      },
       technicianPerformance: timeLogAgg,
     });
   } catch (error) {
@@ -98,14 +144,16 @@ dashboardRouter.get('/', async (req, res) => {
   }
 });
 
-
-// Work orders summary route
-dashboardRouter.get('/workorders/summary', async (req, res) => {
+// Work orders summary route -> (tenant scoped)
+dashboardRouter.get('/workorders/summary', authenticateToken, async (req, res) => {
+  const tenantFilter = buildTenantFilter(req);
     try {
-        const totalWorkOrders = await WorkOrder.countDocuments({});
-        const completedWorkOrders = await WorkOrder.countDocuments({ status: 'Completed' });
-        const openWorkOrders = await WorkOrder.countDocuments({ status: { $ne: 'Completed' } });
+        const base = { ...tenantFilter, status: { $ne: 'Archived' } }; // ignore archived/soft-deleted
+        const totalWorkOrders = await WorkOrder.countDocuments({base});
+        const completedWorkOrders = await WorkOrder.countDocuments({ ...base,  status: 'Completed' });
+        const openWorkOrders = await WorkOrder.countDocuments({ ...base,  status: { $ne: 'Completed' } });
         const overdueWorkOrders = await WorkOrder.countDocuments({
+            ...base,
             status: { $ne: 'Completed' },
             dueDate: { $lt: new Date() },
         });
@@ -122,15 +170,17 @@ dashboardRouter.get('/workorders/summary', async (req, res) => {
     }
 });
 
-// Asset summary route
-dashboardRouter.get('/assets/summary', async (req, res) => {
+// Asset summary route -> (tenant scoped)
+dashboardRouter.get('/assets/summary', authenticateToken, async (req, res) => {
+  const tenantFilter = buildTenantFilter(req);
     try {
-        const totalAssets = await Asset.countDocuments({});
-        const dueMaintenance = await Asset.countDocuments({
+        const base = { ...tenantFilter, status: { $ne: 'Archived' } };
+        const totalAssets = await Asset.countDocuments(base);
+        const dueMaintenance = await Asset.countDocuments({ ...base,
             'maintenanceSchedule.nextMaintenance': { $lte: new Date() },
         });
-        const activeAssets = await Asset.countDocuments({ status: 'Active' });
-        const inactiveAssets = await Asset.countDocuments({ status: 'Inactive' });
+        const activeAssets = await Asset.countDocuments({ ...base, status: 'Active' });
+        const inactiveAssets = await Asset.countDocuments({ ...tenantFilter, status: 'Inactive' });
 
         res.json({
             totalAssets,
@@ -144,36 +194,58 @@ dashboardRouter.get('/assets/summary', async (req, res) => {
     }
 });
 
-// Technician performance route
-dashboardRouter.get('/technicians/performance', async (req, res) => {
-    try {
-        const technicianPerformance = await WorkOrder.aggregate([
-            { $unwind: '$timeLogs' },
-            {
-                $group: {
-                    _id: '$timeLogs.userId',
-                    totalHours: { $sum: '$timeLogs.timeSpent' },
-                    workOrders: { $addToSet: '$_id' },
-                },
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: '_id',
-                    foreignField: '_id',
-                    as: 'technician',
-                },
-            },
-            {
-                $project: {
-                    technician: { $arrayElemAt: ['$technician', 0] },
-                    totalHours: 1,
-                    workOrdersCount: { $size: '$workOrders' },
-                },
-            },
-        ]);
+// Technician performance route -> (tenant scoped) - internal only
+dashboardRouter.get('/technicians/performance', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  const tenantFilter = buildTenantFilter(req);
 
-        res.json(technicianPerformance);
+  // Optional date range filter (?start=YYYY-MM-DD&end=YYYY-MM-DD)
+    const { start, end } = req.query;
+    const dateFilter =
+      start || end
+        ? {
+            'timeLogs.createdAt': {
+              ...(start ? { $gte: new Date(start) } : {}),
+              ...(end   ? { $lte: new Date(end)   } : {}),
+            },
+          }
+        : {};
+
+     try {
+      const pipeline = [
+        { $match: { ...tenantFilter, status: { $ne: 'Archived' }, ...dateFilter } },
+        { $unwind: '$timeLogs' },
+        // skip zero/negative entries if that can happen
+        { $match: { 'timeLogs.timeSpent': { $gt: 0 } } },
+        {
+          $group: {
+            _id: '$timeLogs.userId',
+            totalMinutes: { $sum: '$timeLogs.timeSpent' }, // assuming minutes
+            workOrders: { $addToSet: '$_id' },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',                // Mongoose collection name for User
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
+        },
+        {
+          $project: {
+            userId: '$_id',
+            username: { $ifNull: [{ $arrayElemAt: ['$user.username', 0] }, 'Unknown'] },
+            role:     { $arrayElemAt: ['$user.role', 0] },
+            totalMinutes: 1,
+            totalHours: { $divide: ['$totalMinutes', 60] },
+            workOrdersCount: { $size: '$workOrders' },
+          },
+        },
+        { $sort: { totalMinutes: -1 } },
+      ];
+
+      const technicianPerformance = await WorkOrder.aggregate(pipeline);
+      res.json(technicianPerformance);
     } catch (error) {
         console.error('Error fetching technician performance:', error);
         res.status(500).json({ error: 'Failed to fetch technician performance' });

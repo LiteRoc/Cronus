@@ -1,5 +1,5 @@
 # contract-service/Dockerfile
-FROM node:22-slim
+FROM node:lts-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install

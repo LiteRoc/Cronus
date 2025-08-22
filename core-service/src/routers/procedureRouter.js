@@ -1,24 +1,53 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware')
 const Procedure = require('../models/Procedure');
 const Task = require('../models/Task');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 const debug = require('debug')('app:procedureRouter');
 
 const procedureRouter = express.Router();
 
 // GET: Get Procedures w/Tasks
-procedureRouter.get('/', async (req, res) => {
-    try {
-        const procedures = await Procedure.find().populate('tasks');
-        res.status(200).json(procedures);
-    } catch (error) {
-        debug('Error fetching procedures:', error);
-        res.status(500).json({ error: 'Failed to fetch procedures' });
+procedureRouter.get('/', authenticateToken, async (req, res) => {
+    if (req.user.role === 'customer') {
+        // Optional: only show procedures actually used by their assets/WOs
+        const assetIds = await Asset.find(buildTenantFilter(req)).distinct('_id');
+        const woProcIds = await WorkOrder.find({ assetId: { $in: assetIds } }).distinct('procedure');
+        const procIds = new Set(woProcIds);
+        const procs = await Procedure.find({ _id: { $in: Array.from(procIds) } }).populate('tasks');
+        return res.json(procs);
     }
+
+    // Internal: show all
+    const procs = await Procedure.find({}).populate('tasks');
+    res.json(procs);
 });
 
+// GET: Get a single procedure w/Tasks
+procedureRouter.get('/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) { return res.status(400).json({ error: 'Invalid ID format' })}
+
+    try {
+        const filter = { _id: id, ...buildTenantFilter(req) };
+        const procedure = await Procedure.findOne(filter)
+            .populate('tasks');
+
+        if (!procedure) return res.status(404).json({ error: 'Procedure not found' });
+
+        res.status(200).json(procedure);
+    } catch {
+        debug('Error fetching procedure:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+})
+
+// ***Create/Update/Delete — internal only *** //
+
 // POST: Create a Procedure with Reusable Tasks
-procedureRouter.post('/', async (req, res) => {
+procedureRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
     const { name, tasks } = req.body;
 
     try {
@@ -53,7 +82,14 @@ procedureRouter.post('/', async (req, res) => {
     }
 });
 
-procedureRouter.patch('/:procedureId/tasks/:taskId/result', async (req, res) => {
+// PUT: Update a procedure
+procedureRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => { /* update */ });
+
+// PATCH: Remove a procedure / soft delete
+procedureRouter.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => { /* delete */ });
+
+// PATCH: Update a Procedure Task
+procedureRouter.patch('/:procedureId/tasks/:taskId/result', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
     const { procedureId, taskId } = req.params;
     const { result, userId } = req.body;
 

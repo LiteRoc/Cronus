@@ -54,9 +54,16 @@ const EquipmentTemplateSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
+// Fast filtering and distincts
 EquipmentTemplateSchema.index(
   { manufacturer: 1, model: 1 },
   { unique: true, partialFilterExpression: { di: { $exists: false } } }
 );
+
+// GUDID mapping & de‑duplication
+EquipmentTemplateSchema.index({ di: 1 }, { unique: true, sparse: true });
+
+// Optional: product code lookups / admin searches
+EquipmentTemplateSchema.index({ fdaProductCode: 1 });
 
 module.exports = mongoose.model('EquipmentTemplate', EquipmentTemplateSchema);

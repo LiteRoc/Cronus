@@ -2,11 +2,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const Part = require('../models/Part');
 const debug = require('debug')('app:partRouter');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 
 const partRouter = express.Router();
 
+// GET: List (tenant-scoped if parts are tenant-bound; otherwise internal-only)
+partRouter.get('/', authenticateToken, async (req, res) => {
+  const tf = buildTenantFilter(req);
+  const parts = await Part.find(tf).lean();
+  res.json(parts);
+});
+
 // POST: Create a new part
-partRouter.post('/', async (req, res) => {
+partRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
     const { supplierId } = req.body;
     try {
 
@@ -28,15 +37,26 @@ partRouter.post('/', async (req, res) => {
     }
 });
 
-// GET: Retrieve all parts
-partRouter.get('/', async (req, res) => {
-    try {
-        const parts = await Part.find().populate('supplierId', 'name contactEmail contactPhone address');
-        res.status(200).json(parts);
-    } catch (error) {
-        debug('Error fetching parts:', error);
-        res.status(500).json({ error: 'Failed to fetch parts' });
-    }
+// PUT: Update a part
+partRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {/* update */});
+
+// PATCH: SOFT DELETE / Remove a part by ID (admin only)
+partRouter.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+  const deleted = await Part.findOneAndUpdate(
+    { _id: req.params.id, ...buildTenantFilter(req) },
+    { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Archived' } },
+    { new: true }
+  );
+  if (!deleted) return res.status(404).json({ error: 'Part not found' });
+  res.json({ message: 'Part archived' });
+});
+
+// POST: Customer approval of consumable replacements
+partRouter.post('/:id/approve', authenticateToken, authorizeRoles('customer'), async (req, res) => {
+  const { reason, workOrderId } = req.body || {};
+  // record an approval document/event linked to customerId + partId (+ optional WO)
+  // internal process later consumes this approval
+  res.json({ message: 'Approval recorded' });
 });
 
 module.exports = partRouter;

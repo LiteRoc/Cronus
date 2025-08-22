@@ -6,21 +6,28 @@ import CreateWorkOrderModal from "./modals/CreateWorkOrderModal";
 import { useDashboardSummaries } from "../../hooks/useDashboardSummaries";
 import { useFilteredData } from "../../hooks/useFilteredData";
 import { useSidebarLinks } from "../../hooks/useSidebarLinks";
-import { Asset, WorkOrder, Part } from "../../types/types";
+import { Asset, WorkOrder, Part, VALID_ROLES, Role } from "../../types/types";
 import { toast } from "react-toastify";
 import { Link, useNavigate } from "react-router-dom";
 
 import { showSuccess, showError } from "../../utils/toastUtils";
 import { useWorkOrderActions } from "../../hooks/workorders/useWorkOrderActions";
 import { useModalManager } from "../../hooks/useModalManager";
+import { useUser } from "../../context/UserContext";
 
 const DashboardPage: React.FC = () => {
+  const { user } = useUser();
+  //console.log("Dashboard user:", user);
+
+  const role: Role = VALID_ROLES.includes(user?.role as Role)
+    ? (user?.role as Role)
+    : "viewer"; // fallback if missing or invalid
+
+  const links = useSidebarLinks(role);
+  //console.log("Role used for sidebar:", role);
+  const isCustomer = user?.role === 'customer';
+
   const { filteredData } = useFilteredData();
-
-  // TEMP: mock role — replace with real auth logic later
-  const userRole = "admin"; // In the future, pull from AuthContext or JWT
-  const links = useSidebarLinks(userRole);
-
   const { saveWorkOrder, createWorkOrder, deleteWorkOrder } = useWorkOrderActions();
 
   const {
@@ -42,7 +49,7 @@ const DashboardPage: React.FC = () => {
     technicianPerformance,
     isLoading,
     error,
-  } = useDashboardSummaries();
+  } = useDashboardSummaries(user?.role);
 
   //console.log({ workOrdersSummary, assetSummary, partsSummary, technicianPerformance });
 
@@ -109,6 +116,7 @@ const DashboardPage: React.FC = () => {
         <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
 
         <Charts
+          isCustomer = {isCustomer}
           workOrdersSummary={workOrdersSummary || { open: 0, closed: 0, overdue: 0 }}
           assetSummary={assetSummary || { active: 0, inactive: 0, upcomingMaintenance: 0 }}
           partsSummary={partsSummary || { inStock: 0, lowStock: 0 }}

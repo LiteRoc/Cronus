@@ -16,24 +16,28 @@ export default function SignInPage() {
     console.log("Attempting to sign in with:", { email, password });
     try {
       const response = await apiClient.post("/auth/login", { email, password }); // Adjust the endpoint as needed
-      const userId = response.data.payload.id; // Extract the id from the payload
+      // Always log the raw response first so we can see its shape:
+      console.log("Raw login response:", response.data);
+
+      const userId = response.data.user.id; // Extract the id from the payload
 
       console.log("Response from backend:", response.data);
       console.log('User ID from backend:', userId);
 
       console.log('Before setUserId call:', userId);
       setUser({
-        id: response.data.payload.id,
-        name: response.data.payload.name,
-        email: response.data.payload.email,
-        role: response.data.payload.role,
-        username: ""
+        id: response.data.user.id,
+        name: response.data.user.name,
+        email: response.data.user.email,
+        role: response.data.user.role,
+        username: response.data.user.username,
       }); // Set the userId in UserContext
       console.log('After setUserId call:', userId);
       localStorage.setItem("token", response.data.token); // Save token in local storage
 
       console.log('User ID set in context:', userId);
 
+      console.log("navigating to dashboard...");
       navigate("/dashboard"); // Redirect on successful login
     } catch (err: unknown) {
         if (axios.isAxiosError(err)) {

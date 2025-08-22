@@ -186,3 +186,15 @@ export interface TechnicianPerformance {
 
 export type FilteredType = "assets" | "workOrders";
 
+export const VALID_ROLES = ["admin", "tech", "customer", "viewer"] as const;
+export type Role = typeof VALID_ROLES[number];
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  username: string;
+};
+
+

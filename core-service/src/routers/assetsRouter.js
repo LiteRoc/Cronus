@@ -5,41 +5,45 @@ const Asset = require('../models/Asset'); // Import the Asset model
 const EquipmentTemplate = require('../models/EquipmentTemplate.js');
 const WorkOrder = require('../models/WorkOrder'); // Import the WorkOrder model
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware'); // Middleware for authentication/authorization
+const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
 
 mongoose.set('strictPopulate', false); // Allow non-strict population
 
 const assetRouter = express.Router();
 
-// GET: Manufactures for a dropdown list
-assetRouter.get("/distinct/manufacturers", async (req, res) => {
+// Manufacturers seen in this tenant's assets
+assetRouter.get('/distinct/manufacturers', authenticateToken, async (req, res) => {
   try {
-    const manufacturers = await Asset.distinct("manufacturer");
-    res.status(200).json(manufacturers);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch manufacturers." });
+    const manufacturers = await Asset.distinct('manufacturer', buildTenantFilter(req));
+    res.json((manufacturers || []).filter(Boolean).sort());
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch manufacturers.' });
   }
 });
 
-// GET: Models for a dropdown list
-assetRouter.get("/distinct/models", async (req, res) => {
-  const { manufacturer } = req.query;
-  if (!manufacturer) return res.status(400).json({ error: "Manufacturer required." });
-
+// Models seen in this tenant's assets (optionally by manufacturer)
+assetRouter.get('/distinct/models', authenticateToken, async (req, res) => {
   try {
-    const models = await Asset.distinct("model", { manufacturer });
-    res.status(200).json(models);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch models." });
+    const { manufacturer } = req.query;
+    const filter = { ...buildTenantFilter(req), ...(manufacturer ? { manufacturer } : {}) };
+    const models = await Asset.distinct('model', filter);
+    res.json((models || []).filter(Boolean).sort());
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch models.' });
   }
 });
 
 // GET all assets with optional filtering
-assetRouter.get('/', async (req, res) => {
+assetRouter.get('/', authenticateToken, async (req, res) => {
+
+  const tenantFilter = buildTenantFilter(req);
+  const base = { ...tenantFilter, status: { $ne: 'Archived' }};
+
     const { search, manufacturer, model, status, page = 1, limit = 10 } = req.query;
 
     try {
-        const query = {};
+        const query = { ...base};
         if (search) {
             query.$or = [
                 { ctrlNumber: { $regex: search, $options: 'i' } },
@@ -94,9 +98,10 @@ assetRouter.get('/', async (req, res) => {
 });
 
 // GET: Return only test equipment
-assetRouter.get('/test-equipment', async (req, res) => {
+assetRouter.get('/test-equipment', authenticateToken, async (req, res) => {
     try {
-        const testEquipment = await Asset.find({ category: 'test' }).lean();
+        const filter = { ...buildTenantFilter(req), category: 'test' };
+        const testEquipment = await Asset.find(filter).lean();
         res.status(200).json(testEquipment);
     } catch (error) {
         debug('Error fetching test equipment:', error);
@@ -105,7 +110,7 @@ assetRouter.get('/test-equipment', async (req, res) => {
 });
 
 // GET a single asset by ID
-assetRouter.get('/:id', async (req, res) => {
+assetRouter.get('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -113,15 +118,10 @@ assetRouter.get('/:id', async (req, res) => {
     }
 
     try {
-        const asset = await Asset.findById(id)
-        .populate({
-            path: 'workOrders',
-            select: 'description status scheduledDate completionDate',
-        })
-        .populate({
-            path: 'maintenanceSchedule.procedure', // Populate the procedure within the maintenanceSchedule
-            select: 'name tasks', // Specify fields to return from the procedure
-        });
+        const filter = { _id: id, ...buildTenantFilter(req) };
+        const asset = await Asset.findOne(filter)
+          .populate({ path: 'workOrders', select: 'description status scheduledDate completionDate' })
+          .populate({ path: 'maintenanceSchedule.procedure', select: 'name tasks' });
 
         if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
@@ -133,7 +133,7 @@ assetRouter.get('/:id', async (req, res) => {
 });
 
 // POST: Create an asset
-assetRouter.post('/', authenticateToken, async (req, res) => {
+assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const {
       templateId,
@@ -265,8 +265,60 @@ assetRouter.post('/', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT: Update an asset by ID
+assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'utech'), async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid asset ID format' });
+    }
+
+    try {
+        const updated = await Asset.findOneAndUpdate({ _id: id, ...buildTenantFilter(req) }, req.body, { new: true, runValidators: true });
+        if (!updated) return res.status(404).json({ error: 'Asset not found' });
+
+        res.status(200).json({ message: 'Asset updated successfully', asset: updated });
+    } catch (error) {
+        debug('Error updating asset:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// PATCH: SOFT DELETE / Remove an asset by ID
+assetRouter.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    const tenantFilter = buildTenantFilter(req);
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid asset ID format' });
+    }
+
+    try {
+        //const deletedAsset = await Asset.findByIdAndDelete(id, ...tenantFilter);
+        // instead of findByIdAndDelete
+        const deleted = await Asset.findOneAndUpdate(
+          { _id: id, ...buildTenantFilter(req) },   // filter enforces tenant
+          { 
+            $set: { 
+              deletedAt: new Date(), 
+              deletedBy: req.user.id, 
+              status: 'Archived' 
+            } 
+          },
+          { new: true } // return the updated doc
+        );
+
+        if (!deleted) return res.status(404).json({ error: 'Asset not found' });
+
+        res.status(200).json({ message: 'Asset deleted successfully' });
+    } catch (error) {
+        debug('Error deleting asset:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
 // PATCH: set or clear a parent for a child asset
-assetRouter.patch('/:childId/parent', async (req, res) => {
+assetRouter.patch('/:childId/parent', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { childId } = req.params;
     const { parentAsset, relationToParent } = req.body || {};
@@ -278,8 +330,14 @@ assetRouter.patch('/:childId/parent', async (req, res) => {
       return res.status(400).json({ error: 'Invalid parentAsset format' });
     }
 
-    const child = await Asset.findById(childId);
+    // Ensure both child and (if provided) parent are within tenant scope for customers
+    const child = await Asset.findOne({ _id: childId, ...buildTenantFilter(req) });
     if (!child) return res.status(404).json({ error: 'Child asset not found' });
+
+    if (parentAsset) {
+      const parent = await Asset.findOne({ _id: parentAsset, ...buildTenantFilter(req) });
+      if (!parent) return res.status(404).json({ error: 'Parent asset not found (or not in tenant)' });
+    }
 
     // Optional policy: enforce serial for children
     // if (parentAsset && !child.serialNumber) {
@@ -299,130 +357,14 @@ assetRouter.patch('/:childId/parent', async (req, res) => {
   }
 });
 
-// GET: direct children of an asset
-assetRouter.get('/:id/children', async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-    const children = await Asset.find({ parentAsset: id })
-      .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
-      .lean();
-    res.json(children);
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to list children' });
-  }
-});
-
-// GET: lineage (ancestors up the chain)
-assetRouter.get('/:id/lineage', async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-    const chain = [];
-    let node = await Asset.findById(id).select('parentAsset ctrlNumber').lean();
-    let hops = 0;
-    while (node?.parentAsset && hops < 20) {
-      const parent = await Asset.findById(node.parentAsset)
-        .select('ctrlNumber manufacturer model serialNumber status parentAsset').lean();
-      if (!parent) break;
-      chain.push(parent);
-      node = parent; hops++;
-    }
-    res.json(chain); // nearest parent first
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to get lineage' });
-  }
-});
-
-// GET: small tree (asset + nested children up to ?depth=)
-assetRouter.get('/:id/tree', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const depth = Math.min(parseInt(req.query.depth || '3', 10) || 3, 6); // sane caps
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-
-    async function build(nodeId, level) {
-      const node = await Asset.findById(nodeId)
-        .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
-        .lean();
-      if (!node) return null;
-
-      if (level >= depth) {
-        return { ...node, children: [] };
-      }
-      const kids = await Asset.find({ parentAsset: nodeId })
-        .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
-        .lean();
-
-      const children = [];
-      for (const k of kids) {
-        const sub = await build(k._id, level + 1);
-        if (sub) children.push(sub);
-      }
-      return { ...node, children };
-    }
-
-    const tree = await build(id, 1);
-    if (!tree) return res.status(404).json({ error: 'Asset not found' });
-    res.json(tree);
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to build tree' });
-  }
-});
-
-// PUT: Update an asset by ID
-assetRouter.put('/:id', async (req, res) => {
-    const { id } = req.params;
-    const updatedData = req.body;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-
-    try {
-        const updatedAsset = await Asset.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });
-        if (!updatedAsset) return res.status(404).json({ error: 'Asset not found' });
-
-        res.status(200).json({ message: 'Asset updated successfully', asset: updatedAsset });
-    } catch (error) {
-        debug('Error updating asset:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
-// DELETE: Remove an asset by ID
-assetRouter.delete('/:id', async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-
-    try {
-        const deletedAsset = await Asset.findByIdAndDelete(id);
-        if (!deletedAsset) return res.status(404).json({ error: 'Asset not found' });
-
-        res.status(200).json({ message: 'Asset deleted successfully' });
-    } catch (error) {
-        debug('Error deleting asset:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-});
-
 // DELETE: clear a parent from a child asset
-assetRouter.delete('/:childId/parent', async (req, res) => {
+assetRouter.delete('/:childId/parent', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { childId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(childId)) {
       return res.status(400).json({ error: 'Invalid childId format' });
     }
-    const child = await Asset.findById(childId);
+    const child = await Asset.findById(childId, ...buildTenantFilter(req));
     if (!child) return res.status(404).json({ error: 'Child asset not found' });
 
     // no-op if already null is fine
@@ -436,10 +378,86 @@ assetRouter.delete('/:childId/parent', async (req, res) => {
   }
 });
 
+// GET: direct children of an asset
+assetRouter.get('/:id/children', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid asset ID format' });
+    }
+    // Ensure the root asset is in-tenant
+    const root = await Asset.findOne({ _id: id, ...buildTenantFilter(req) }).lean();
+    if (!root) return res.status(404).json({ error: 'Asset not found' });
+
+    const children = await Asset.find({ parentAsset: id, ...buildTenantFilter(req) })
+      .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
+      .lean();
+    res.json(children);
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to list children' });
+  }
+});
+
+// GET: lineage (ancestors up the chain)
+assetRouter.get('/:id/lineage', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid asset ID format' });
+
+  // validate ownership of starting node
+  let node = await Asset.findOne({ _id: id, ...buildTenantFilter(req) }).select('parentAsset ctrlNumber').lean();
+  if (!node) return res.status(404).json({ error: 'Asset not found' });
+
+  const chain = [];
+  let hops = 0;
+  while (node?.parentAsset && hops < 20) {
+    const parent = await Asset.findOne({ _id: node.parentAsset, ...buildTenantFilter(req) })
+      .select('ctrlNumber manufacturer model serialNumber status parentAsset')
+      .lean();
+    if (!parent) break;
+    chain.push(parent);
+    node = parent; hops++;
+  }
+  res.json(chain);
+});
+
+// GET: small tree (asset + nested children up to ?depth=)
+assetRouter.get('/:id/tree', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const depth = Math.min(parseInt(req.query.depth || '3', 10) || 3, 6);
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid asset ID format' });
+
+  async function build(nodeId, level) {
+    const node = await Asset.findOne({ _id: nodeId, ...buildTenantFilter(req) })
+      .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
+      .lean();
+    if (!node) return null;
+    if (level >= depth) return { ...node, children: [] };
+
+    const kids = await Asset.find({ parentAsset: nodeId, ...buildTenantFilter(req) })
+      .select('ctrlNumber manufacturer model serialNumber status relationToParent parentAsset')
+      .lean();
+
+    const children = [];
+    for (const k of kids) {
+      const sub = await build(k._id, level + 1);
+      if (sub) children.push(sub);
+    }
+    return { ...node, children };
+  }
+
+  const tree = await build(id, 1);
+  if (!tree) return res.status(404).json({ error: 'Asset not found' });
+  res.json(tree);
+});
+
 // Nested router for work orders
-assetRouter.use('/:assetId/workorders', (req, res, next) => {
-    req.assetId = req.params.assetId; // Pass assetId to workOrderRouter
+assetRouter.use('/:assetId/workorders', authenticateToken, async (req, res, next) => {
+    const { assetId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(assetId)) return res.status(400).json({ error: 'Invalid assetId' });
+    const owned = await Asset.exists({ _id: assetId, ...buildTenantFilter(req) });
+    if (!owned) return res.status(404).json({ error: 'Asset not found' });
+    req.assetId = assetId;
     next();
-}, workOrderRouter);
+  }, workOrderRouter);
 
 module.exports = assetRouter;

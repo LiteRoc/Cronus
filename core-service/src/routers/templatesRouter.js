@@ -3,13 +3,14 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const EquipmentTemplate = require('../models/EquipmentTemplate');
 const Asset = require('../models/Asset');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { extractDIFromUDI, fetchDeviceFromGUDID, mapGUDIDToTemplatePayload, fetchClassificationByProductCode } = require('../helpers/templateHelpers');
 
 const router = express.Router();
 const BASE = process.env.FDA_GUDID_BASE || 'https://accessgudid.nlm.nih.gov/api/v2';
 
 // GET: All Templates
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { manufacturer, q, limit = '25', skip = '0' } = req.query;
     const find = {};
@@ -38,37 +39,57 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET: a single template
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
+// GET: a single template (internal only)
+router.get('/:id',
+  authenticateToken,
+  authorizeRoles('admin', 'tech'),
+  async (req, res) => {
+    const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-          return res.status(400).json({ error: 'Invalid asset ID format' });
-      }
-
-  try {
-    const template = await EquipmentTemplate.findById(id);
-    if (!template) return res.status(404).json({ error: 'Template Not Found'});
-
-    res.status(200).json(template);
-  } catch (error) {
-        debug('Error fetching template:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid template ID format' });
     }
+
+    try {
+      const template = await EquipmentTemplate.findById(id).lean();
+      if (!template) return res.status(404).json({ error: 'Template not found' });
+      res.status(200).json(template);
+    } catch (error) {
+      debug('Error fetching template:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+);
+
+// GET: Manufacturers from templates (Admin/User global; Customer optionally scoped)
+router.get('/distinct/manufacturers', authenticateToken, async (req, res) => {
+  try {
+    if (req.user?.role === 'customer') {
+      // Limit to what this customer actually has (optional behavior)
+      const list = await Asset.distinct('manufacturer', { customerId: req.user.customerId });
+      return res.json((list || []).filter(Boolean).sort());
+    }
+    const list = await EquipmentTemplate.distinct('manufacturer');
+    res.json((list || []).filter(Boolean).sort());
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch manufacturers' });
+  }
 });
 
-// GET: distinct manufacturers
-router.get('/distinct/manufacturers', async (_req, res) => {
+// GET: Models from templates (Admin/User global; Customer optionally scoped)
+router.get('/distinct/models', authenticateToken, async (req, res) => {
   try {
-    const list = await EquipmentTemplate.distinct('manufacturer');
-    res.json(list.sort());
+    const { manufacturer } = req.query;
+    if (!manufacturer) return res.status(400).json({ error: 'manufacturer is required' });
+    const list = await EquipmentTemplate.distinct('model', { manufacturer });
+    res.json((list || []).filter(Boolean).sort());
   } catch (e) {
-    res.status(500).json({ error: e.message || 'Failed to fetch manufacturers' });
+    res.status(500).json({ error: 'Failed to fetch models' });
   }
 });
 
 // POST: manual upsert (admin)
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const payload = req.body || {};
 
@@ -105,7 +126,7 @@ router.post('/', async (req, res) => {
 });
 
 // POST: Create an Asset/Template from DI or UDI  (no transactions)
-router.post('/from-di-or-udi', async (req, res) => {
+router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { di: rawDi, udi, createAsset = false, asset: assetInput = {} } = req.body || {};
     let di = rawDi;
@@ -253,7 +274,7 @@ router.post('/from-di-or-udi', async (req, res) => {
 });
 
 // POST: create/upsert from DI or UDI
-router.post('/from-di', async (req, res) => {
+router.post('/from-di', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { di: rawDi, udi } = req.body || {};
     let di = rawDi;
@@ -318,7 +339,7 @@ router.post('/from-di', async (req, res) => {
 });
 
 // PATCH: Sync/Update and existing template from GUDID
-router.patch('/:id/sync-gudid', async (req, res) => {
+router.patch('/:id/sync-gudid', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { id } = req.params;
     const { di, udi } = req.body || {};
@@ -408,7 +429,7 @@ router.patch('/:id/sync-gudid', async (req, res) => {
 });
 
 // PUT: Update a Template
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body;
 
@@ -427,21 +448,19 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE: Remove and asset by ID
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-
+// PATCH: SOFT DELETE / Remove and asset by ID
+router.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const deletedTemplate = await EquipmentTemplate.findByIdAndDelete(id);
+    const deletedTemplate = await EquipmentTemplate.findByIdAndUpdate(
+            { _id: req.params.id },
+            { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Archived', updatedBy: req.user.id } },
+            { new: true }
+    );
     if (!deletedTemplate) return res.status(404).json({ error: 'Template not found' });
 
-    res.status(200).json({ message: "Template deleted successfull" });
+    res.status(200).json({ message: "Template achived successfull" });
   } catch (error) {
-    debug('Error deleting asset:', error);
+    debug('Error achiving Template:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

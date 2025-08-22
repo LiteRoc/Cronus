@@ -13,6 +13,9 @@ const MaintenanceScheduleSchema = new Schema({
 
 /** Base Asset schema (template‑first + parent/child) */
 const AssetSchema = new Schema({
+  // Location
+  facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
+  departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
   // Identity
   ctrlNumber: { type: String, required: true, trim: true, unique: true, index: true },
   templateId: { type: Schema.Types.ObjectId, ref: 'EquipmentTemplate', default: null },
@@ -69,6 +72,10 @@ const AssetSchema = new Schema({
   // Audit
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+
+  // Soft-delete metadata
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -83,7 +90,15 @@ AssetSchema.virtual('children', {
 });
 
 /** Indexes */
+AssetSchema.index({ facilityId: 1, departmentId: 1, ctrlNumber: 1 });
+
+// Parent/child lookups (children, lineage, tree)
 AssetSchema.index({ parentAsset: 1 });
+
+// Soft‑delete auditing + common lookups
+AssetSchema.index({ deletedAt: 1 });
+
+// Extras
 AssetSchema.index({ serialNumber: 1 }, { sparse: true });
 AssetSchema.index({ templateId: 1 });
 

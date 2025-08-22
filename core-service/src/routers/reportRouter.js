@@ -1,4 +1,6 @@
 const express = require('express');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 const { generatePDF, generateWorkOrderReport, generateWorkOrderPDF } = require('../services/reportingService');
 const debug = require('debug')('app:reportRouter');
 const WorkOrder = require('../models/WorkOrder');
@@ -28,9 +30,10 @@ const buildQuery = (queryParams) => {
 };
 
 // GET: PDF Work Order Report
-reportRouter.get('/workorders/pdf', async (req, res) => {
+reportRouter.get('/workorders/pdf', [authenticateToken, authorizeRoles('admin', 'tech', 'customer')], async (req, res) => {
     try {
-        const query = buildQuery(req.query);
+        const filter = buildTenantFilter(req);
+        const query = { ...filter, ...buildQuery(req.query) };
         const workOrders = await WorkOrder.find(query).populate('assetId', 'ctrlNumber manufacturer model');
         
         if (!workOrders.length) {
@@ -48,13 +51,22 @@ reportRouter.get('/workorders/pdf', async (req, res) => {
 });
 
 // GET: Excel Work Order Report
-reportRouter.get('/workorders/excel', async (req, res) => {
+reportRouter.get('/workorders/excel', authenticateToken, authorizeRoles('admin', 'tech', 'customer'), async (req, res) => {
     try {
-        const query = buildQuery(req.query);
+        const filter = buildTenantFilter(req);
+        const query = { ...filter, ...buildQuery(req.query) };
         const workOrders = await WorkOrder.find(query).populate('assignedTo', 'username');
 
         if (!workOrders.length) {
             return res.status(404).send('No work orders found for the given criteria.');
+        }
+
+        // Avoid any non-customer-specific fields
+        if (req.user.role === 'customer') {
+            workOrders.forEach(wo => {
+                wo.timeLogs = undefined; // or just anonymize names
+                wo.internalNotes = undefined;
+            });
         }
 
         await generateWorkOrderReport(workOrders, res);
@@ -65,12 +77,13 @@ reportRouter.get('/workorders/excel', async (req, res) => {
 });
 
 // GET: Get filtered asset in excel
-reportRouter.get('/assets/excel', async (req, res) => {
+reportRouter.get('/assets/excel', [authenticateToken, authorizeRoles('admin', 'tech', 'customer')], async (req, res) => {
     try {
+        const filter = buildTenantFilter(req);
         const { status, category, maintenanceDueBefore } = req.query;
 
         // Build dynamic filters based on query parameters
-        const filters = {};
+        const filters = { ...filter };
         if (status) filters.status = status;
         if (category) filters.category = category;
         if (maintenanceDueBefore) {
@@ -131,12 +144,13 @@ reportRouter.get('/assets/excel', async (req, res) => {
 });
 
 // GET: Generate a single Work Order Report downloaded from the browser
-reportRouter.get('/workorders/:workOrderNumber/pdf', async (req, res) => {
+reportRouter.get('/workorders/:workOrderNumber/pdf', [authenticateToken, authorizeRoles('admin', 'tech', 'customer')], async (req, res) => {
     const { workOrderNumber } = req.params;
+    const filter = buildTenantFilter(req);
 
     try {
         // Fetch the work order by its readable workOrderNumber
-        const workOrder = await WorkOrder.findOne({ workOrderNumber }).populate('assetId').populate('assignedTo').populate({
+        const workOrder = await WorkOrder.findOne({ ...filter, workOrderNumber }).populate('assetId').populate('assignedTo').populate({
             path: 'procedure',
             populate: { path: 'tasks' },
         });
@@ -168,12 +182,13 @@ reportRouter.get('/workorders/:workOrderNumber/pdf', async (req, res) => {
 
 
 // POST: Generate Single Work Order Report
-reportRouter.post('/workorders/:workOrderNumber/pdf', async (req, res) => {
+reportRouter.post('/workorders/:workOrderNumber/pdf', [authenticateToken, authorizeRoles('admin', 'tech', 'customer')], async (req, res) => {
     try {
         const { workOrderNumber } = req.params;
+        const filter = buildTenantFilter(req);
 
         // Fetch the work order with detailed information
-        const workOrder = await WorkOrder.findOne({ workOrderNumber })
+        const workOrder = await WorkOrder.findOne({ ...filter, workOrderNumber })
             .populate('assetId')
             .populate('assignedTo')
             .populate('procedure');

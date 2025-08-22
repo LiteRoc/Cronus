@@ -1,8 +1,8 @@
-# Project: AegisOps
+# Project: Cronus
 
 ## Overview
 
-AegisOps is a comprehensive operational management system designed for tracking assets, managing work orders, scheduling maintenance, and generating reports. Built with a React frontend, Node.js backend, and MongoDB database, the system offers flexibility for future expansion beyond just maintenance workflows.
+Cronus is a comprehensive operational management system designed for tracking assets, managing work orders, scheduling maintenance, and generating reports. Built with a React frontend, Node.js backend, and MongoDB database, the system offers flexibility for future expansion beyond just maintenance workflows.
 
 ---
 

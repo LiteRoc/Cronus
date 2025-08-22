@@ -56,9 +56,9 @@ const taskRouter = require('./src/routers/taskRouter');
 const dashboardRouter = require('./src/routers/dashboardRouter');
 const { title } = require('process');
 const vendorRouter = require('./src/routers/vendorRouter');
-const customerRouter = require('./src/routers/customerRouter');
 const contractRouter = require('./src/routers/contractRouter');
 const contractAnalysisRouter = require('./src/routers/contractAnalysisRouter');
+const portalRouter = require('./src/routers/portalRouter');
 
 // View Engine
 app.set('views', './src/views');
@@ -98,9 +98,9 @@ app.use('/procedures', procedureRouter);
 app.use('/tasks', taskRouter);
 app.use('/dashboard', dashboardRouter);
 app.use('/vendors', vendorRouter);
-app.use('/customer', customerRouter);
 app.use('/contracts', contractRouter);
 app.use('/contract-analysis', contractAnalysisRouter);
+app.use('/portal/', portalRouter);
 
 scheduleMaintenanceJobs();
 
