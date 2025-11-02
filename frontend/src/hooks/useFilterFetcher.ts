@@ -1,3 +1,6 @@
+// Deprecated
+// grep -R "useFilterFetcher" src/
+
 import { useFilteredStore } from "./useFilteredStore";
 import { fetchAssets } from "../services/assetAPI";
 import { fetchWorkOrders } from "../services/workOrderAPI";

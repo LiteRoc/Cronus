@@ -1,47 +1,95 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { FaTools, FaBoxes, FaUserShield, FaClipboardList, FaFileContract } from 'react-icons/fa';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FiLogOut } from 'react-icons/fi';
+import { logoutUser } from '../services/authAPI';
+import { useUser } from '../context/UserContext';
+import { useFacility } from '../context/FacilityContext';
+import { useSidebarLinks } from '../hooks/useSidebarLinks';
 
 const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, setUser } = useUser() || {};
+  const links = useSidebarLinks(user?.role ?? "viewer");
+  const { selectedFacilityId, setSelectedFacilityId, availableFacilities } = useFacility();
+  //console.log("availableFacilities:", availableFacilities);
+
+  const handleFacilityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newId = e.target.value;
+    setSelectedFacilityId(newId); // ✅ this will now also save to localStorage
+  };
+
+  const name = user?.name;
+  const username = user?.username;
+  const role = user?.role;
 
   const linkClasses = (path: string) =>
     `flex items-center p-2 rounded hover:bg-gray-700 ${
       location.pathname.startsWith(path) ? 'bg-gray-700 font-semibold' : ''
     }`;
 
-    console.log('SIDEBAR route is:', location.pathname);
+  const handleLogout = () => {
+    logoutUser();
+    setUser(null);
+    navigate('/signin');
+  };
 
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 text-white p-4">
-        <div className="text-2xl font-bold mb-6">AegisOps</div>
-        <nav className="flex flex-col space-y-3">
-          <Link to="/assets" className={linkClasses('/assets')}>
-            <FaBoxes className="mr-2" /> Assets
-          </Link>
-          <Link to="/workorders" className={linkClasses('/workorders')}>
-            <FaClipboardList className="mr-2" /> Work Orders
-          </Link>
-          <Link to="/parts" className={linkClasses('/parts')}>
-            <FaTools className="mr-2" /> Parts
-          </Link>
-          <p className="text-xs font-semibold text-gray-500 mt-6 mb-2 px-3">Management</p>
-          <Link to="/contracts" className="flex items-center p-2 rounded bg-red-600 text-white">
-            <FaFileContract className="mr-2" /> Contracts
-          </Link>
-          {/*<Link to="/contracts" className={linkClasses('/contracts')}>
-            <FaFileContract className="mr-2" /> Contracts
-          </Link>*/}
-          <Link to="/admin" className={linkClasses('/admin')}>
-            <FaUserShield className="mr-2" /> Admin
-          </Link>
-        </nav>
+      <aside className="w-64 bg-gray-800 text-white flex flex-col justify-between p-4 h-screen overflow-hidden">
+        {/* Top section (welcome + nav) */}
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Welcome, {name || username}</h1>
+
+          {(role === "admin" || role === "technician") && (
+            <p className="text-xs text-gray-400 italic mb-4">{role}</p>
+          )}
+          {/* Facility switcher */}
+          {availableFacilities.length > 1 && (
+            <div className="mb-4">
+              <label htmlFor="facility" className="block text-xs text-gray-400 mb-1">
+                Current Facility:
+              </label>
+              <select
+                id="facility"
+                className="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedFacilityId || ""}
+                onChange={handleFacilityChange}
+              >
+                {availableFacilities.map((facility) => (
+                  <option key={facility._id} value={facility._id}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/*<div className="text-2xl font-bold mb-6">Cronus</div>*/}
+          <nav className="flex flex-col space-y-2">
+            {links.map(({ to, label, icon }) => (
+              <Link key={to} to={to} className={linkClasses(to)}>
+                {icon} {label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+
+        {/* Bottom section (logout) */}
+        <div className="pt-6">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 justify-center py-2 px-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded"
+          >
+            <FiLogOut /> Logout
+          </button>
+        </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 p-6 bg-gray-100">{children}</main>
+
+      {/* Main Content */}
+      <main className="flex-1 h-screen overflow-y-auto p-6 bg-gray-100">{children}</main>
     </div>
   );
 };

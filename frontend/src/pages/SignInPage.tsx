@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import apiClient from "../services/apiClient";
+import { loginUser } from "../services/authAPI";
 import axios from 'axios';
 import { useUser } from "../context/UserContext";
+import { useFacility } from "../context/FacilityContext";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -11,41 +12,33 @@ export default function SignInPage() {
   const navigate = useNavigate();
   const { setUser } = useUser();
 
+  const { setSelectedFacilityId, setAvailableFacilities } = useFacility();
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Attempting to sign in with:", { email, password });
+    setError(null);
+
     try {
-      const response = await apiClient.post("/auth/login", { email, password }); // Adjust the endpoint as needed
-      // Always log the raw response first so we can see its shape:
-      console.log("Raw login response:", response.data);
+      const { token, user } = await loginUser(email, password);
+      
+      localStorage.setItem("token", token);
+      console.log("user token:", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      console.log("User:", JSON.stringify(user));
 
-      const userId = response.data.user.id; // Extract the id from the payload
-
-      console.log("Response from backend:", response.data);
-      console.log('User ID from backend:', userId);
-
-      console.log('Before setUserId call:', userId);
-      setUser({
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-        role: response.data.user.role,
-        username: response.data.user.username,
-      }); // Set the userId in UserContext
-      console.log('After setUserId call:', userId);
-      localStorage.setItem("token", response.data.token); // Save token in local storage
-
-      console.log('User ID set in context:', userId);
-
-      console.log("navigating to dashboard...");
-      navigate("/dashboard"); // Redirect on successful login
+      setUser(user);
+      setSelectedFacilityId(user.facilityId ?? "");
+      setAvailableFacilities(user.facilities ?? []);
+      
+      //console.log('User received from backend:', user);
+      navigate("/dashboard");
     } catch (err: unknown) {
-        if (axios.isAxiosError(err)) {
-            setError(err.response?.data?.message || "Sign-in failed. Try again.");
-          } else {
-            setError("An unexpected error occurred.");
-          }
-      //setError(err.response?.data?.message || "Sign-in failed. Try again.");
+      console.error("Login error:", err);
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.message || "Sign-in failed. Try again.");
+      } else {
+        setError("An unexpected error occurred.");
+      }
     }
   };
 

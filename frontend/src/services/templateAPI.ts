@@ -1,4 +1,4 @@
-import { EquipmentTemplate, TemplateListResponse } from "../types/types";
+import { EquipmentTemplate, TemplateListResponse } from "@/types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
 

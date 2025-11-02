@@ -1,21 +1,36 @@
-**/.classpath
-**/.dockerignore
-**/.env
-**/.git
-**/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/charts
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
-LICENSE
-README.md
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Logs and OS junk
+*.log
+.DS_Store
+Thumbs.db
+
+# Version control
+.git
+.gitignore
+
+# Build artifacts
+dist
+build
+*.tsbuildinfo
+
+# IDE and tooling config
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Docker-specific
+Dockerfile*
+docker-compose*.yaml
+.env
+
+# Temporary/dev files
+*.swp
+*.tmp

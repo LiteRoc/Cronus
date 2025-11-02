@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Modal from "../../../components/Modal"; // Shared modal
-import { addAsset, getAssetTypes } from "../../../services/assetAPI";
-import { getTemplates, getTemplateById } from "../../../services/templateAPI";
-import { EquipmentTemplate, TemplateListResponse } from "../../../types/types";
+import Modal from "@/components/Modal"; // Shared modal
+import { getTemplates, getTemplateById, getDepartmentsByFacility, addAsset } from "@/services";
+import { Department, EquipmentTemplate, TemplateListResponse } from "@/types";
 import CreateAssetFromUdiModal from "./CreateAssetFromUdiModal";
+import { useFacility } from "@/context/FacilityContext";
 
-interface Props {
+interface CreateAssetModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCreated: () => void;
 }
 
-const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
-  const [kind, setKind] = useState('');
+const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ isOpen, onClose, onCreated }) => {
+  
+  const { selectedFacilityId } = useFacility();
+
+  const navigate = useNavigate();
+  
   const [ctrlNumber, setCtrlNumber] = useState('');
-  const [macAddress, setMacAddress] = useState('');
   const [manufacturer, setManufacturer] = useState('');
   const [model, setModel] = useState('');
-  const [facility, setFacility] = useState('');
-  const [department, setDepartment] = useState('');
-  const [locationNote, setLocationNote] = useState('');
+  const [description, setDescription] = useState("");
   const [serialNumber, setSerialNumber] = useState('');
-  const [assetTypes, setAssetTypes] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const navigate = useNavigate();
+  
   const [templates, setTemplates] = useState<TemplateListResponse>();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [selectedDept, setSelectedDept] = useState<string>("");
 
   const [isUdiModalOpen, setIsUdiModalOpen] = useState(false);
 
@@ -37,23 +41,22 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
     fetchTemplates();
   }, []);
 
-  /*useEffect(() => {
-    getAssetTypes().then((res) => {
-        setAssetTypes(res);
-    }).catch((err) => {
-        console.error('Error fetching asset types:', err);
-        setAssetTypes(['GenericAsset']); // fallback
-    });
-    }, []);*/
-
     useEffect(() => {
       const selected = templates?.templates.find(t => t._id === selectedTemplateId);
       if (selected) {
-        setKind(selected.kind || 'GenericAsset');
         setManufacturer(selected.manufacturer || '');
         setModel(selected.model || '');
+        setDescription(selected.description || '');
       }
     }, [selectedTemplateId]);
+
+    useEffect(() => {
+      if (isOpen && selectedFacilityId) {
+        getDepartmentsByFacility(selectedFacilityId)
+          .then(setDepartments)
+          .catch((err) => console.error("Error fetching departments:", err));
+      }
+    }, [isOpen, selectedFacilityId]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,15 +75,19 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
       }
 
       // Build payload from state
-      const base = {
+      const payload = {
         templateId: selectedTemplateId,
-        kind, manufacturer, model, ctrlNumber,                    // required by base schema
-        facility, department, locationNote,
+        manufacturer: manufacturer,
+        model: model,
+        description: description,
+        ctrlNumber: ctrlNumber,                    // required by base schema
+        facilityId: selectedFacilityId,
+        departmentId: selectedDept,
         ...(serialNumber ? { serialNumber } : {}),
       };
 
       // Add kind-specific fields
-      const payload =
+      /*const payload =
         kind === 'TempSensor'
           ? {
               ...base,
@@ -90,13 +97,17 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 .replace(/[-;.\s]/g, ':')
                 .toUpperCase(),
             }
-          : base;
+          : base;*/
+
+      console.log("New Asset:", payload);
 
       const res = await addAsset(payload);
       const id = res?.asset?._id ?? res?._id;
 
       if (!id) throw new Error('No asset id returned from server');
 
+      onCreated();
+      resetForm();
       onClose();
       navigate(`/assets/edit/${id}`);
     } catch (err: any) {
@@ -114,6 +125,15 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setCtrlNumber("");
+    setManufacturer("");
+    setModel("");
+    setDescription("");
+    setSerialNumber("");
+    setSelectedDept("");
   };
 
   if (!isOpen) return null;
@@ -138,21 +158,22 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
             ))}
           </select>
 
-          {/*<div>
-            <label className="block text-sm font-medium">Asset Type</label>
+          <div>
+            <label className="block text-sm font-medium">Department</label>
             <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value)}
-              className="border rounded px-3 py-2 w-full"
-              required
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="mt-1 block w-full rounded border px-2 py-1"
             >
-              <option value="">-- Select Type --</option>
-              {assetTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
+              <option value="">-- Select Department --</option>
+              {departments.map((dept) => (
+                <option key={dept._id} value={dept._id}>
+                  {dept.name}
+                </option>
               ))}
             </select>
-          </div>*/}
-
+          </div>
+          
           <div>
             <label className="block text-sm font-medium">Tag#</label>
             <input
@@ -185,50 +206,28 @@ const CreateAssetModal: React.FC<Props> = ({ isOpen, onClose }) => {
               required
             />
           </div>
-          
-          {/* Optional for TempSensors */}
+
           <div>
-            <label className="block text-sm font-medium">
-              Serial Number {kind === 'TempSensor' && <span className="text-gray-400">(optional)</span>}
-            </label>
+            <label className="block text-sm font-medium">Description</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="border rounded px-3 py-2 w-full"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium">Serial#</label>
             <input
               type="text"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
               className="border rounded px-3 py-2 w-full"
-              required={kind !== 'TempSensor'}   // 🔑 toggles required
+              required
             />
           </div>
-          
-          {/*  or I could do it this way */}
-          {/* Serial Number (not for TempSensor) */}
-          {/*{kind !== 'TempSensor' && (
-            <div>
-              <label className="block text-sm font-medium">Serial Number</label>
-              <input
-                type="text"
-                value={serialNumber}
-                onChange={(e) => setSerialNumber(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
-                required     // required for non-TempSensor kinds
-              />
-            </div>
-          )}*/}
-
-
-          {/* MAC Address only if TempSensor */}
-          {kind === 'TempSensor' && (
-            <>
-              <label className="block text-sm font-medium">MAC Address</label>
-              <input
-                type="text"
-                value={macAddress}
-                onChange={(e) => setMacAddress(e.target.value)}
-                className="border rounded px-3 py-2 w-full"
-                required
-              />
-            </>
-          )}
 
           <>
             <button onClick={() => setIsUdiModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded">

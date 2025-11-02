@@ -1,20 +1,45 @@
-import axios from "axios";
-import { Asset, Procedure } from "../types/types";
+import { Asset, Procedure } from "../types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
 
-const API = axios.create({
-  baseURL: "http://localhost:4000/", // Backend API URL
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-export const fetchAssets = async (queryParams?: Record<string, string>) => {
-  const query = new URLSearchParams(queryParams).toString();
-  const response = await apiClient.get(`/assets?${query}`);
-  return response.data;
+// Define filters shape (same as in useFilteredStore)
+interface AssetFilters {
+  manufacturer?: string;
+  model?: string;
+  status?: string;
+  search?: string;
 }
+
+// Response shape returned by backend
+interface AssetListResponse {
+  assets: Asset[];
+  totalPages: number;
+  currentPage: number;
+  totalAssets: number;
+}
+
+/**
+ * Fetch paginated assets with optional filters and facilityId
+ */
+export const fetchAssets = async (
+  facilityId: string | null,
+  filters: AssetFilters,
+  page: number = 1,
+  limit: number = 10 // now dynamic
+): Promise<AssetListResponse> => {
+  const params: Record<string, any> = {
+    page,
+    limit,          // pass pageSize dynamicall
+    ...filters,
+  };
+
+  if (facilityId) {
+    params.facilityId = facilityId;
+  }
+
+  const response = await apiClient.get<AssetListResponse>("/assets", { params });
+  return response.data;
+};
 
 export const getTestEquip = async (): Promise<Asset[]> => {
   const response = await apiClient.get<Asset[]>(`/assets/test-equipment`);
@@ -44,7 +69,7 @@ export const getAssetById = async (id: string): Promise<Asset> => {
 };
 
 export async function createAsset(payload: Partial<Asset>): Promise<WithDuplicate<Asset>> {
-  const { data } = await API.post("/assets", payload);
+  const { data } = await apiClient.post("/assets", payload);
   return data; // includes duplicateOf/warning if present
 }
 
@@ -65,7 +90,7 @@ export const fetchManufacturers = async () => {
 
 export const fetchModels = async (manuf: string) => {
   try {
-    const response = await API.get(`assets/distinct/models?manufacturer=${manuf}`);
+    const response = await apiClient.get(`assets/distinct/models?manufacturer=${manuf}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching Models', error);
@@ -75,7 +100,7 @@ export const fetchModels = async (manuf: string) => {
 
 export const fetchProcdures = async (): Promise<Procedure[]> => {
   try {
-    const response = await API.get(`/procedures`);
+    const response = await apiClient.get(`/procedures`);
     return response.data;
   } catch (error) {
     console.error('Error fetching procedures:', error);
@@ -85,13 +110,13 @@ export const fetchProcdures = async (): Promise<Procedure[]> => {
 
 // Update asset
 /*export const updateAsset = async (id: string, updatedAsset: Partial<Asset>) => {
-  await API.put(`/assets/${id}`, updatedAsset);
+  await apiClient.put(`/assets/${id}`, updatedAsset);
 };*/
 
 // Update Asset with Duplicate detection
 export async function updateAsset(id: string, payload: Partial<Asset>): Promise<WithDuplicate<Asset>> {
-  const { data } = await API.put(`/assets/${id}`, payload);
+  const { data } = await apiClient.put(`/assets/${id}`, payload);
   return data;
 }
 
-export default API;
+export default apiClient;

@@ -1,3 +1,5 @@
+// src/utils/updateNestedFields.ts
+
 /**
  * Immutably updates a nested field in an object using dot notation.
  * Example: updateNestedField(asset, "maintenanceSchedule.frequency", "Monthly")
@@ -11,7 +13,7 @@
 *  return copy;
 *}
 */
-export function updateNestedField<T extends object>(
+/*export function updateNestedField<T extends object>(
   obj: T,
   fieldPath: string,
   value: any
@@ -30,4 +32,37 @@ export function updateNestedField<T extends object>(
   }
 
   return { ...obj, ...nestedUpdate };
+}*/
+export function updateNestedField<T extends object>(
+  obj: T,
+  fieldPath: string,
+  value: any
+): T {
+  const keys = fieldPath.split(".");
+
+  const clone = structuredClone(obj); // deep clone (Node 17+/modern browsers)
+  let current: any = clone;
+
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const isArrayIndex = /^\d+$/.test(key);
+
+    if (isArrayIndex) {
+      const idx = Number(key);
+      current = current[idx];
+    } else {
+      if (!(key in current)) current[key] = {};
+      current = current[key];
+    }
+  }
+
+  const lastKey = keys[keys.length - 1];
+  const isArrayIndex = /^\d+$/.test(lastKey);
+  if (isArrayIndex) {
+    current[Number(lastKey)] = value;
+  } else {
+    current[lastKey] = value;
+  }
+
+  return clone;
 }

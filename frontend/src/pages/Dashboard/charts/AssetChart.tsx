@@ -17,8 +17,7 @@ interface Props {
 
 const AssetChart: React.FC<Props> = ({ assetSummary, onClick }) => {
   const data = [
-    { name: "Active", value: assetSummary.active },
-    { name: "Inactive", value: assetSummary.inactive },
+    { name: "Total Assets", value: assetSummary.total },
     { name: "Due for Maintenance", value: assetSummary.upcomingMaintenance },
   ];
 

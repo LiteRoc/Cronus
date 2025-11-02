@@ -1,82 +1,50 @@
-import { useEffect, useState } from "react";
-import { WorkOrder } from "../../types/types";
-import { getWorkOrderById } from "../../services/workOrderAPI";
-import { useWorkOrderActions } from "./useWorkOrderActions";
-import { toast } from "react-toastify";
+import { useState } from "react";
+import useSWR from "swr";
+import { WorkOrder } from "@/types";
+import { fetchWorkOrder, updateWorkOrder } from "@/services";
+import { updateNestedField } from "@/utils/updateNestedField";
 
 export const useWorkOrderForm = (workOrderId: string) => {
-  const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const { data: workOrder, error, isLoading, mutate } = useSWR(
+    workOrderId ? ['workorder', workOrderId] : null,
+    ([, id]) => fetchWorkOrder(id!)
+  );
+
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const { saveWorkOrder } = useWorkOrderActions();
-
-  const fetchWorkOrder = async () => {
-      if (!workOrderId) return;
-      try {
-        const data = await getWorkOrderById(workOrderId);
-        setWorkOrder(data);
-      } catch (err) {
-        console.error("Error loading work order:", err);
-        setError("Failed to load work order.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-  useEffect(() => {
-    fetchWorkOrder();
-  }, [workOrderId]);
-
-  const handleChange = (field: keyof WorkOrder, value: any) => {
-    setWorkOrder((prev) => (prev ? { ...prev, [field]: value } : prev));
-  };
-
-  const updateNestedField = (fieldPath: string, value: any) => {
-    setWorkOrder((prev) => {
-      if (!prev) return prev;
-
-      const keys = fieldPath.split(".");
-      const updated = { ...prev };
-      let current: any = updated;
-
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
-      }
-
-      current[keys[keys.length - 1]] = value;
+  const saveWorkOrder = async (updates: Partial<any>) => {
+    try {
+      setIsSaving(true);
+      const updated = await updateWorkOrder(workOrderId, updates);
+      mutate(updated, false); // update local cache without re-fetch
       return updated;
-    });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const save = async (): Promise<boolean> => {
-  if (!workOrder) return false;
-  setIsSaving(true);
-  try {
-    const result = await saveWorkOrder(workOrder);
-    // console.log("Save response:", result);
-    // Optional: Add validation if result has a status code or error field
-    return true;
-  } catch (error) {
-    console.error("Save failed:", error);
-    toast.error("Failed to save work order.");
-    return false;
-  } finally {
-    setIsSaving(false);
-  }
-};
+  // use on flat fields ... status, priority, description
+  const handleChange = (field: keyof WorkOrder, value: any) => { 
+    if (!workOrder) return;
+    mutate({ ...workOrder, [field]: value }, false);
+  };
+
+  // use for nested structures ... procedure.taskResults[0].value or partsUsed[2].quantity
+  const updateField = (fieldPath: string, value: any) => { 
+    if (!workOrder) return;
+    const updated = updateNestedField(workOrder, fieldPath, value);
+    mutate(updated, false);
+  };
 
   return {
     workOrder,
     isLoading,
+    isError: !!error,
     isSaving,
-    error,
-    handleChange,
-    updateNestedField,
-    save,
-    setWorkOrder,
-    fetchWorkOrder
+    handleChange, // flat fields
+    updateField, // nested fields
+    saveWorkOrder,
+    mutate
   };
-};
+}

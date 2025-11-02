@@ -1,3 +1,6 @@
+// Deprecated -> delete
+// grep -R "useFilteredData" src/
+
 import { useState } from "react";
 import { Asset, WorkOrder } from "../types/types";
 import { isAssetArray, isWorkOrderArray } from "../utils/typeGuards";

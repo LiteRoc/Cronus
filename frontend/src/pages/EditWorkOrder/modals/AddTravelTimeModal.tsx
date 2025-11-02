@@ -1,11 +1,16 @@
+//src/pages/EditWorkOrder/modals/AddTravelTimeModal.tsx
+
 import React from "react";
-import Modal from "../../../components/Modal"; // Assuming a shared Modal component
+import Modal from "@/components/Modal"; // Assuming a shared Modal component
 
 const AddTravelTimeModal: React.FC<{
   travelTime: number;
+  travelNote: string;
   setTravelTime: (time: number) => void;
+  setTravelNote: (note: string) => void;
   onClose: () => void;
-}> = ({ travelTime, setTravelTime, onClose }) => {
+}> = ({ travelTime, travelNote, setTravelTime, setTravelNote, onClose }) => {
+  
   return (
     <Modal isOpen={true} onClose={onClose} title="Add Travel Time">
       <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -17,6 +22,11 @@ const AddTravelTimeModal: React.FC<{
             value={travelTime}
             onChange={(e) => setTravelTime(Number(e.target.value))}
             className="border p-2 rounded w-full"
+          />
+          <textarea
+            value={travelNote}
+            onChange={(e) => setTravelNote(e.target.value)}
+            placeholder="Travel Note (optional)"
           />
         </div>
         <div className="flex space-x-4">

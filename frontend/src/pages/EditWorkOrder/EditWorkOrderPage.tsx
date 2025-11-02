@@ -1,239 +1,268 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { useWorkOrderForm } from "../../hooks/workorders/useWorkOrderForm";
-import { useWorkOrderLogs } from "../../hooks/workorders/useWorkOrderLogs";
-import { useUser } from "../../context/UserContext";
+//src/pages/EditWorkOrder/EditWorkOrderPage.tsx
+
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useWorkOrderForm } from "@/hooks/workorders/useWorkOrderForm";
+import { useWorkOrderActions } from "@/hooks/workorders/useWorkOrderActions";
 import WorkOrderFormFields from "./components/WorkOrderFormFields";
-import PartsUsedSection from "./components/PartsUsedSection";
+import { FaArrowLeft } from "react-icons/fa";
 import TimeAndTravelLogs from "./components/TimeAndTravelLogs";
-import ProcedureTaskResults from "./components/ProcedureTaskResults";
-import TestEquipmentSection from "./components/TestEquipmentSection";
-import { formatDate } from "../../utils/DashboardUtils";
+import { useUser } from "@/context/UserContext";
+import { Button, FormCard } from "@/components/ui";
 import AddTimeLogModal from "./modals/AddTimeLogModal";
-import AddPartModal from "./modals/AddPartModal";
-import { calculateTimeTotals, calculateTravelTotals } from "../../utils/logHelpers";
-import { useWorkOrderParts } from "../../hooks/workorders/useWorkOrderParts";
-import { useWorkOrderProcedure } from "../../hooks/workorders/useWorkOrderProcedure";
-import AddProcedureModal from "./modals/AddProcedureModal";
-import AddTestEquipmentModal from "./modals/AddTestEquipmentModal";
-import { useTestEquipment } from "../../hooks/workorders/useTestEquipment";
+import ProcedureTaskResults from "./components/ProcedureTaskResults";
 import PerformProcedureModal from "./modals/PerformProcedureModal";
-import ViewTaskResultsModal from "./modals/ViewTaskResutsModal";
+import AddProcedureModal from "./modals/AddProcedureModal";
+import ViewTaskModal from "./modals/ViewTaskResutsModal";
+import { useProcedureById, useProcedures } from "@/hooks/useProcedures";
+import PartsUsedSection from "./components/PartsUsedSection";
+import { usePartById, useParts } from "@/hooks/useParts";
+import AddPartModal from "./modals/AddPartModal";
+import TestEquipmentSection from "./components/TestEquipmentSection";
+import { tr } from "date-fns/locale";
+import { removeTestEquipFromWorkOrder } from "@/services";
+import AddTestEquipmentModal from "./modals/AddTestEquipmentModal";
+import { useTestEquipment } from "@/hooks/useTestEquipment";
 
 const EditWorkOrderPage: React.FC = () => {
-  const { id: workOrderId } = useParams();
+  const { id: workOrderId } = useParams<{ id: string }>();
   const { user } = useUser();
-
-  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
-  const [isPartModalOpen, setIsPartModalOpen] = useState(false);
-  const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
-  const [isTestEquipModalOpen, setIsTestEquipModalOpen] = useState(false);
-  const [showPerformModal, setShowPerformModal] = useState(false);
-  const [showResultsModal, setShowResultsModal] = useState(false);
-
+  const userId = (user as any)?._id || (user as any)?.id || "";
   const navigate = useNavigate();
+
+  const [isAddLogModalOpen, setIsAddLogModalOpen] = useState(false);
+  const [isShowPerformModalOpen, setShowPerformModalOpen] = useState(false);
+  const [isShowResultsModalOpen, setShowResultsModalOpen] = useState(false);
+  const [showAddProcedureModal, setShowAddProcedureModal] = useState(false);
+  const [selectedProcedureId, setSelectedProcedureId] = useState<string | null>(null);
+  const [showAddPartModal, setShowAddPartModal] = useState(false);
+  const [showAddTestEquipModal, setShowAddTestEquipModal] = useState(false);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+
+
 
   const {
     workOrder,
     isLoading,
-    isSaving,
-    error,
+    isError,
     handleChange,
-    save,
-    fetchWorkOrder
+    updateField,
+    mutate
   } = useWorkOrderForm(workOrderId || "");
 
-  useEffect(() => {
-    fetchWorkOrder();
-  }, [workOrderId]);
+  const {
+    addTimeLog,
+    updateTimeLog,
+    deleteTimeLog,
+    addTravelLog,
+    updateTravelLog,
+    deleteTravelLog,
+    deleteProcedure,
+    attachProcedure,
+    updateTaskResults,
+    addPart,
+    deletePart,
+    addTestEquip,
+    deleteTestEquip,
+    // plus others: assignProcedureToWorkOrder, addPartUsed, etc.
+  } = useWorkOrderActions(mutate);
 
-  const timeSummary = calculateTimeTotals(workOrder?.timeLogs || []);
-  const travelSummary = calculateTravelTotals(workOrder?.travelLogs || []);
+  const { procedures } = useProcedures();
+  //const { procedure: selectedProcedure } = useProcedureById(selectedProcedureId);
+  const selectedProcedure = workOrder?.procedures?.find(
+    (p) => p._id === selectedProcedureId
+  );
 
 
-  const { addLog, editTimeLog, editTravelLog, removeTimeLog, removeTravelLog } = useWorkOrderLogs(workOrderId || "", user?.id || "", fetchWorkOrder);
-  const { addPart, editPart, removePart } = useWorkOrderParts(workOrderId || "", fetchWorkOrder)
-  const { assignProcedure, removeProcedure, updateTaskResults } = useWorkOrderProcedure(workOrderId || "", fetchWorkOrder);
-  const { addEquip } = useTestEquipment(workOrderId || "", fetchWorkOrder);
+  const { parts } = useParts();
 
-  if (isLoading) return <div>Loading work order...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!workOrder) return <div>Work order not found.</div>;
+  const { testEquip} = useTestEquipment();
+
+  console.log("Selected Procedure's TaskResults being retrieved:", selectedProcedure?.taskResults);
+
+  if (!workOrderId) return <p className="p-4 text-red-500">Invalid Work Order ID</p>;
+  if (isLoading) return <p className="p-4">Loading work order...</p>;
+  if (isError || !workOrder) return <p className="p-4 text-red-500">Failed to load work order.</p>;
 
   return (
-  <div className="container mx-auto p-4">
-    <h1 className="text-2xl font-bold mb-4">Edit Work Order</h1>
+    <div className="container mx-auto px-4 py-6">
+      <button className="mb-4 flex items-center text-blue-600 hover:underline" onClick={() => navigate(-1)}>
+        <FaArrowLeft className="mr-2" /> Back
+      </button>
 
-    {/* 🧩 OPEN FORM TAG */}
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const success = await save();
-        {/*console.log("Save result:", success);*/}
-        if (success) {
-          navigate("/workorders");
-        }
-      }}
-      className="space-y-4"
-    >
+      <h1 className="text-2xl font-bold mb-6">Edit Work Order</h1>
 
-      {/* Main form content */}
-      <WorkOrderFormFields workOrder={workOrder} onChange={handleChange} />
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700">
-          Completion Date
-        </label>
-        <p className="mt-1 text-gray-900">{formatDate(workOrder.completionDate)}</p>
-      </div>
-
-      <TimeAndTravelLogs
+      <WorkOrderFormFields
         workOrder={workOrder}
-        onEditTimeLog={editTimeLog}
-        onEditTravelLog={editTravelLog}
-        onDeleteTimeLog={removeTimeLog}
-        onDeleteTravelLog={removeTravelLog}
+        isReadOnly={false}
+        handleChange={handleChange}
+        updateField={updateField}
       />
 
       {/* Add Time Log Button */}
-      <button
-        type="button"
-        onClick={() => setIsTimeLogModalOpen(true)}
-        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-      >
-        + Add Time Log
-      </button>
-
-      {/* Time Summary */}
-      <section className="bg-gray-50 border rounded p-4 my-4">
-        <h3 className="font-semibold mb-2 text-lg">Work Log Summary</h3>
-        <ul className="text-sm space-y-1">
-          <li><strong>Time Logs:</strong> {timeSummary.entryCount} entries, {timeSummary.totalMinutes} minutes total</li>
-          <li><strong>Travel Logs:</strong> {travelSummary.entryCount} entries, {travelSummary.totalMinutes} minutes total</li>
-          <li><strong>Combined Total:</strong> {timeSummary.totalMinutes + travelSummary.totalMinutes} minutes</li>
-        </ul>
-      </section>
-
-      {/* Task Results / Add Procedure */}
-      {workOrder.procedure ? (
-        <ProcedureTaskResults
-          workOrder={workOrder}
-          onDeleteProcedure={removeProcedure}
-          onUpdateTask={updateTaskResults}
-          onRefresh={fetchWorkOrder}
-          onShowPerformModal={() => setShowPerformModal(true)}
-          onShowResultsModal={() => setShowResultsModal(true)}
-        />
-      ) : (
-        <div className="mb-4 p-4 border bg-gray-50 rounded text-gray-600 flex justify-between">
-          <span>No procedure attached</span>
-          <button
-            type="button"
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            onClick={() => setIsProcedureModalOpen(true)}
-          >
-            + Add Procedure
-          </button>
-        </div>
-      )}
-
-      {/* Parts Used */}
-      {workOrder.partsUsed && (
-        <PartsUsedSection
-          partsUsed={workOrder.partsUsed}
-          onEditPart={editPart}
-          onDeletePart={removePart}
-        />
-      )}
-
-      {/* Add Part Button */}
-      <button
-        type="button"
-        onClick={() => setIsPartModalOpen(true)}
-        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-      >
-        + Add Part
-      </button>
-
-      {/* Test Equipment Section */}
-      {workOrder.testEquipmentUsed && (
-        <TestEquipmentSection testEquipment={workOrder.testEquipmentUsed} />
-      )}
-
-      <button
-        type="button"
-        onClick={() => setIsTestEquipModalOpen(true)}
-        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-      >
-        + Add Test Equipment
-      </button>
-
-      {/* ✅ Save & Cancel Buttons at the BOTTOM of the page */}
-      <div className="flex space-x-4 pt-6 border-t">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setIsAddLogModalOpen(true)}
+          variant="default" // or "outline", "ghost", "destructive"
+          size="md"         // or "sm", "lg"
+          className="mt-4"
         >
-          {isSaving ? "Saving..." : "Save Work Order"}
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate("/workorders")}
-          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-        >
-          Cancel
-        </button>
+          + Add Time / Travel Log
+        </Button>
       </div>
-    </form>
 
-    {/* 🧩 MODALS OUTSIDE FORM */}
-    {isTimeLogModalOpen && (
-      <AddTimeLogModal
-        onSave={addLog}
-        onClose={() => setIsTimeLogModalOpen(false)}
+      {/* Time & Travel Logs */}
+      <TimeAndTravelLogs
+        workOrder={workOrder}
+        userId={userId}
+        onEditTimeLog={updateTimeLog}
+        onEditTravelLog={updateTravelLog}
+        onDeleteTimeLog={deleteTimeLog}
+        onDeleteTravelLog={deleteTravelLog}
       />
-    )}
-    {isProcedureModalOpen && (
-      <AddProcedureModal
-        isOpen={isProcedureModalOpen}
-        onSave={assignProcedure}
-        onClose={() => setIsProcedureModalOpen(false)}
+
+      {/* Add Procedure */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setShowAddProcedureModal(true)}
+          variant="default" // or "outline", "ghost", "destructive"
+          size="md"         // or "sm", "lg"
+          className="mt-4"
+        >
+          + Add Procedure
+        </Button>
+      </div> 
+      
+      {/* Task Resutls /  Add Procedure*/}
+      {workOrder.procedures && workOrder.procedures.length > 0 ? (
+      <ProcedureTaskResults
+        workOrder={workOrder}
+        onDeleteProcedure={(procedureId: string) =>
+          deleteProcedure(workOrderId, procedureId)
+        }
+        onShowPerformModal={(procedureId: string) => {
+          setSelectedProcedureId(procedureId);
+          setShowPerformModalOpen(true)}
+        }
+        onShowResultsModal={(procedureId: string) => {
+          setSelectedProcedureId(procedureId)
+          setShowResultsModalOpen(true)}
+        }
       />
-    )}
-    {showPerformModal && (
-      <PerformProcedureModal
-        isOpen={showPerformModal}
-        procedure={workOrder.procedure}
-        workOrderId={workOrder._id}
-        onSave={updateTaskResults}
-        onRefresh={fetchWorkOrder}
-        onClose={() => setShowPerformModal(false)}
+      ) : (
+        <FormCard title="Procedure">
+          <div className="mb-4 p-4 border bg-gray-50 rounded text-gray-600 flex justify-between">
+            <span>No procedure attached</span>
+            <button
+              type="button"
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              onClick={() => setShowAddProcedureModal(true)}
+            >
+              + Add Procedure
+            </button>
+          </div>
+        </FormCard>
+        
+      )}
+
+      {/* Add Part */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => setShowAddPartModal(true)}
+          variant="default" // or "outline", "ghost", "destructive"
+          size="md"         // or "sm", "lg"
+          className="mt-4"
+        >
+          + Add Parts
+        </Button>
+      </div> 
+
+      <PartsUsedSection
+        workOrder={workOrder}
+        onShowAddPartModal={() => setShowAddPartModal(true)}
+        onDeletePart={(partId: string) =>
+          deletePart(workOrderId, partId)
+        }
       />
-    )}
-    {showResultsModal && (
-      <ViewTaskResultsModal
-        isOpen={showResultsModal}
-        tasks={workOrder.procedure?.tasks || []}
-        taskResults={workOrder.taskResults || []}
-        onClose={() => setShowResultsModal(false)}
+
+      <TestEquipmentSection
+        workOrder={workOrder}
+        onShowAddTestEquipModal={() => setShowAddTestEquipModal(true)}
+        onDeleteTestEquip={(equipmentId: string) => 
+          deleteTestEquip(workOrderId, equipmentId)
+        }
       />
-    )}
-    {isPartModalOpen && (
-      <AddPartModal
-        isOpen={isPartModalOpen}
-        onSave={addPart}
-        onClose={() => setIsPartModalOpen(false)}
-      />
-    )}
-    {isTestEquipModalOpen && (
-      <AddTestEquipmentModal
-        isOpen={isTestEquipModalOpen}
-        onClose={() => setIsTestEquipModalOpen(false)}
-        onSave={addEquip}
-      />
-    )}
-  </div>
+      
+
+      {isAddLogModalOpen && (
+        <AddTimeLogModal
+          onAddTime={async (log) => {
+            await addTimeLog(workOrderId, { ...log, userId });
+          }}
+          onAddTravel={async (log) => {
+            await addTravelLog(workOrderId, { ...log, userId, note: log.note || "" });
+          }}
+
+          onClose={() => setIsAddLogModalOpen(false)}
+        />
+      )}
+
+      {showAddProcedureModal && (
+        <AddProcedureModal
+          procedures={procedures}
+          onAttachProcedure={async (procedureId: string) => 
+            await attachProcedure(workOrderId, procedureId)
+          }
+          onClose={() => setShowAddProcedureModal(false)}
+        />
+      )}
+
+      {isShowPerformModalOpen && selectedProcedure && (
+        <PerformProcedureModal
+          procedure={selectedProcedure}
+          onSubmitResults={async (results) => {
+            if (!selectedProcedureId) return; 
+            await updateTaskResults(workOrderId, selectedProcedureId, results)
+          }}
+          onClose={() => {
+            setShowPerformModalOpen(false)
+            setSelectedProcedureId(null); // clear selection when modal closes
+          }}
+          userId={userId}
+          userName={user?.name || ""}
+        />
+      )}
+
+      {isShowResultsModalOpen && selectedProcedure && (
+        <ViewTaskModal
+          onClose={() => {
+            setShowResultsModalOpen(false)
+            setSelectedProcedureId(null)
+          }}
+          taskResults={selectedProcedure.taskResults}
+        />
+      )}
+
+      {showAddPartModal && (
+        <AddPartModal
+          parts={parts}
+          onAttachPart={async (partId: string, quantity: number) => 
+            await addPart(workOrderId, partId, quantity)
+          }
+          onClose={() => setShowAddPartModal(false)}
+        />
+      )}
+
+      {showAddTestEquipModal && (
+        <AddTestEquipmentModal
+          equip={testEquip}
+          onAttachEquip={async (equipId: string) =>
+            await addTestEquip(workOrderId, equipId)
+          }
+          onClose={() => setShowAddTestEquipModal(false)}
+        />
+      )}
+    </div>
   );
 };
 

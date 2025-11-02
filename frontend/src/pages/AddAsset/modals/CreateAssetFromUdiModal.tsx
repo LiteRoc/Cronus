@@ -1,7 +1,11 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import Modal from "../../../components/Modal"; // Shared modal
-import { createAssetFromUDI } from "../../../services/templateAPI";
+import { useFacility } from "@/context/FacilityContext";
+import { getDepartmentsByFacility, createAssetFromUDI } from "@/services";
+import { Department } from "@/types";
+
+import { useNavigate } from "react-router-dom";
+
 
 interface Props {
   isOpen: boolean;
@@ -10,15 +14,24 @@ interface Props {
 }
 
 const CreateAssetFromUdiModal: React.FC<Props> = ({ isOpen, onClose, onAssetCreated }) => {
+  const { selectedFacilityId } = useFacility();
+
   const [udi, setUdi] = useState("");
   const [ctrlNumber, setCtrlNumber] = useState("");
-  const [facility, setFacility] = useState("");
-  const [department, setDepartment] = useState("");
-  const [notes, setNotes] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const navigate = useNavigate();  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isOpen && selectedFacilityId) {
+      getDepartmentsByFacility(selectedFacilityId)
+        .then(setDepartments)
+        .catch((err) => console.error("Error fetching departments:", err));
+    }
+  }, [isOpen, selectedFacilityId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +45,9 @@ const CreateAssetFromUdiModal: React.FC<Props> = ({ isOpen, onClose, onAssetCrea
         udi,
         createAsset: true,
         asset: {
-          ctrlNumber,
-          facility,
-          department,
-          notes,
+          ctrlNumber: ctrlNumber,
+          facilityId: selectedFacilityId,
+          departmentId: departmentId,
         },
       };
 
@@ -75,31 +87,20 @@ const CreateAssetFromUdiModal: React.FC<Props> = ({ isOpen, onClose, onAssetCrea
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Facility</label>
-          <input
-            type="text"
-            value={facility}
-            onChange={(e) => setFacility(e.target.value)}
-            className="border rounded px-3 py-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Department</label>
-          <input
-            type="text"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className="border rounded px-3 py-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Notes (optional)</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="border rounded px-3 py-2 w-full"
-          ></textarea>
-        </div>
+            <label className="block text-sm font-medium">Department</label>
+            <select
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              className="mt-1 block w-full rounded border px-2 py-1"
+            >
+              <option value="">-- Select Department --</option>
+              {departments.map((dept) => (
+                <option key={dept._id} value={dept._id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          </div>
         {error && <p className="text-red-600 text-sm">{error}</p>}
         <div className="flex justify-end space-x-2 pt-2">
           <button type="button" onClick={onClose} className="bg-gray-300 px-4 py-2 rounded">

@@ -10,8 +10,8 @@ interface Props {
 
 const WorkOrderChart: React.FC<Props> = ({ workOrdersSummary, onClick }) => {
   const data = [
+    { status: "Total", count: workOrdersSummary.total },
     { status: "Open", count: workOrdersSummary.open },
-    { status: "Closed", count: workOrdersSummary.closed },
     { status: "Overdue", count: workOrdersSummary.overdue },
   ];
 

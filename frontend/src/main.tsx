@@ -5,17 +5,20 @@ import { UserProvider } from "./context/UserContext";
 import { FilteredDataProvider } from "./hooks/useFilteredStore"
 import App from "./App";
 import "./styles/index.css";
+import { FacilityProvider } from "./context/FacilityContext";
 
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <UserProvider>
-      <QueryClientProvider client={queryClient}>
-        <FilteredDataProvider>
-          <App />
-        </FilteredDataProvider>
-      </QueryClientProvider>
-    </UserProvider>
+    <FacilityProvider>
+      <UserProvider>
+        <QueryClientProvider client={queryClient}>
+          <FilteredDataProvider>
+            <App />
+          </FilteredDataProvider>
+        </QueryClientProvider>
+      </UserProvider>
+    </FacilityProvider>
   </React.StrictMode>
 );

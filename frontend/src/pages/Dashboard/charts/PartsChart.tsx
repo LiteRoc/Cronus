@@ -15,7 +15,6 @@ interface Props {
 
 const PartsChart: React.FC<Props> = ({ partsSummary }) => {
   const data = [
-    { name: "In Stock", value: partsSummary.inStock },
     { name: "Low Stock", value: partsSummary.lowStock },
   ];
 

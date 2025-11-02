@@ -1,46 +1,10 @@
 import React from "react";
 import Charts from "./charts/Charts";
-import FilteredData from "./FilteredData";
-import EditWorkOrderModal from "./modals/EditWorkOrderModal";
-import CreateWorkOrderModal from "./modals/CreateWorkOrderModal";
 import { useDashboardSummaries } from "../../hooks/useDashboardSummaries";
-import { useFilteredData } from "../../hooks/useFilteredData";
-import { useSidebarLinks } from "../../hooks/useSidebarLinks";
-import { Asset, WorkOrder, Part, VALID_ROLES, Role } from "../../types/types";
-import { toast } from "react-toastify";
-import { Link, useNavigate } from "react-router-dom";
-
-import { showSuccess, showError } from "../../utils/toastUtils";
-import { useWorkOrderActions } from "../../hooks/workorders/useWorkOrderActions";
-import { useModalManager } from "../../hooks/useModalManager";
 import { useUser } from "../../context/UserContext";
 
 const DashboardPage: React.FC = () => {
   const { user } = useUser();
-  //console.log("Dashboard user:", user);
-
-  const role: Role = VALID_ROLES.includes(user?.role as Role)
-    ? (user?.role as Role)
-    : "viewer"; // fallback if missing or invalid
-
-  const links = useSidebarLinks(role);
-  //console.log("Role used for sidebar:", role);
-  const isCustomer = user?.role === 'customer';
-
-  const { filteredData } = useFilteredData();
-  const { saveWorkOrder, createWorkOrder, deleteWorkOrder } = useWorkOrderActions();
-
-  const {
-    editItem,
-    selectedAsset,
-    showCreateModal,
-    openEditModal,
-    closeEditModal,
-    openCreateModal,
-    closeCreateModal,
-  } = useModalManager();
-
-  const navigate = useNavigate();
 
   const {
     workOrdersSummary,
@@ -49,67 +13,20 @@ const DashboardPage: React.FC = () => {
     technicianPerformance,
     isLoading,
     error,
-  } = useDashboardSummaries(user?.role);
+  } = useDashboardSummaries();
 
-  //console.log({ workOrdersSummary, assetSummary, partsSummary, technicianPerformance });
+  const isCustomer = user?.role === 'customer';
 
-  const handleEdit = (item: WorkOrder | Asset | Part) => {
-    if ("workOrderNumber" in item) {
-      openEditModal(item);
-      navigate(`/workorders/edit/${item._id}`);
-    } else if ("ctrlNumber" in item) {
-      openEditModal(item);
-      navigate(`/assets/edit/${item._id}`);
-    } else if ("partNumber" in item) {
-      console.log("Edit Part:", item);
-    }
-  };
+  if (!user?.role || isLoading) {
+    return <div>Loading dashboard...</div>;
+  }
 
-  const handleDelete = (id: string) => deleteWorkOrder(id);
-
-  const handleSave = async (updatedWorkOrder: WorkOrder) => {
-    try {
-      await saveWorkOrder(updatedWorkOrder)
-      closeEditModal();
-      showSuccess("Work order saved successfully!");
-    } catch (error) {
-      console.error("Failed to save work order:", error);
-      showError("Failed to save changes.", { autoClose: 6000 });
-    }
-  };
-
-  const handleCreateWorkOrder = (asset: Asset) => openCreateModal(asset) ;
-
-  const handleCreateWorkOrderFromModal = async (newWorkOrder: WorkOrder) => {
-    try {
-      await createWorkOrder(newWorkOrder);
-      handleCreateWorkOrder;
-    } catch (error) {
-      console.error("Create failed:", error);
-      toast.error("Failed to create work order.");
-    }
-  };
-
-  const handleCloseModal = () => closeEditModal();
-  const handleCloseCreateModal = () => closeCreateModal();
-
-  if (isLoading) return <div>Loading dashboard data...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (error) {
+    return <div>Error loading dashboard data.</div>;
+  }
 
   return (
     <div className="flex min-h-screen">
-
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 text-white p-4">
-        <div className="text-2xl font-bold mb-6">AegisOps</div>
-        <nav className="flex flex-col space-y-3">
-          {links.map(({ to, label, icon }) => (
-            <Link key={to} to={to} className="flex items-center hover:bg-gray-700 p-2 rounded">
-              <span className="mr-2">{icon}</span> {label}
-            </Link>
-          ))}
-        </nav>
-      </aside>
 
       {/* Main Content */}
       <main className="flex-1 p-6 bg-gray-100">
@@ -122,32 +39,6 @@ const DashboardPage: React.FC = () => {
           partsSummary={partsSummary || { inStock: 0, lowStock: 0 }}
           technicianPerformance={technicianPerformance || []}
         />
-
-        {filteredData && (
-          <FilteredData
-            type={filteredData.type}
-            items={filteredData.items}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onCreateWorkOrder={handleCreateWorkOrder}
-          />
-        )}
-
-        {editItem && (
-          <EditWorkOrderModal
-            workOrder={editItem as WorkOrder}
-            onClose={handleCloseModal}
-            onSave={handleSave}
-          />
-        )}
-
-        {showCreateModal && selectedAsset && (
-          <CreateWorkOrderModal
-            asset={selectedAsset}
-            onClose={handleCloseCreateModal}
-            onCreate={handleCreateWorkOrderFromModal}
-          />
-        )}
       </main>
     </div>
   );

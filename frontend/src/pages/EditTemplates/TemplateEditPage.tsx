@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { EquipmentTemplate } from "../../types/types";
-import { getTemplateById, syncTemplate, updateTemplate, deleteTemplate } from "../../services/templateAPI";
-import { WithDuplicate } from "../../types/duplicate";
+import { EquipmentTemplate, WithDuplicate } from "@/types";
+import { getTemplateById, syncTemplate, updateTemplate, deleteTemplate } from "@/services";
 import SyncFromFDAModal from "./modals/SyncFromFDAModal";
 import DuplicateBanner from "../../components/DuplicateBanner";
 

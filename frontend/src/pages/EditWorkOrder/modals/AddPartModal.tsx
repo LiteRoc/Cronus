@@ -1,90 +1,91 @@
-import React, { useState, useEffect } from "react";
-import { getParts } from "../../../services/partAPI";
-import { Part } from "../../../types/types";
+import React, {useState} from "react";
+import Modal from '@/components/Modal';
+import { Part } from "@/types";
+import { Button } from "@/components/ui";
+import { FormCard } from "@/components/ui";
+import { showSuccess, showError } from "@/utils/toastUtils";
 
 interface AddPartModalProps {
-  isOpen: boolean;
+  parts: Part[];
+  onAttachPart: (partId: string, quantity: number) => Promise<void>;
   onClose: () => void;
-  onSave: (part: {partId: string, quantity: number}) => void;
 }
 
-const AddPartModal: React.FC<AddPartModalProps> = ({ isOpen, onClose, onSave }) => {
-  const [parts, setParts] = useState<Part[]>([]);
-  const [selectedPartId, setSelectedPartId] = useState<string>("");
+const AddPartModal: React.FC<AddPartModalProps> = ({ parts, onAttachPart, onClose }) => {
+  const [selectedId, setSelectedId] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchParts();
-    }
-  }, [isOpen]);
+  console.log("🔍 Parts available to select:", parts);
 
-  const fetchParts = async () => {
+  const handleSubmit = async () => {
+    if (!selectedId) return;
+    setIsSaving(true);
     try {
-      const response = await getParts();
-      setParts(response);
-    } catch (error) {
-      console.error("Failed to fetch parts:", error);
-    }
-  };
-
-  const handleSave = () => {
-    if (selectedPartId && quantity > 0) {
-      onSave({partId: selectedPartId, quantity});
+      await onAttachPart(selectedId, quantity);
+      showSuccess("Part attached successfully");
       onClose();
-    } else {
-      alert("Please select a part and set a valid quantity.");
+    } catch (err) {
+      console.error("Failed to attach Part", err);
+      showError("Unable to attach Part, Try again");
+    } finally {
+      setIsSaving(false);
     }
   };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white p-4 rounded shadow-md w-96">
-        <h2 className="text-lg font-semibold mb-4">Add Part</h2>
-        <div className="form-group mb-4">
-          <label className="block font-medium mb-1">Select Part</label>
-          <select
-            className="border rounded p-2 w-full"
-            value={selectedPartId}
-            onChange={(e) => setSelectedPartId(e.target.value)}
-          >
-            <option value="">-- Select Part --</option>
-            {parts.map((part) => (
-              <option key={part._id} value={part._id}>
-                {part.partNumber} - {part.description} (Qty: {part.quantityOnHand})
-              </option>
-            ))}
-          </select>
+    <Modal isOpen={true} onClose={onClose} title="Attach Part">
+      <FormCard title="Part">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="partSelect">Select Part</label>
+            <select
+              id="partSelect"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className="border p-2 rounded w-full"
+              disabled={isSaving}
+            >
+              <option value="">-- Choose a Part --</option>
+              {parts.map((part) => (
+                <option key={part._id} value={part._id}>
+                  {part.partNumber} - {part.description}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Quantity Input */}
+          <div>
+            <label
+              htmlFor="quantity"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Quantity
+            </label>
+            <input
+              id="quantity"
+              type="number"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              className="border p-2 rounded w-full"
+              disabled={isSaving}
+            />
+          </div>
+
+          <div className="flex space-x-4 pt-2">
+            <Button onClick={handleSubmit} disabled={!selectedId || isSaving}>
+              Add
+            </Button>
+            <Button onClick={onClose} variant="ghost" disabled={isSaving}>
+              Cancel
+            </Button>
+          </div>
         </div>
-        <div className="form-group mb-4">
-          <label className="block font-medium mb-1">Quantity</label>
-          <input
-            type="number"
-            className="border rounded p-2 w-full"
-            value={quantity}
-            min="1"
-            onChange={(e) => setQuantity(Number(e.target.value))}
-          />
-        </div>
-        <div className="flex justify-end">
-          <button
-            onClick={onClose}
-            className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 mr-2"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+      </FormCard>
+    </Modal>
+  )
 };
 
 export default AddPartModal;

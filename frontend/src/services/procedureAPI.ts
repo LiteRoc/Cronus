@@ -1,26 +1,37 @@
-import axios from "axios";
-import { Procedure } from "../types/types";
+//src/services/procedureAPI.ts
 
-const API = axios.create({
-  baseURL: "http://localhost:4000/", // Backend API URL
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+import apiClient from "./apiClient";
+import { Procedure } from "@/types";
 
-export const getProcedures = async (): Promise<Procedure[]> => {
-  const response = await API.get<Procedure[]>("/procedures");
-  return response.data;
+export const getProcedures = async (): Promise<Procedure[]> =>
+  (await apiClient.get<Procedure[]>("/procedures")).data;
+
+// 🔍 Get a single procedure by ID
+export const getProcedureById = async (procedureId: string) => {
+  const { data } = await apiClient.get<Procedure>(`/procedures/${procedureId}`);
+  return data;
 };
 
-export const addProcedure = async (
-  workOrderId: string,
-  procedureId: string
-): Promise<Procedure> => {
-  const response = await API.patch(`/workorders/${workOrderId}/procedure`, { procedureId });
-  return response.data;
+// ➕ Create a new procedure
+export const createProcedure = async (payload: Partial<Procedure>) => {
+  const { data } = await apiClient.post<Procedure>("/procedures", payload);
+  return data;
 };
 
-export const deleteProcedure = async (workOrderId: string, procedureId: string) => API.delete(`/workorders/${workOrderId}/procedure/${procedureId}`)
+// ✏️ Update an existing procedure
+export const updateProcedure = async (
+  procedureId: string,
+  payload: Partial<Procedure>
+) => {
+  const { data } = await apiClient.put<Procedure>(
+    `/procedures/${procedureId}`,
+    payload
+  );
+  return data;
+};
 
-export default API;
+// 🗑️ Delete a procedure
+export const deleteProcedure = async (procedureId: string) => {
+  const { data } = await apiClient.delete(`/procedures/${procedureId}`);
+  return data;
+};

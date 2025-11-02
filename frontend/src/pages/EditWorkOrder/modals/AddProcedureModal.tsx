@@ -1,83 +1,69 @@
-import React, { useEffect, useState } from "react";
-import Modal from "../../../components/Modal"; // Import the shared Modal component
-import { Procedure } from "../../../types/types";
-import { getProcedures } from "../../../services/procedureAPI";
+//src/pages/EditWorkOrder/modals/AddProcedureModal.tsx
+
+import React, { useState } from "react";
+import Modal from "@/components/Modal";
+import { Procedure } from "@/types";
+import { Button } from "@/components/ui/button";
+import { FormCard } from "@/components/ui";
+import { showSuccess, showError } from "@/utils/toastUtils";
 
 interface AddProcedureModalProps {
-  isOpen: boolean;
+  procedures: Procedure[];
+  onAttachProcedure: (procedureId: string) => Promise<void>;
   onClose: () => void;
-  onSave: (selectedProcedureId: string) => void;
 }
 
-const AddProcedureModal: React.FC<AddProcedureModalProps> = ({
-  isOpen,
-  onClose,
-  onSave,
-}) => {
-  const [selectedProcedureId, setSelectedProcedureId] = useState<string>("");
-  const [availableProcedures, setAvailableProcedures] = useState<Procedure[]>([]);
+const AddProcedureModal: React.FC<AddProcedureModalProps> = ({ procedures, onAttachProcedure, onClose }) => {
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchProcedures();
-    }
-  }, [isOpen])
-
-  const fetchProcedures = async () => {
+  const handleSubmit = async () => {
+    if (!selectedId) return;
+    setIsSaving(true);
     try {
-      const procedures = await getProcedures();
-      setAvailableProcedures(procedures)
+      await onAttachProcedure(selectedId);
+      showSuccess("Procedure attached successfully");
+      onClose();
     } catch (err) {
-      console.error("Failed to fetch procedures:", err);
-    }
-  }
-
-  const handleSave = () => {
-    if (selectedProcedureId) {
-      onSave(selectedProcedureId); // Call the passed `handleSaveProcedure`
-      onClose(); // Close the modal
-    } else {
-      alert("Please select a procedure before saving.");
+      console.error("Failed to attach procedure:", err);
+      showError("Unable to attach procedure. Try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
-  
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Select a Procedure">
-      <div className="form-group">
-        <label htmlFor="procedure">Procedure</label>
-        <select
-          id="procedure"
-          value={selectedProcedureId}
-          onChange={(e) => setSelectedProcedureId(e.target.value)}
-          className="border p-2 rounded w-full"
-        >
-          <option value="" disabled>
-            Select a Procedure
-          </option>
-          {availableProcedures.map((procedure) => (
-            <option key={procedure._id} value={procedure._id}>
-              {procedure.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="flex justify-end space-x-4 mt-4">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Save
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-        >
-          Cancel
-        </button>
-      </div>
+    <Modal isOpen={true} onClose={onClose} title="Attach Procedure">
+      <FormCard title="Procedure">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="procedureSelect">Select Procedure</label>
+            <select
+              id="procedureSelect"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className="border p-2 rounded w-full"
+              disabled={isSaving}
+            >
+              <option value="">-- Choose a procedure --</option>
+              {procedures.map((proc) => (
+                <option key={proc._id} value={proc._id}>
+                  {proc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex space-x-4 pt-2">
+            <Button onClick={handleSubmit} disabled={!selectedId || isSaving}>
+              Attach
+            </Button>
+            <Button onClick={onClose} variant="ghost" disabled={isSaving}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </FormCard>
     </Modal>
   );
 };

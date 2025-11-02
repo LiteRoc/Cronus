@@ -1,4 +1,7 @@
-import { WorkOrder, Asset, Part } from "../types/types";
+//src/utils/typeGuards.ts
+// DO I NEED THIS!?!
+
+import { WorkOrder, Asset, Part } from "@/types";
 
 export function isWorkOrder(item: any): item is WorkOrder {
   return (

@@ -1,78 +1,70 @@
+//src/pages/EditWorkOrder/components/ProcedureTaskResults.tsx
+
 import React from "react";
-import { TaskResult, WorkOrder } from "../../../types/types";
+import { WorkOrder } from "@/types";
+import { FormCard } from "@/components/ui";
 
 interface Props {
   workOrder: WorkOrder;
   onDeleteProcedure?: (procedureId: string) => void;
-  onUpdateTask: (workOrderId: string, procedureId: string, taskResults: TaskResult[]) => void;
-  onRefresh: () => void;
-  onShowPerformModal: () => void;
-  onShowResultsModal: () => void;
+  onShowPerformModal: (procedureId: string) => void;
+  onShowResultsModal: (procedureId: string) => void;
 }
 
-const ProcedureTaskResults: React.FC<Props> = ({ workOrder, onDeleteProcedure, onShowPerformModal, onShowResultsModal }) => {
-
-  if (!workOrder.procedure) return null;
+const ProcedureTaskResults: React.FC<Props> = ({
+  workOrder,
+  onDeleteProcedure,
+  onShowPerformModal,
+  onShowResultsModal,
+}) => {
+  if (!Array.isArray(workOrder.procedures) || workOrder.procedures.length === 0) return null;
 
   return (
-  <div className="space-y-6 mt-8">
-    <div className="border p-4 rounded bg-gray-50 mb-4">
-    <div className="flex justify-between items-center">
-      <h3 className="text-lg font-semibold">
-        🧪 Procedure: {workOrder.procedure?.name}
-        {" "}
-        <span className="text-sm text-gray-500">
-          ({workOrder.taskResults?.length || 0} tasks)
-        </span>
-      </h3>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="bg-blue-600 text-white px-3 py-1 rounded"
-          onClick={onShowPerformModal}
+    <FormCard title="Procedure">
+      <div className="space-y-6 mt-8">
+      {workOrder.procedures.map((procedure) => (
+        <div
+          key={procedure._id}
+          className="border p-4 rounded bg-gray-50 shadow-sm"
         >
-          Perform Procedure
-        </button>
-        <button
-          type="button"
-          className="bg-gray-600 text-white px-3 py-1 rounded"
-          onClick={onShowResultsModal}
-        >
-          View Results
-        </button>
-        {workOrder.status !== "Closed" && (
-          <button
-            type="button"
-            className="bg-red-600 text-white px-3 py-1 rounded"
-            onClick={() => onDeleteProcedure?.(workOrder.procedure?._id as string)}
-          >
-            Remove
-          </button>
-        )}
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">
+              🧪 Procedure: {procedure.name}{" "}
+              <span className="text-sm text-gray-500">
+                ({procedure.taskResults?.length || 0} tasks)
+              </span>
+            </h3>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="bg-blue-600 text-white px-3 py-1 rounded"
+                onClick={() => onShowPerformModal(procedure._id)}
+              >
+                Perform Procedure
+              </button>
+              <button
+                type="button"
+                className="bg-gray-600 text-white px-3 py-1 rounded"
+                onClick={() => onShowResultsModal(procedure._id)}
+              >
+                View Results
+              </button>
+              {workOrder.status !== "Closed" && (
+                <button
+                  type="button"
+                  className="bg-red-600 text-white px-3 py-1 rounded"
+                  onClick={() => onDeleteProcedure?.(procedure._id)}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
       </div>
-    </div>
-    {/*{showPerformModal && (
-      <PerformProcedureModal
-        isOpen={showPerformModal}
-        procedure={workOrder.procedure}
-        workOrderId={workOrder._id}
-        onSave={onUpdateTask}
-        onRefresh={onRefresh}
-        onClose={() => setShowPerformModal(false)}
-      />
-    )}
-
-    {showResultsModal && (
-      <ViewTaskResultsModal
-        isOpen={showResultsModal}
-        tasks={workOrder.procedure?.tasks || []}
-        taskResults={workOrder.taskResults || []}
-        onClose={() => setShowResultsModal(false)}
-      />
-    )}*/}
-   </div>
-  </div>
-   
+    </FormCard>
+    
   );
 };
 

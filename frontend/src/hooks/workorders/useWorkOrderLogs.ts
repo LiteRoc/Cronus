@@ -1,58 +1,55 @@
-import { addTimeLog, addTravelLog, deleteTimeLog, updateTimeLog, updateTravelLog, deleteTravelLog } from "../../services/workOrderAPI";
+// src/hooks/workorders/useWorkOrderLogs.ts
+// deprecated
+import {
+  addTimeLog,
+  addTravelLog,
+  updateTimeLog,
+  updateTravelLog,
+  deleteTimeLog,
+  deleteTravelLog,
+} from "@/services/workOrderAPI";
+import { KeyedMutator } from "swr";
+import { NewTimeLog, NewTravelLog, WorkOrder } from "@/types";
 
+export const useWorkOrderLogs = (workOrderId: string, userId: string, mutate: KeyedMutator<WorkOrder>) => {
+  // ---- Time Logs ----
+  const addTime = async (log: NewTimeLog) => {
+    await addTimeLog(workOrderId, { ...log, userId });
+    mutate(); // revalidate
+  };
 
-export const useWorkOrderLogs = (workOrderId: string, userId: string, onRefresh: () => void) => {
-    const addLog = async (timeLog: { timeSpent: number; description: string }, travelLog?: { travelTime: number }) => {
-        try {
-            if (!workOrderId || !userId) return;
+  const updateTime = async (logId: string, updates: Partial<{ timeSpent: number; description: string }>) => {
+    await updateTimeLog(workOrderId, logId, updates);
+    mutate();
+  };
 
-            await addTimeLog(workOrderId, { ...timeLog, userId });
+  const removeTime = async (logId: string) => {
+    await deleteTimeLog(workOrderId, logId);
+    mutate();
+  };
 
-            if (travelLog) {
-                await addTravelLog(workOrderId, { ...travelLog, userId });
-            }
+  // ---- Travel Logs ----
+  const addTravel = async (log: NewTravelLog) => {
+    await addTravelLog(workOrderId, { ...log, userId });
+    mutate();
+  };
 
-            onRefresh();
-        } catch (err) {
-            console.error("Failed to add logs:", err);
-        }
-    };
+  const updateTravel = async (logId: string, updates: Partial<{ travelTime: number; note?: string }>) => {
+    await updateTravelLog(workOrderId, logId, updates);
+    mutate();
+  };
 
-    const editTimeLog = async (timeLogId: string, updates: Partial<{ timeSpent: number; description: string }>) => {
-        try {
-            await updateTimeLog(workOrderId, timeLogId, updates);
-            onRefresh();
-        } catch (err) {
-            console.error("Failed to update time log:", err);
-        }
-    };
+  const removeTravel = async (logId: string) => {
+    await deleteTravelLog(workOrderId, logId);
+    mutate();
+  };
 
-    const editTravelLog = async (travelLogId: string, updates: Partial<{ travelTime: number }>) => {
-        try {
-            await updateTravelLog(workOrderId, travelLogId, updates);
-            onRefresh();
-        } catch (err) {
-            console.error("Failed to update travel log:", err);
-        }
-    }
-
-    const removeTimeLog = async (timeLogId: string) => {
-        try {
-            await deleteTimeLog(workOrderId, timeLogId);
-            onRefresh();
-        } catch (err) {
-            console.error("Failed to delete time log:", err);
-        }
-    }
-
-    const removeTravelLog = async (travelLogId: string) => {
-        try {
-            await deleteTravelLog(workOrderId, travelLogId);
-            onRefresh();
-        } catch (err) {
-            console.error("Failed to delet travel log:", err);
-        }
-    }
-
-    return { addLog, editTimeLog, editTravelLog, removeTimeLog, removeTravelLog };
-}
+  return {
+    addTime,
+    updateTime,
+    removeTime,
+    addTravel,
+    updateTravel,
+    removeTravel,
+  };
+};

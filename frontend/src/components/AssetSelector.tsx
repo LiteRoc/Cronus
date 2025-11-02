@@ -1,3 +1,5 @@
+// Deprecated
+// grep -R "AssetSelector" src/
 import React, { useEffect, useState } from 'react';
 //import { useFilteredFetcher } from '../hooks/useFilterFetcher';
 import apiClient from '../services/apiClient';

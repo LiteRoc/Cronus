@@ -1,43 +1,42 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { jwtDecode } from "jwt-decode";
+import React, { createContext, useContext, useEffect } from "react";
+import useSWR from "swr";
+import { useFacility } from "./FacilityContext";
+import { User } from "../types";
 
-interface User {
-  id: string;
-  name: string;
-  username: string;
-  role: string;
-  email: string;
-}
-
-interface UserContextType {
+const UserContext = createContext<{
   user: User | null;
   setUser: (user: User | null) => void;
+} | null>(null);
+
+const fetchUserFromStorage = (): User | null => {
+  const storeUser = localStorage.getItem("user");
+  //console.log('User pulled from storage:', storeUser);
+  if (!storeUser) return null;
+  try {
+    return JSON.parse(storeUser) as User;
+  } catch {
+    console.warn("Failed to parse stored user");
+    return null;
+  }
 }
 
-const UserContext = createContext<UserContextType | undefined>(undefined);
-
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const { data: user, mutate: setUser } = useSWR('auth-user', fetchUserFromStorage, {
+    fallbackData: null,
+  });
 
+  const { selectedFacilityId } = useFacility();
+
+  // 🔁 Sync selected facility with user.facilityId
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      try {
-        const decoded: any = jwtDecode(token);
-        setUser({
-          id: decoded.id,
-          name: decoded.name || decoded.username,
-          username: decoded.username, // Adjust according to your JWT payload structure
-          role: decoded.role,
-          email: decoded.email,
-        });
-        //setUserId(decoded.id); // Extract userId (id) from the token's payload
-        //console.log('Decoded User:', decoded);
-      } catch (error) {
-        console.error("Failed to decode token:", error);
-      }
+    if (user && selectedFacilityId && user.facilityId !== selectedFacilityId) {
+      const updatedUser = { ...user, facilityId: selectedFacilityId };
+
+      // ✅ Update SWR and localStorage
+      setUser(updatedUser, false); // false = don't revalidate
+      localStorage.setItem("user", JSON.stringify(updatedUser));
     }
-  }, []);
+  }, [selectedFacilityId]);
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
@@ -46,7 +45,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-export const useUser = (): UserContextType => {
+export const useUser = () => {
   const context = useContext(UserContext);
   if (!context) {
     throw new Error("useUser must be used within a UserProvider");

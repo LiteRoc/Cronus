@@ -1,27 +1,39 @@
-import React, { useState } from "react";
-import Modal from "../../../components/Modal"; // Assuming a shared Modal component
-import AddTravelTimeModal from "./AddTravelTimeModal";
+//src/pages/EditWorkOrder/modals/AddTimeLogModal.tsx
 
-const AddTimeLogModal: React.FC<{ onSave: (timeLog: any, travelLog?: any) => void; onClose: () => void }> = ({ onSave, onClose }) => {
+import React, { useState } from "react";
+import Modal from "@/components/Modal"; // Assuming a shared Modal component
+import AddTravelTimeModal from "./AddTravelTimeModal";
+import { NewTimeLog, NewTravelLog } from "@/types";
+import { showWarning } from "@/utils/toastUtils";
+
+interface AddTimeLogModalProps {
+  onAddTime: (log: NewTimeLog) => Promise<void>;
+  onAddTravel: (log: NewTravelLog) => Promise<void>;
+  onClose: () => void;
+}
+
+const AddTimeLogModal: React.FC<AddTimeLogModalProps> = ({ onAddTime, onAddTravel, onClose }) => {
   const [timeSpent, setTimeSpent] = useState<number>(0);
   const [description, setDescription] = useState<string>("");
   const [isTravelTimeModalOpen, setIsTravelTimeModalOpen] = useState<boolean>(false);
   const [travelTime, setTravelTime] = useState<number>(0);
+  const [travelNote, setTravelNote] = useState<string>('');
 
-  const handleSave = () => {
-    if (!timeSpent || timeSpent <= 0) {
-      alert("Time spent must be a positive number.");
-      return;
-    }
-
-    if (!description) {
-      alert("Description cannot be emtpy.");
+  const handleSave = async () => {
+    if (!timeSpent || timeSpent <= 0 || !description) {
+      showWarning("Time spent must be a positive number.");
       return;
     }
     
     const timeLog = { timeSpent, description };
-    const travelLog = travelTime > 0 ? { travelTime } : undefined;
-    onSave(timeLog, travelLog);
+    await onAddTime(timeLog);
+
+    // If travel time was entered, save travel log
+    if (travelTime > 0) {
+      const travelLog = { travelTime, note: travelNote || "" };
+      await onAddTravel(travelLog);
+    }
+
     onClose();
   };
 
@@ -75,7 +87,9 @@ const AddTimeLogModal: React.FC<{ onSave: (timeLog: any, travelLog?: any) => voi
       {isTravelTimeModalOpen && (
         <AddTravelTimeModal
           travelTime={travelTime}
+          travelNote={travelNote}
           setTravelTime={setTravelTime}
+          setTravelNote={setTravelNote}
           onClose={() => setIsTravelTimeModalOpen(false)}
         />
       )}

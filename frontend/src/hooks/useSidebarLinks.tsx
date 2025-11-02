@@ -1,4 +1,4 @@
-import { FaBoxes, FaClipboardList, FaTools, FaUserShield } from "react-icons/fa";
+import { FaTachometerAlt, FaBoxes, FaClipboardList, FaTools, FaUserShield } from "react-icons/fa";
 import { ReactElement } from "react";
 
 interface SidebarLink {
@@ -7,8 +7,9 @@ interface SidebarLink {
   icon: ReactElement;
 }
 
-export const useSidebarLinks = (role: "admin" | "tech" | "customer" | "viewer"): SidebarLink[] => {
+export const useSidebarLinks = (role: "admin" | "technician" | "customer" | "viewer"): SidebarLink[] => {
   const commonLinks: SidebarLink[] = [
+    { to: "/dashboard", label: "Home", icon: <FaTachometerAlt /> },
     { to: "/assets", label: "Assets", icon: <FaBoxes /> },
     { to: "/workorders", label: "Work Orders", icon: <FaClipboardList /> },
     { to: "/parts", label: "Parts", icon: <FaTools /> },

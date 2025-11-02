@@ -1,17 +1,28 @@
 import useSWR from 'swr';
 import { fetchDashboardData } from '../services/dashboard';
+import { useFacility } from '../context/FacilityContext';
 
-export const useDashboardSummaries = (role?: string) => {
-  const dashboardFetcher = (_: string, role: string | undefined) => fetchDashboardData(role);
+export const useDashboardSummaries = () => {
+  const { selectedFacilityId } = useFacility();
+  console.log('Facility ID changed to:', selectedFacilityId);
 
-  const { data, error, isLoading } = useSWR(['dashboard-summary', role], dashboardFetcher);
+  const { data, error, isLoading } = useSWR(
+    selectedFacilityId ? ['dashboard-summary', selectedFacilityId] : null, fetchDashboardData,
+    {
+      dedupingInterval: 0,
+      revalidateOnFocus: true,
+      revalidateIfStale: true,
+    }
+  );
+
+  console.log('Dashboard data returned:', data);
 
   return {
-    workOrdersSummary: data.workOrdersSummary,
-    assetSummary: data.assetSummary,
-    partsSummary: data.partsSummary,
-    technicianPerformance: data.technicianPerformance,
+    workOrdersSummary: data?.workOrdersSummary ?? data?.workOrders ?? {},
+    assetSummary: data?.assetSummary ?? {},
+    partsSummary: data?.partsSummary ?? {},
+    technicianPerformance: data?.technicianPerformance ?? [],
     isLoading,
-    error
+    error,
   };
 };

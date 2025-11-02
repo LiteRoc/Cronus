@@ -1,166 +1,135 @@
-import React, { useEffect, useState } from "react";
-import { TaskResult, Procedure } from "../../../types/types";
-import { useUser } from "../../../context/UserContext"
-import "../../../styles/PerformProcedureModal.css";
-
+import React, { useState, useEffect } from "react";
+import Modal from "@/components/Modal";
+import { TaskResult, WorkOrderProcedure } from "@/types";
+import { Button } from "@/components/ui/button";
 
 interface PerformProcedureModalProps {
-  isOpen: boolean;
-  procedure?: Procedure;
-  workOrderId: string; // Include this to send in API call
-  onSave: (workOrderId: string, procedureId: string, taskResults: TaskResult[]) => void;
-  onRefresh: () => void;
+  procedure: WorkOrderProcedure;
+  onSubmitResults: (results: TaskResult[]) => Promise<void>;
   onClose: () => void;
+  userId: string;
+  userName: string;
 }
 
-const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
-  isOpen,
-  procedure,
-  workOrderId,
-  onSave,
-  onRefresh,
-  onClose,
-}) => {
-  const [taskResults, setTaskResults] = useState<TaskResult[]>(
-    procedure?.taskResults || []
-  );
+type DraftTaskResult = {
+  taskId?: string;
+  type: "pass/fail" | "measurement" | "comment";
+  label: string;
+  value: boolean | number | string | null;
+};
 
-  const { user } = useUser();
+const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
+  procedure,
+  onSubmitResults,
+  onClose,
+  userName,
+}) => {
+  const [results, setResults] = useState<DraftTaskResult[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  console.log("🧪 Incoming procedure:", procedure);
+  console.log("🧪 procedure.taskResults:", procedure?.taskResults);
+
 
   useEffect(() => {
-    if (procedure?.tasks) {
-      setTaskResults(
-        procedure.tasks.map((task) => ({
-          taskId: task._id,
-          result: null, // or false / 0 depending on type
-          submittedBy: "", // you can set this on save
-          submittedByName: "",
-          unit: "",
-          timestamp: new Date().toISOString(),
+    if (procedure?.taskResults) {
+      setResults(
+        procedure.taskResults.map((task) => ({
+          taskId: task.taskId,
+          type: task.type,
+          label: task.label,
+          value: "",
         }))
       );
     }
   }, [procedure]);
 
-  const handleResultChange = (taskId: string, value: boolean | number | string ) => {
-    setTaskResults((prev) =>
-      prev.map((result) =>
-        result.taskId === taskId ? { ...result, result: value } : result
-      )
-    );
+  const handleResultChange = (index: number, value: string) => {
+    setResults((prev) => {
+      const updated = [...prev];
+      if (updated[index].type === "pass/fail") {
+        updated[index].value = value === "pass" ? true : value === "fail" ? false : null;
+      } else {
+        updated[index].value = value;
+      }
+      return updated;
+    });
   };
 
-  const handleSave = async () => {
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
-      const userId = user?.id || ""; // Pull from context or props
-      const updatedResults = taskResults.map((r) => ({
-        ...r,
-        submittedBy: userId,
-        submittedByName: user?.name || user?.username || "Unknown User",
-        timestamp: new Date().toISOString(),
-      }));
+      const formatted: TaskResult[] = results
+        .filter((r): r is typeof r & { taskId: string } => !!r.taskId)
+        .map((r) => ({
+          taskId: r.taskId,
+          type: r.type,
+          label: r.label,
+          value: r.value,
+          submittedBy: userName,
+          submittedAt: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
+        }));
 
-      if (!procedure) return null;
-
-      onSave(workOrderId, procedure._id, updatedResults);
-      onRefresh();
+      await onSubmitResults(formatted);
       onClose();
-    } catch (error) {
-      console.error("Error saving procedure results:", error);
-      alert("Failed to save procedure results. Please try again.");
+    } catch (err) {
+      console.error("Failed to submit results:", err);
+      alert("Error saving procedure results.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Helper function to safely extract the correct input value
-  const getSafeValue = (
-    result: boolean | number | string | null | undefined,
-    type: "Pass/Fail" | "Measurement" | "Comment"
-  ): string | number => {
-    if (type === "Measurement" && typeof result === "number") {
-      return result;
-    }
-    if (type === "Comment" && typeof result === "string") {
-      return result;
-    }
-    return ""; // Handles Pass/Fail and default fallback
-  };
-  
-  return isOpen ? (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h2 className="modal-title">Perform Procedure: {procedure?.name}</h2>
-        <table className="task-table">
-          <thead>
-            <tr>
-              <th>Task</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Rendering input fields for each task */}
-            {procedure?.tasks.map((task) => {
-              const matchingResult = taskResults.find((r) => r.taskId === task._id);
-              const normalizedType = task.type?.toLowerCase();
+  const tasks = procedure?.taskResults ?? [];
 
-              //console.log("Rendering task:", task.description, "→ type:", normalizedType);
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Perform Procedure">
+      <div className="space-y-6">
+        {tasks.map((task, index) => (
+          <div key={task.taskId} className="border rounded p-4">
+            <p className="font-semibold">{task.label}</p>
+            {task.type === "pass/fail" ? (
+              <select
+                value={
+                  results[index]?.value === true
+                    ? "pass"
+                    : results[index]?.value === false
+                    ? "fail"
+                    : ""
+                }
+                onChange={(e) => handleResultChange(index, e.target.value)}
+                className="border p-2 rounded w-full mt-2"
+                disabled={isSubmitting}
+              >
+                <option value="">-- Select --</option>
+                <option value="pass">Pass</option>
+                <option value="fail">Fail</option>
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={String(results[index]?.value ?? "")}
+                onChange={(e) => handleResultChange(index, e.target.value)}
+                className="border p-2 rounded w-full mt-2"
+                placeholder="Enter measurement or comment"
+                disabled={isSubmitting}
+              />
+            )}
+          </div>
+        ))}
 
-              return (
-                <div key={task._id} className="mb-4">
-                  <label className="block font-medium mb-1">{task.description}</label>
-
-                  {normalizedType === "pass/fail" ? (
-                    <select
-                      value={
-                        matchingResult?.result === true
-                          ? "Pass"
-                          : matchingResult?.result === false
-                          ? "Fail"
-                          : ""
-                      }
-                      onChange={(e) =>
-                        handleResultChange(task._id, e.target.value === "Pass")
-                      }
-                      className="border rounded px-2 py-1 w-full"
-                    >
-                      <option value="">Select</option>
-                      <option value="Pass">Pass</option>
-                      <option value="Fail">Fail</option>
-                    </select>
-                  ) : normalizedType === "measurement" ? (
-                    <input
-                      type="number"
-                      min={task.minValue}
-                      max={task.maxValue}
-                      value={getSafeValue(matchingResult?.result, task.type)}
-                      onChange={(e) =>
-                        handleResultChange(task._id, parseFloat(e.target.value))
-                      }
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  ) : (
-                    <textarea
-                      value={getSafeValue(matchingResult?.result, task.type) as string}
-                      onChange={(e) => handleResultChange(task._id, e.target.value)}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-          </tbody>
-        </table>
-        <div className="modal-actions">
-          <button className="btn btn-save" onClick={handleSave}>
-            Save
-          </button>
-          <button className="btn btn-cancel" onClick={onClose}>
+        <div className="flex space-x-4 pt-2">
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            Submit Results
+          </Button>
+          <Button onClick={onClose} variant="ghost" disabled={isSubmitting}>
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
-  ) : null;
+    </Modal>
+  );
 };
 
 export default PerformProcedureModal;

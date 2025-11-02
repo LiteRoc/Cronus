@@ -9,7 +9,7 @@ export default function PrivateRoute({ children }: { children: JSX.Element }) {
   //console.log("PrivateRoute - token:", localStorage.getItem('token'));
 
   if (!user?.id && !token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   return children;

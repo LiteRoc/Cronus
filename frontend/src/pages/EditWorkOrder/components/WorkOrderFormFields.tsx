@@ -1,87 +1,99 @@
 import React from "react";
-import { WorkOrder } from "../../../types/types";
+import { WorkOrder } from "@/types";
+import { Input, Select, FormCard, Label } from "@/components/ui";
+import { DatePicker } from "@/components/DatePicker";
+import { formatISODate } from "@/utils/dateUtils";
 
 interface Props {
   workOrder: WorkOrder;
-  onChange: (field: keyof WorkOrder, value: any) => void;
+  isReadOnly: boolean;
+  handleChange: (field: keyof WorkOrder, value: any) => void;
+  updateField: (path: string, value: any) => void;
 }
 
-const WorkOrderFormFields: React.FC<Props> = ({ workOrder, onChange }) => {
+const WorkOrderFormFields: React.FC<Props> = ({ workOrder, isReadOnly, handleChange, updateField }) => {
+  if (!workOrder || !workOrder.assetId) {
+    return <div className="p-4 text-sm text-gray-500">Loading Work Order ...</div>;
+  }
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Description */}
-      <div>
-        <label className="block text-sm font-medium">Description</label>
-        <input
-          type="text"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.description}
-          onChange={(e) => onChange("description", e.target.value)}
-        />
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      {/* Type */}
-      <div>
-        <label className="block text-sm font-medium">Type</label>
-        <select
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.workOrderType}
-          onChange={(e) => onChange("workOrderType", e.target.value)}
-        >
-          <option value="">Select Type</option>
-          <option value="Corrective Maintenance">Corrective Maintenance</option>
-          <option value="Planned Maintenance">Planned Maintenance</option>
-        </select>
-      </div>
+      {/* 🔧 Work Order Details */}
+      <FormCard title="Work Order Details">
+        <div className="space-y-2">
+          <Label htmlFor="workOrderNumber">Work Order #</Label>
+          <Input id="workOrderNumber" value={workOrder.workOrderNumber} disabled readOnly />
 
-      {/* Status */}
-      <div>
-        <label className="block text-sm font-medium">Status</label>
-        <select
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.status}
-          onChange={(e) => onChange("status", e.target.value)}
-        >
-          <option value="">Select Status</option>
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Complete">Closed</option>
-          <option value="Cancelled">Overdue</option>
-        </select>
-      </div>
+          <Label htmlFor="requestDate">Request Date</Label>
+          <Input id="requestDate" value={formatISODate(workOrder.requestDate)} disabled readOnly />
 
-      {/* Assigned To */}
-      <div>
-        <label className="block text-sm font-medium">Assigned To</label>
-        <input
-          type="text"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.assignedTo?._id || ""}
-          onChange={(e) => onChange("assignedTo", { _id: e.target.value })} // or set full user object if needed
-        />
-      </div>
+          <Label htmlFor="createdAt">Created At</Label>
+          <Input id="createdAt" value={formatISODate(workOrder.createdAt)} disabled readOnly />
 
-      {/* Scheduled Date */}
-      <div>
-        <label className="block text-sm font-medium">Scheduled Date</label>
-        <input
-          type="date"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.scheduledDate?.slice(0, 10) || ""}
-          onChange={(e) => onChange("scheduledDate", e.target.value)}
-        />
-      </div>
+          <Label htmlFor="scheduledDate">Scheduled Date</Label>
+          {isReadOnly ? (
+            <Input id="scheduledDate" value={formatISODate(workOrder.scheduledDate)} disabled readOnly />
+          ) : (
+            <DatePicker
+              value={workOrder.scheduledDate ? new Date(workOrder.scheduledDate) : null}
+              onChange={(date) => handleChange("scheduledDate", date?.toISOString() || "")}
+              disabled={isReadOnly}
+            />
+          )}
 
-      {/* Due Date */}
-      <div>
-        <label className="block text-sm font-medium">Due Date</label>
-        <input
-          type="date"
-          className="w-full border border-gray-300 rounded px-3 py-2"
-          value={workOrder.dueDate?.slice(0, 10) || ""}
-          onChange={(e) => onChange("dueDate", e.target.value)}
-        />
-      </div>
+          <Label htmlFor="completionDate">Completion Date</Label>
+          {isReadOnly ? (
+            <Input id="completionDate" value={formatISODate(workOrder.completionDate)} disabled readOnly />
+          ) : (
+            <DatePicker
+              value={workOrder.completionDate ? new Date(workOrder.completionDate) : null}
+              onChange={(date) => handleChange("completionDate", date?.toISOString() || "")}
+              disabled={isReadOnly}
+            />
+          )}
+
+          <Label htmlFor="description">Description</Label>
+          <Input id="description" value={workOrder.description} disabled={isReadOnly} onChange={e => handleChange("description", e.target.value)} />
+
+          <Label htmlFor="priority">Priority</Label>
+          <Input id="priority" value={workOrder.priority} disabled readOnly />
+
+          <Label htmlFor="status">Status</Label>
+          <Select
+            id="status"
+            value={workOrder.status}
+            disabled={isReadOnly}
+            onChange={(e) => updateField("status", e.target.value)}
+          >
+            <option value="Open">Open</option>
+            <option value="In_Progress">In Progress</option>
+            <option value="On_Hold">On Hold</option>
+            <option value="Closed">Closed</option>
+            <option value="Cancelled">Cancelled</option>
+          </Select>
+
+        </div>
+      </FormCard>
+
+      {/* 🏷 Asset Info */}
+      <FormCard title="Assigned Asset">
+        <div className="space-y-2">
+          <Label htmlFor="assetTag">Tag #</Label>
+          <Input id="assetTag" value={workOrder.assetId.ctrlNumber || workOrder.assetId.ctrlNumber} disabled readOnly />
+
+          <Label htmlFor="manufacturer">Manufacturer</Label>
+          <Input id="manufacturer" value={workOrder.assetId.manufacturer || ""} disabled readOnly />
+
+          <Label htmlFor="model">Model</Label>
+          <Input id="model" value={workOrder.assetId.model || ""} disabled readOnly />
+
+          <Label htmlFor="serialNumber">Serial#</Label>
+          <Input id="serialNumber" value={workOrder.assetId.serialNumber || ""} disabled readOnly />
+
+        </div>
+      </FormCard>
+
     </div>
   );
 };

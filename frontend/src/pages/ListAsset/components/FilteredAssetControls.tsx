@@ -1,75 +1,45 @@
-import React, { useEffect, useState } from "react";
-import { useFilteredFetcher } from "../../../hooks/useFilterFetcher";
-import { useSearchParams } from "react-router-dom";
-import { fetchManufacturers, fetchModels } from "../../../services/assetAPI";
+// src/pages/ListAsset/components/FilterAssetControls.tsx
+
+import React, { useState } from "react";
+import useSWR from "swr";
+import { fetchManufacturers, fetchModels } from "@/services";
+import { useFilteredStore } from "@/hooks/useFilteredStore";
+import { Filters } from "@/types"
 
 const FilteredAssetControls: React.FC = () => {
-  const { fetchFilteredItems } = useFilteredFetcher();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { filters, setFilters, resetFilters } = useFilteredStore();
+
+  const { data: manufacturers = [] } = useSWR("manufacturers", fetchManufacturers);
+  const { data: models = [] } = useSWR(
+    filters.manufacturer ? ["models", filters.manufacturer] : null,
+    ([, manufacturer]) => fetchModels(manufacturer)
+  );
+
   const [field, setField] = useState("manufacturer");
   const [value, setValue] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
-
-  const [manufacturers, setManufacturers] = useState<string[]>([]);
-  const [models, setModels] = useState<string[]>([]);
-
-  const updateFilters = (newFilters: Record<string, string>) => {
-    setFilters(newFilters);
-    const newParams = new URLSearchParams();
-    for (const [key, val] of Object.entries(newFilters)) {
-      newParams.set(key, val);
-    }
-    setSearchParams(newParams); // triggers fetch in parent component
-    fetchFilteredItems("assets", newFilters);
-  };
 
   const addFilter = () => {
-    if (field && value) {
-      updateFilters({ ...filters, [field]: value });
-      setValue("");
-    }
+    if (!value) return;
+
+    // merge new filter with existing ones
+    setFilters({
+      ...filters,
+      [field]: value,
+    });
+
+    setValue("");
   };
 
-  const removeFilter = (keyToRemove: string) => {
-    const newFilters = { ...filters };
-    delete newFilters[keyToRemove];
-    setFilters(newFilters);
-
-    updateFilters(newFilters);
+  const removeFilter = (key: keyof Filters) => {
+    const { [key]: _, ...remaining } = filters;
+    resetFilters();
+    setFilters(remaining);
   };
-
-  const resetFilters = () => {
-    const cleared = {};
-    setFilters(cleared);
-    setSearchParams({});
-
-    fetchFilteredItems("assets", cleared);
-  };
-
-  useEffect(() => {
-    const paramObject: Record<string, string> = {};
-    for (const [key, val] of searchParams.entries()) {
-      paramObject[key] = val;
-    }
-    setFilters(paramObject);
-    fetchFilteredItems("assets", paramObject);
-  }, []); // run once on mount
-
-  useEffect(() => {
-    fetchManufacturers().then((res) => {
-      setManufacturers(res);
-    })
-  }, []);
-
-  useEffect(() => {
-    if (filters.manufacturer || field === "model") {
-      fetchModels(filters.manufacturer || value).then(setModels);
-    }
-  }, [filters.manufacturer, field]);
 
   return (
     <div className="p-4 bg-white rounded shadow mb-6">
       <div className="flex gap-4 items-end mb-4">
+        {/* Field selector */}
         <div>
           <label className="block text-sm font-medium">Filter Field</label>
           <select
@@ -83,8 +53,11 @@ const FilteredAssetControls: React.FC = () => {
             <option value="manufacturer">Manufacturer</option>
             <option value="model">Model</option>
             <option value="status">Status</option>
+            <option value="search">Search</option>
           </select>
         </div>
+
+        {/* Value input */}
         <div>
           <label className="block text-sm font-medium">Value</label>
           {field === "manufacturer" ? (
@@ -94,8 +67,10 @@ const FilteredAssetControls: React.FC = () => {
               className="border rounded px-2 py-1"
             >
               <option value="">Select manufacturer</option>
-              {manufacturers.map((mfr) => (
-                <option key={mfr} value={mfr}>{mfr}</option>
+              {manufacturers.map((mfr: string) => (
+                <option key={mfr} value={mfr}>
+                  {mfr}
+                </option>
               ))}
             </select>
           ) : field === "model" ? (
@@ -105,33 +80,52 @@ const FilteredAssetControls: React.FC = () => {
               className="border rounded px-2 py-1"
             >
               <option value="">Select model</option>
-              {models.map((model) => (
-                <option key={model} value={model}>{model}</option>
+              {models.map((m: string) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
               ))}
+            </select>
+          ) : field === "status" ? (
+            <select
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              <option value="">Select status</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="Archived">Archived</option>
             </select>
           ) : (
             <input
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              placeholder="Search..."
               className="border rounded px-2 py-1"
             />
           )}
         </div>
+
+        {/* Apply Filter */}
         <button
           onClick={addFilter}
           disabled={!value}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
         >
-            Apply Filter
+          Apply Filter
         </button>
+
+        {/* Reset All */}
         <button
           onClick={resetFilters}
           className="ml-auto text-sm text-red-500 hover:underline"
         >
-            Reset All
+          Reset All
         </button>
       </div>
 
+      {/* Active filters */}
       {Object.keys(filters).length > 0 && (
         <div className="border-t pt-4">
           <h2 className="text-sm font-semibold mb-2">Filtering By:</h2>
@@ -141,8 +135,15 @@ const FilteredAssetControls: React.FC = () => {
                 key={key}
                 className="bg-gray-200 px-3 py-1 rounded-full text-sm flex items-center gap-2"
               >
-                <span>{key}: {val}</span>
-                <button onClick={() => removeFilter(key)} className="text-red-500">&times;</button>
+                <span>
+                  {key}: {val}
+                </span>
+                <button
+                  onClick={() => removeFilter( key as keyof Filters)}
+                  className="text-red-500"
+                >
+                  &times;
+                </button>
               </li>
             ))}
           </ul>

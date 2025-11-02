@@ -1,31 +1,28 @@
-import axios from "axios";
-import { Part } from "../types/types";
+// src/services/partAPI.ts
+import apiClient from "./apiClient";
+import { Part } from "@/types";
 
-const API = axios.create({
-  baseURL: "http://localhost:4000/", // Backend API URL
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-export const getParts = async (): Promise<Part[]> => {
-  const response = await API.get<Part[]>("/parts");
-  console.log('API Response:', response.data);
-  return response.data;
+export const getParts = async () => {
+  const { data } = await apiClient.get<Part[]>("/parts");
+  return data;
 };
 
-export const addPartToWorkOrder = async (workOrderId: string, partId: string, quantity: number) => {
-  const response = await API.patch(`/workorders/${workOrderId}/parts`, {
-    partId,
-    quantity,
-  });
-  return response.data;
+export const getPartById = async (partId: string) => {
+  const { data } = await apiClient.get<Part>(`/parts/${partId}`);
+  return data;
 };
 
-export const editPartOnWorkOrder = async (workOrderId: string, partId: string, updates: Partial<{ quantity: number}>): Promise<void> => {
-  await API.patch(`/workorders/${workOrderId}/parts/${partId}`, updates);
-}
+export const createPart = async (payload: Partial<Part>) => {
+  const { data } = await apiClient.post<Part>("/parts", payload);
+  return data;
+};
 
-export const deletePart = async (workOrderId: string, partId: string) => API.delete(`/workorders/${workOrderId}/parts/${partId}`);
+export const updatePart = async (partId: string, payload: Partial<Part>) => {
+  const { data } = await apiClient.put<Part>(`/parts/${partId}`, payload);
+  return data;
+};
 
-export default API;
+export const deletePart = async (partId: string) => {
+  const { data } = await apiClient.delete(`/parts/${partId}`);
+  return data;
+};

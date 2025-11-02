@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { EquipmentTemplate } from "../../types/types";
+import { EquipmentTemplate } from "../../types";
 import { createTempleteFromDI, createTemplate } from "../../services/templateAPI";
 
 type TemplateFormData = Partial<Omit<EquipmentTemplate, '_id' | 'verified'>> & {

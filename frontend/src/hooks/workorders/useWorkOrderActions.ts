@@ -1,53 +1,171 @@
-import { updateWorkOrder, addWorkOrder, removeWorkOrder } from "../../services/workOrderAPI";
-import { WorkOrder } from "../../types/types";
-import { showSuccess, showError } from "../../utils/toastUtils";
-import { useFilteredData } from "../useFilteredData";
+// src/hooks/workorders/useWorkOrderActions.ts
 
-export const useWorkOrderActions = () => {
-  const { updateItemInFilteredData, removeItemFromFilteredData, filteredData, applyFilter } = useFilteredData();
+import { 
+  addTimeLog, 
+  addTravelLog, 
+  assignProcedureToWorkOrder, 
+  deleteTimeLog, 
+  deleteTravelLog, 
+  updateProcedureResults, 
+  updateTimeLog, 
+  updateTravelLog,
+  removeProcedure,
+  addPartToWorkOrder,
+  updatePartUsed,
+  deletePartFromWorkOrder,
+  addTestEquipToWorkOrder,
+  removeTestEquipFromWorkOrder,
+} from "@/services";
+import { KeyedMutator } from "swr";
+import { updateNestedField } from "@/utils/updateNestedField";
+import { showSuccess } from "@/utils/toastUtils";
 
-  const saveWorkOrder = async (workOrder: WorkOrder): Promise<void> => {
-    try {
-      const savedWorkOrder = await updateWorkOrder(workOrder._id, workOrder);
-      updateItemInFilteredData(savedWorkOrder);
-      showSuccess("Work order saved successfully!");
-    } catch (error) {
-      console.error("Failed to save work order:", error);
-      showError("Failed to save changes. Please try again.");
-    }
-  };
-
-  const createWorkOrder = async (newWorkOrder: WorkOrder): Promise<void> => {
-    try {
-      const response = await addWorkOrder(newWorkOrder);
-
-      const created = response;
-
-      if (filteredData?.type === "workOrders") {
-        applyFilter("workOrders", [...filteredData.items, created]);
+export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
+  // Optimistic update wrapper
+  const wrap = <T extends (...args: any[]) => Promise<any>>(
+    fn: T,
+    optimisticUpdate?: (data: any, ...args: Parameters<T>) => any
+  ) => {
+    return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+      if (mutate && optimisticUpdate) {
+        mutate((current: any) => {
+          if (!current) return current;
+          return optimisticUpdate(current, ...args);
+        }, false);
       }
 
-      showSuccess("Work order created successfully!");
-    } catch (error) {
-      console.error("Error creating work order:", error);
-      showError("Failed to create work order.");
-    }
-  };
-
-  const deleteWorkOrder = async (id: string): Promise<void> => {
-    try {
-      await removeWorkOrder(id);
-      removeItemFromFilteredData(id);
-      showSuccess("Work order deleted.");
-    } catch (error) {
-      console.error("Failed to delete work order:", error);
-      showError("Failed to delete work order.");
-    }
+      const result = await fn(...args);
+      if (mutate) mutate(); // revalidate with server response
+      return result as ReturnType<T>;
+    };
   };
 
   return {
-    saveWorkOrder,
-    createWorkOrder,
-    deleteWorkOrder
+    // ---- Time Logs ----
+    addTimeLog: wrap(
+      (id: string, log: { userId: string; timeSpent: number; description: string }) =>
+        addTimeLog(id, log),
+      (current, _id, log) => ({
+        ...current,
+        timeLogs: [...(current.timeLogs || []), log],
+      })
+    ),
+
+    // ---- Travel Logs ----
+    addTravelLog: wrap(
+      (id: string, log: { userId: string; travelTime: number; note: string }) =>
+        addTravelLog(id, log),
+      (current, _id, log) => ({
+        ...current,
+        travelLogs: [...(current.travelLogs || []), log],
+      })
+    ),
+
+    updateTimeLog: wrap(
+      (id: string, logId: string, updates: any) =>
+        updateTimeLog(id, logId, updates),
+      (current, _id, logId, updates) => ({
+        ...current,
+        timeLogs: current.timeLogs.map((log: any) =>
+          log._id === logId ? { ...log, ...updates } : log
+        ),
+      })
+    ),
+
+    deleteTimeLog: wrap(
+      (id: string, logId: string) => deleteTimeLog(id, logId),
+      (current, _id, logId) => ({
+        ...current,
+        timeLogs: current.timeLogs.filter((log: any) => log._id !== logId),
+      })
+    ),
+
+    updateTravelLog: wrap(
+      (id: string, logId: string, updates: any) =>
+        updateTravelLog(id, logId, updates),
+      (current, _id, logId, updates) => ({
+        ...current,
+        travelLogs: current.travelLogs.map((log: any) =>
+          log._id === logId ? { ...log, ...updates } : log
+        ),
+      })
+    ),
+
+    deleteTravelLog: wrap(
+      (id: string, logId: string) => deleteTravelLog(id, logId),
+      (current, _id, logId) => ({
+        ...current,
+        travelLogs: current.travelLogs.filter((log: any) => log._id !== logId),
+      })
+    ),
+
+    // ---- Attach Procedure ----
+    attachProcedure: wrap(
+      (id: string, procedureId: string) =>
+        assignProcedureToWorkOrder(id, procedureId),
+      (current) => current
+    ),
+
+    // ---- Update Task Results ----
+    updateTaskResults: wrap(
+      (id: string, procedureId: string, results: any[]) =>
+        updateProcedureResults(id, procedureId, results),
+      (current, _id, _procedureId, results) =>
+        updateNestedField(current, "procedure.taskResults", results)
+    ),
+
+    deleteProcedure: wrap(
+      (id: string, procedureId: string) => removeProcedure(id, procedureId),
+      (current, _id, procedureId) => ({
+        ...current,
+        procedures: current.procedures?.filter((p: { _id: string; }) => p._id !== procedureId) || [],
+      })
+    ),
+
+    addPart: wrap(
+      async (id: string, partId: string, quantity: number, ) => {
+        const result = await addPartToWorkOrder(id, partId, quantity);
+        showSuccess("Part added successfully");
+        return result;
+      },
+      (current) => current // Return updated local state if needed
+    ),
+
+    updatePart: wrap(
+      async (id: string, partId: string, update: Partial<{ quantity: number }>) => {
+        const result = await updatePartUsed(id, partId, update);
+        showSuccess("Part updated successfully");
+        return result;
+      },
+      (currnet) => currnet
+    ),
+
+    deletePart: wrap(
+      async (id: string, partId: string) => {
+        const result = await deletePartFromWorkOrder(id, partId);
+        showSuccess("Part removed from Work Order");
+        return result;
+      },
+      (current) => current
+    ),
+
+    addTestEquip: wrap(
+      async (id: string, equipmentId: string) => {
+        await addTestEquipToWorkOrder(id, equipmentId);
+        showSuccess("Test Equipment Added");
+        //return result;
+      },
+      (current) => current
+    ),
+
+    deleteTestEquip: wrap (
+      async (id: string, equipmentId: string) => {
+        const result = await removeTestEquipFromWorkOrder(id, equipmentId);
+        showSuccess("Test Equipement Remove");
+        return result;
+      },
+    ),
+
   };
-};
+}
+

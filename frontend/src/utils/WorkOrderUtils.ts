@@ -1,8 +1,11 @@
+//src/utils/WorkOrderUtils.ts
+//AM I USING THIS???
+
 import { addWorkOrder } from "../services/workOrderAPI";
-import { WorkOrder } from "../types/types";
+import { WorkOrder, WorkOrderCreatePayload } from "@/types";
 
 export const handleCreateWorkOrder = async (
-  newWorkOrder: WorkOrder,
+  newWorkOrder: WorkOrderCreatePayload,
   onSuccess: (workOrder: WorkOrder) => void,
   onError: (error: any) => void
 ): Promise<void> => {
