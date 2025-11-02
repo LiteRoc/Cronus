@@ -2,6 +2,7 @@ const express = require('express');
 const WorkOrder = require('../models/WorkOrder');
 const Part = require('../models/Part');
 const Asset = require('../models/Asset');
+const Consumable = require('../models/Consumable');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { buildTenantFilter } = require('../middleware/tenantScope');
 
@@ -13,133 +14,104 @@ const mongoose = require('mongoose');
 // to make /dashboard internal only, wrap thing with authorizeRoles('admin', 'user')
 dashboardRouter.get('/', authenticateToken, async (req, res) => {
   try {
-    const tf = buildTenantFilter(req); // {} for admin/user, {customerId} for customer
+    const tf = buildTenantFilter(req); // now always includes facilityId
 
-    // ----- Filters -----
-    const { startDate, endDate, status, userId } = req.query;
-
-    const woDateMatch = (startDate || endDate)
-      ? { scheduledDate: {
-          ...(startDate ? { $gte: new Date(startDate) } : {}),
-          ...(endDate   ? { $lte: new Date(endDate)   } : {}),
-        }}
-      : {};
-
-    const statusMatch = status ? { status } : {};
-
-    const userObjectId = (userId && mongoose.isValidObjectId(userId))
-      ? new mongoose.Types.ObjectId(userId)
-      : null;
-
-    // ----- Work Orders summary -----
-    // Note: using "Completed" as the closed status. Adjust if your app uses "Closed".
     const now = new Date();
-    const woBaseMatch = { ...tf, status: { $ne: 'Archived' }, ...woDateMatch };
+    const in30d = new Date(); in30d.setDate(now.getDate() + 30);
 
-    const [woCountsAgg] = await WorkOrder.aggregate([
-      { $match: woBaseMatch },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-      { $project: { _id: 0, k: '$_id', v: '$count' } },
-      { $group: { _id: null, map: { $push: { k: '$k', v: '$v' } } } },
-      { $project: { dict: { $arrayToObject: '$map' } } },
+    // ---- Common Metrics ----
+    const [
+      totalAssets,
+      upcomingMaintenance,
+      totalWorkOrders,
+      openWorkOrders,
+      overdueWorkOrders,
+      lowStockParts,
+      expiringConsumables
+    ] = await Promise.all([
+      Asset.countDocuments(tf),
+      Asset.countDocuments({ ...tf, 'maintenanceSchedule.nextMaintenance': { $gte: now, $lte: in30d } }),
+      WorkOrder.countDocuments(tf),
+      WorkOrder.countDocuments({ ...tf, status: { $in: ['Open', 'In Progress', 'Requested'] } }),
+      WorkOrder.countDocuments({ ...tf, status: { $in: ['Open', 'In Progress'] }, dueDate: { $lt: now } }),
+      Part.countDocuments({ ...tf, quantityOnHand: { $lt: 10 } }),
+      Consumable.countDocuments({ ...tf, expiresAt: { $gte: now, $lte: in30d } }),
     ]);
 
-    const woDict = woCountsAgg?.dict || {};
-    const totalWorkOrders   = Object.values(woDict).reduce((a, b) => a + b, 0);
-    const completedWorkOrders = woDict['Completed'] || woDict['Closed'] || 0;
-    const openWorkOrders      = totalWorkOrders - completedWorkOrders;
+    // ---- Extended Metrics for internal roles only ----
+    let technicianPerformance = [];
+    let travelSummary = null;
+    let partsSummary = null;
 
-    // Overdue = not completed and dueDate < now
-    const overdueWorkOrders = await WorkOrder.countDocuments({
-      ...woBaseMatch,
-      status: { $ne: 'Completed' },
-      dueDate: { $lt: now },
-    });
-
-    // ----- Parts summary (tenant-scoped if parts are per-tenant) -----
-    const partsBaseMatch = { ...tf, status: { $ne: 'Archived' } };
-    const totalParts     = await Part.countDocuments(partsBaseMatch);
-    const lowStockParts  = await Part.countDocuments({ ...partsBaseMatch, quantityOnHand: { $lt: 10 } });
-
-    // ----- Technician travel + time (tenant + optional user filter) -----
-    // Travel (minutes)
-    const travelPipeline = [
-      { $match: { ...woBaseMatch } },
-      { $unwind: '$travelLogs' },
-      ...(userObjectId ? [{ $match: { 'travelLogs.userId': userObjectId } }] : []),
-      { $group: { _id: null, totalMinutes: { $sum: '$travelLogs.travelTime' } } },
-    ];
-    const [travelAgg] = await WorkOrder.aggregate(travelPipeline);
-    const totalTravelMinutes = travelAgg?.totalMinutes || 0;
-
-    // Time logs by tech
-    const timePipeline = [
-      { $match: { ...woBaseMatch } },
-      { $unwind: '$timeLogs' },
-      { $match: { 'timeLogs.timeSpent': { $gt: 0 } } },
-      ...(userObjectId ? [{ $match: { 'timeLogs.userId': userObjectId } }] : []),
-      {
-        $group: {
-          _id: '$timeLogs.userId',
-          totalMinutes: { $sum: '$timeLogs.timeSpent' }, // assuming minutes
-          workOrders: { $addToSet: '$_id' },
+    if (req.user.role !== 'customer') {
+      const timeLogsAgg = await WorkOrder.aggregate([
+        { $match: { ...tf, status: { $ne: 'Archived' } } },
+        { $unwind: '$timeLogs' },
+        { $match: { 'timeLogs.timeSpent': { $gt: 0 } } },
+        {
+          $group: {
+            _id: '$timeLogs.userId',
+            totalMinutes: { $sum: '$timeLogs.timeSpent' },
+            workOrders: { $addToSet: '$_id' },
+          },
         },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'user',
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'user',
+          },
         },
-      },
-      { $project: {
-          userId: '$_id',
-          username: { $ifNull: [{ $arrayElemAt: ['$user.username', 0] }, 'Unknown'] },
-          role:     { $arrayElemAt: ['$user.role', 0] },
-          totalMinutes: 1,
-          totalHours: { $divide: ['$totalMinutes', 60] },
-          workOrdersCount: { $size: '$workOrders' },
-        }
-      },
-      { $sort: { totalMinutes: -1 } },
-    ];
-    const timeLogAgg = await WorkOrder.aggregate(timePipeline);
+        {
+          $project: {
+            userId: '$_id',
+            username: { $ifNull: [{ $arrayElemAt: ['$user.username', 0] }, 'Unknown'] },
+            role: { $arrayElemAt: ['$user.role', 0] },
+            totalMinutes: 1,
+            totalHours: { $divide: ['$totalMinutes', 60] },
+            workOrdersCount: { $size: '$workOrders' },
+          },
+        },
+        { $sort: { totalMinutes: -1 } },
+      ]);
 
-    // ----- Asset summary (tenant + exclude archived) -----
-    const assetBaseMatch = { ...tf, status: { $ne: 'Archived' } };
-    const activeAssets   = await Asset.countDocuments({ ...assetBaseMatch, status: 'Active' });
-    const inactiveAssets = await Asset.countDocuments({ ...tf, status: 'Inactive' }); // if you want to include archived inactive, move status filter like above
-    const dueMaintenance = await Asset.countDocuments({
-      ...assetBaseMatch,
-      'maintenanceSchedule.nextMaintenance': { $lte: now },
-    });
+      technicianPerformance = timeLogsAgg;
 
-    // ----- Response -----
-    res.status(200).json({
+      const [travelAgg] = await WorkOrder.aggregate([
+        { $match: tf },
+        { $unwind: '$travelLogs' },
+        { $group: { _id: null, totalMinutes: { $sum: '$travelLogs.travelTime' } } }
+      ]);
+
+      travelSummary = {
+        totalMinutes: travelAgg?.totalMinutes || 0,
+        totalHours: (travelAgg?.totalMinutes || 0) / 60,
+      };
+
+      partsSummary = {
+        lowStock: lowStockParts,
+      };
+    }
+
+    // ✅ Unified response shape
+    res.json({
+      assetSummary: {
+        total: totalAssets,
+        upcomingMaintenance,
+      },
       workOrdersSummary: {
         total: totalWorkOrders,
         open: openWorkOrders,
-        completed: completedWorkOrders,
         overdue: overdueWorkOrders,
       },
-      assetSummary: {
-        active: activeAssets,
-        inactive: inactiveAssets,
-        upcomingMaintenance: dueMaintenance,
-      },
-      partsSummary: {
-        inStock: totalParts,
-        lowStock: lowStockParts,
-      },
-      travelSummary: {
-        totalMinutes: totalTravelMinutes,
-        totalHours: totalTravelMinutes / 60,
-      },
-      technicianPerformance: timeLogAgg,
+      expiringConsumables,
+      technicianPerformance,
+      travelSummary,
+      partsSummary,
     });
   } catch (error) {
-    console.error('Error generating dashboard:', error);
+    console.error('Error generating unified dashboard:', error);
     res.status(500).json({ error: 'Failed to generate dashboard data' });
   }
 });

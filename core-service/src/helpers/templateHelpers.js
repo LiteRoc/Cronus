@@ -105,9 +105,9 @@ async function mapGUDIDToTemplatePayload(deviceJson) {
     device?.deviceId || 
     '';
 
-  const brandName = device?.brandName || device?.tradeName || '';
+  const brandName = (device?.brandName || device?.tradeName || '').trim();
   const model =
-    device?.versionOrModelNumber ||
+    device?.versionModelNumber ||
     device?.modelNumber ||
     device?.brandName ||
     'Unknown Model';
@@ -152,7 +152,7 @@ async function mapGUDIDToTemplatePayload(deviceJson) {
     manufacturer: device?.companyName || device?.labelerName || device?.company || '',
     model,
     brandName,
-    versionOrModel: device?.versionOrModelNumber || device?.modelNumber || '',
+    versionOrModel: device?.versionModelNumber || device?.modelNumber || '',
     catalogNumber,
     fdaProductCode,
     gmdnTerm: device?.gmdnTerms?.gmdn?.[0]?.gmdnPTName || device?.gmdnPTName || device?.gmdnTerm || '',

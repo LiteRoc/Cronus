@@ -40,10 +40,10 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
   const tenantFilter = buildTenantFilter(req);
   const base = { ...tenantFilter, status: { $ne: 'Archived' }};
 
-    const { search, manufacturer, model, status, page = 1, limit = 10 } = req.query;
+    const { search, manufacturer, model, status, page = 1, limit = 10, facilityId, departmentId } = req.query;
 
     try {
-        const query = { ...base};
+        const query = { ...base };
         if (search) {
             query.$or = [
                 { ctrlNumber: { $regex: search, $options: 'i' } },
@@ -52,13 +52,32 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
                 { serialNumber: { $regex: search, $options: 'i' } },
             ];
         }
+        if (facilityId && mongoose.Types.ObjectId.isValid(facilityId)) {
+          query.facilityId = facilityId;
+        }
         if (manufacturer) query.manufacturer = manufacturer;
         if (model) query.model = model;
-        if (status) query.status = status;
+        //if (status) query.status = status || "Active";
+        query.status = status ?? 'Active'
+        if (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) {
+          query.departmentId = new mongoose.Types.ObjectId(departmentId); // ✅ only if explicitly provided
+        }
+
+        // Use if want to limit customer to a department
+        /*if (req.user.role === 'customer' && req.user.departmentId) {
+          query.departmentId = req.user.departmentId;
+        }*/
+
+        console.log('Final asset query:', query);
 
         // Parse the `page` and `limit` to ensure they are numbers
         const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
         const limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
+
+        // Cap limit between 1 and 100
+        if (limitNumber < 1) limitNumber = 1;
+        if (limitNumber > 100) limitNumber = 100;
+        
         const skip = (pageNumber - 1) * limitNumber;
 
         // Fetch total count and paginated assets
@@ -72,6 +91,8 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
             })
             .lean();
 
+
+        console.log('Returned assets:', assets);
         // Add a fallback for legacy-required fields & schedule shape
         const enrichedAssets = assets.map(asset => ({
             ...asset,
@@ -99,15 +120,25 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
 
 // GET: Return only test equipment
 assetRouter.get('/test-equipment', authenticateToken, async (req, res) => {
-    try {
-        const filter = { ...buildTenantFilter(req), category: 'test' };
-        const testEquipment = await Asset.find(filter).lean();
-        res.status(200).json(testEquipment);
-    } catch (error) {
-        debug('Error fetching test equipment:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+  try {
+    const userId = req.user.id;
+
+    const populatedAssets = await Asset.find({ assignedTo: userId })
+      .populate({
+        path: "templateId",
+        match: { isTestEquipment: true }
+      })
+      .lean();
+
+    const testEquipAssets = populatedAssets.filter(a => a.templateId !== null);
+
+    res.status(200).json(testEquipAssets);
+  } catch (error) {
+    debug('Error fetching test equipment:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
+
 
 // GET a single asset by ID
 assetRouter.get('/:id', authenticateToken, async (req, res) => {
@@ -138,8 +169,8 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     const {
       templateId,
       ctrlNumber,
-      facility,
-      department,
+      facilityId,
+      departmentId,
       locationNote,
       notes,
       manufacturer,
@@ -152,6 +183,8 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       attributes,
     } = req.body || {};
 
+    console.log('Incoming created Asset:', req.body);
+
     if (!ctrlNumber?.trim()) {
       return res.status(400).json({ error: 'ctrlNumber is required' });
     }
@@ -161,6 +194,12 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     }
     if (parentAsset && !mongoose.Types.ObjectId.isValid(parentAsset)) {
       return res.status(400).json({ error: 'Invalid parentAsset format' });
+    }
+    if (facilityId && !mongoose.Types.ObjectId.isValid(facilityId)) {
+      return res.status(400).json({ error: 'Invalid facilityId format' });
+    }
+    if (departmentId && !mongoose.Types.ObjectId.isValid(departmentId)) {
+      return res.status(400).json({ error: 'Invalid departmentId format' });
     }
 
     let tpl = null;
@@ -173,7 +212,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       ctrlNumber: ctrlNumber.trim(),
       templateId: templateId || null,
       manufacturer: (manufacturer ?? tpl?.manufacturer ?? '').toString().trim(),
-      model: (model ?? tpl?.model ?? '').toString().trim(),
+      model: (model ?? tpl?.model ?? tpl?.versionOrModel ?? '').toString().trim(),
       description: (description ?? tpl?.description ?? tpl?.brandName ?? ''),
       kind: tpl?.kind || 'GenericAsset',
       serialNumber: serialNumber || undefined,
@@ -185,8 +224,8 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       submissionNumber: tpl?.submissionNumber || '',
       manufacturerDUNS: tpl?.manufacturerDUNS || '',
       gmdnDefinition: tpl?.gmdnDefinition || '',
-      facility,
-      department,
+      facilityId,
+      departmentId,
       locationNote,
       notes: notes ?? null,
       parentAsset: parentAsset || null,
@@ -237,6 +276,12 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       });
     }
 
+    console.log("attributes type:", typeof payload.attributes, Array.isArray(payload.attributes));
+    console.dir(payload.attributes, { depth: 5 });
+
+
+    console.log("Final payload to create Asset:", payload);
+
     const asset = await Asset.create(payload);
     return res.status(201).json({ message: 'Asset created successfully', asset });
 
@@ -252,6 +297,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     }
 
     if (error?.name === 'ValidationError') {
+      console.error("Asset validation error:", error?.errors || error);
       return res.status(400).json({
         error: 'Validation failed',
         details: Object.fromEntries(
@@ -266,7 +312,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
 });
 
 // PUT: Update an asset by ID
-assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'utech'), async (req, res) => {
+assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -285,7 +331,7 @@ assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'utech'), asy
 });
 
 // PATCH: SOFT DELETE / Remove an asset by ID
-assetRouter.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+assetRouter.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
     const tenantFilter = buildTenantFilter(req);
     const { id } = req.params;
 

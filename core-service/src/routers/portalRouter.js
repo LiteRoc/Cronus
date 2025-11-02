@@ -1,6 +1,10 @@
+// This route is deprecated. Use /dashboard instead.
+
+
 const express = require('express');
 const mongoose = require('mongoose');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 const Asset = require('../models/Asset');
 const WorkOrder = require('../models/WorkOrder');
 const Consumable = require('../models/Consumable'); // assume exists
@@ -11,13 +15,13 @@ const portalRouter = express.Router();
 portalRouter.use(authenticateToken, authorizeRoles('customer'));
 
 // tenant/portal guard
-function buildTenantFilter(req) {
+/*function buildTenantFilter(req) {
   if (req.user?.role !== 'customer' || !req.user?.customerId) {
     // extra hardening: only customers can access, enforce customerId presence
     return null;
   }
   return { customerId: new mongoose.Types.ObjectId(req.user.customerId) };
-}
+}*/
 
 // ---------- DASHBOARD SUMMARY ----------
 portalRouter.get('/dashboard/summary', async (req, res) => {

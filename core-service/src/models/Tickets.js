@@ -1,8 +1,11 @@
+//src/models/ticketRouter.js
+
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const TicketSchema = new Schema({
-  customerId:  { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
+  facilityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Facility', required: true },
+  departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   assetId:     { type: Schema.Types.ObjectId, ref: 'Asset', index: true },
 
   type:        { type: String, enum: ['service', 'consumable'], required: true, index: true },
@@ -27,6 +30,8 @@ const TicketSchema = new Schema({
   // Soft delete
   deletedAt:   { type: Date, default: null, index: true },
   deletedBy:   { type: Schema.Types.ObjectId, ref: 'User', default: null },
+
+  attachments: [{ name: String, url: String }],
 }, { timestamps: true });
 
 TicketSchema.index({ customerId: 1, status: 1, createdAt: -1 });

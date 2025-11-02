@@ -23,23 +23,6 @@ require('./src/models/discriminators/WasherDisinfector');
 require('./src/models/discriminators/ImagingDevice');
 require('./src/models/discriminators/TempSensor');
 
-/*const bcrypt = require('bcrypt');
-const User = require('./src/models/User');
-(async function seedAdmin() {
-    const email = 'admin@example.com';
-    const exists = await User.exists({ email });
-    if (!exists) {
-      const hash = await bcrypt.hash('password', 10);
-      await User.create({
-        username: 'admin',
-        email,
-        password: hash,
-        role: 'admin'
-      });
-      console.log('🛠️  Created default admin user:', email);
-    }
-  })();*/
-
 const app = express();
 
 const assetRouter = require('./src/routers/assetsRouter');
@@ -58,7 +41,10 @@ const { title } = require('process');
 const vendorRouter = require('./src/routers/vendorRouter');
 const contractRouter = require('./src/routers/contractRouter');
 const contractAnalysisRouter = require('./src/routers/contractAnalysisRouter');
-const portalRouter = require('./src/routers/portalRouter');
+//const portalRouter = require('./src/routers/portalRouter');
+const facilityRouter = require('./src/routers/facilityRouter');
+const departmentRouter = require('./src/routers/departmentRouter');
+const manufacturerRouter = require('./src/routers/manufacturerRouter');
 
 // View Engine
 app.set('views', './src/views');
@@ -74,7 +60,7 @@ app.set('layout', 'layout'); // The layout file should be named layout.ejs and s
 app.use(cors({
     origin: 'http://localhost:5173', // React dev server
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'], // Allow these HTTP methods
-    allowedHeaders: [ 'Content-Type', 'Authorization'], // Allow necessary headers
+    allowedHeaders: [ 'Content-Type', 'Authorization', 'x-facility-id'], // Allow necessary headers
     credentials: true, // If using cookies/auth
   }));
 
@@ -100,7 +86,10 @@ app.use('/dashboard', dashboardRouter);
 app.use('/vendors', vendorRouter);
 app.use('/contracts', contractRouter);
 app.use('/contract-analysis', contractAnalysisRouter);
-app.use('/portal/', portalRouter);
+//app.use('/portal/', portalRouter);
+app.use('/facilities', facilityRouter);
+app.use('/departments', departmentRouter);
+app.use('/manufacturers', manufacturerRouter);
 
 scheduleMaintenanceJobs();
 

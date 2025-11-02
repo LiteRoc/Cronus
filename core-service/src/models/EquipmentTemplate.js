@@ -17,6 +17,8 @@ const EquipmentTemplateSchema = new mongoose.Schema({
   // new field (months).
   manufacturerRecommendedPMFrequency: { type: Number },
 
+  isTestEquipment: { type: Boolean, default: false, index: true },
+
   eolYears: { type: Number },
   lineItemPricing: { type: Number },
 

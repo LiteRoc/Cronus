@@ -3,29 +3,41 @@ const mongoose = require('mongoose');
 const WorkOrder = require('../models/WorkOrder');
 const Asset = require('../models/Asset');
 const Procedure = require('../models/Procedure');
+const TaskResult = require('../models/TaskResults');
 const Ticket = require('../models/Tickets');
+const Part = require('../models/Part');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { buildTenantFilter } = require('../middleware/tenantScope');
+const { deleteSubLog } = require ('../helpers/workOrderHelpers');
 
 const router = express.Router();
 const isObjectId = (id) => mongoose.isValidObjectId(id);
 
 // ---------- Helpers ----------
-async function deriveCustomerIdFromAsset(assetId) {
-  const asset = await Asset.findById(assetId).select('customerId');
-  return asset?.customerId || null;
+async function deriveFacilityIdFromAsset(assetId) {
+  const asset = await Asset.findById(assetId).select('facilityId');
+  return asset?.facilityId || null;
 }
 
 async function ensureTenantOwnsWorkOrder(req, res, next) {
   const { id } = req.params;
-  if (!isObjectId(id)) return res.status(400).json({ error: 'Invalid work order ID' });
+  if (!isObjectId(id)) {
+    return res.status(400).json({ error: 'Invalid work order ID' });
+  }
+
+  // Skip tenant restriction for admins
+  const filter = req.user.role === 'admin'
+    ? { _id: id }
+    : { _id: id, ...buildTenantFilter(req) };
+
   const wo = await WorkOrder.findOne({ _id: id, ...buildTenantFilter(req) }).select('_id');
   if (!wo) return res.status(404).json({ error: 'Work order not found' });
+
   next();
 }
 
 // ---------- List ----------
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const tf = buildTenantFilter(req);
     const {
@@ -74,7 +86,22 @@ router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res
   try {
     const wo = await WorkOrder.findById(req.params.id)
       .populate('assetId', 'ctrlNumber manufacturer model')
-      .populate('assignedTo', 'username role')
+      .populate('assignedTo', 'username role name email')
+      .populate('assignedTo', 'name email')
+      .populate('procedureId')
+      .populate('relatedTicketId', 'status priority title')
+      .populate({
+        path: "partsUsed.partId",
+        select: "partNumber description price quantityOnHand location",
+      })
+      .populate({
+        path: 'testEquipmentUsed.equipmentId',
+        select: 'ctrlNumber manufacturer model assetId'
+      })
+      .populate({
+        path: 'testEquipmentUsed.usedBy',
+        select: 'name email username'
+      })
       .lean();
     if (!wo) return res.status(404).json({ error: 'Work order not found' });
     res.json(wo);
@@ -87,21 +114,43 @@ router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res
 // ---------- Create (internal only) ----------
 router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
-    const { assetId } = req.body || {};
+    const assetId = req.assetId || req.body.assetId;
+    console.log('AssetId is:', assetId);
     if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
 
-    // derive customerId from asset (prevents cross-tenant WO creation)
-    const customerId = await deriveCustomerIdFromAsset(assetId);
-    if (!customerId) return res.status(400).json({ error: 'Asset has no customerId' });
+    /*const facilityId = req.headers['x-facility-id'];
+      const body = {
+        ...req.body,
+        facilityId,
+        createdBy: req.user._id,
+      };*/
+
+    // derive facilityId from asset (prevents cross-tenant WO creation)
+    const facilityId = await deriveFacilityIdFromAsset(assetId);
+    console.log('FacilityId is:', facilityId);
+    if (!facilityId) return res.status(400).json({ error: 'Asset has no facilityId' });
+
+    // 🔧 Coerce assignedTo to an ObjectId string no matter what the client sent
+    let assignedTo = req.body.assignedTo;
+    if (assignedTo && typeof assignedTo === 'object') assignedTo = assignedTo._id;
+    if (!assignedTo) assignedTo = req.user.id; // default to creator (admin/tech)
+
+    console.log('Create WO → assignedTo:', assignedTo);
+    const normalize = (s) => s ? (s[0].toUpperCase() + s.slice(1).toLowerCase()) : s;
 
     const wo = await WorkOrder.create({
       ...req.body,
-      customerId,
-      status: req.body.status || 'Open',
+      assignedTo,
+      assetId,
+      facilityId,
+      status: normalize(req.body.status) || 'Open',
+      priority: normalize(req.body.priority) || 'Normal',
       requestDate: req.body.requestDate || new Date(),
-      createdBy: req.user.id,
-      updatedBy: req.user.id,
+      createdBy: req.user.id ?? null,
+      updatedBy: req.user.id ?? null,
     });
+
+    console.log('New work order:', wo);
 
     res.status(201).json(wo);
   } catch (err) {
@@ -110,39 +159,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req,
   }
 });
 
-// ---------- Customer: Request Service ----------
-/*router.post('/request', authenticateToken, authorizeRoles('customer'), async (req, res) => {
-  try {
-    const { assetId, description, priority } = req.body || {};
-    if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
-
-    // enforce tenant owns asset
-    const owned = await Asset.exists({ _id: assetId, customerId: req.user.customerId });
-    if (!owned) return res.status(404).json({ error: 'Asset not found' });
-
-    const wo = await WorkOrder.create({
-      assetId,
-      customerId: req.user.customerId,
-      description: description || 'Service requested by customer',
-      priority: priority || 'Normal',
-      status: 'Requested',
-      requestDate: new Date(),
-      createdBy: req.user.id,
-      updatedBy: req.user.id,
-    });
-
-    res.status(201).json({ message: 'Service request created', workOrder: wo });
-  } catch (err) {
-    console.error('WO request error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});*/
 // 🔒 Keep auth so only real customers hit the legacy route
-router.post(
-  '/request',
-  authenticateToken,
-  authorizeRoles('customer'),
-  (req, res) => {
+router.post('/request', authenticateToken, authorizeRoles('customer'), (req, res) => {
     // Optional: set a date when this endpoint will be fully removed
     const sunset = new Date();
     sunset.setMonth(sunset.getMonth() + 1); // e.g., remove in 1 month
@@ -189,51 +207,46 @@ router.post(
 );
 
 // Promote a Ticket into a Work Order
-router.post(
-  '/from-ticket/:ticketId',
-  authenticateToken,
-  authorizeRoles('admin', 'tech'), // customers should NOT create WOs directly
+router.post('/from-ticket/:ticketId', authenticateToken, authorizeRoles('admin', 'tech'), // customers should NOT create WOs directly
   async (req, res) => {
+    try {
     const { ticketId } = req.params;
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      const ticket = await Ticket.findById(ticketId).session(session);
-      if (!ticket) {
-        return res.status(404).json({ error: 'TicketNotFound', message: `No ticket ${ticketId}` });
-      }
-      if (ticket.status === 'closed' || ticket.status === 'resolved') {
-        return res.status(409).json({ error: 'TicketClosed', message: 'Ticket already resolved/closed' });
+    const facilityId = req.headers['x-facility-id'];
+    const ticket = await Ticket.findOne({ ticketId, ...buildTenantFilter(req) });
+
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+      if (ticket.status === 'converted' && ticket.relatedWorkOrderId) {
+        const existing = await WorkOrder.findById(ticket.relatedWorkOrderId);
+        return res.status(200).json({ workOrder: existing, message: 'Ticket already converted' });
       }
 
-      // Map ticket → work order (adjust field names to your models)
-      const woPayload = {
-        assetId: ticket.assetId ?? undefined,
-        description: ticket.description || ticket.subject,
-        workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
-        status: 'Open',
-        requestDate: new Date(),
-        dueDate: undefined,            // let your existing default/dueDate logic set this
-        scheduledDate: undefined,
-        createdFrom: 'ticket',
-        ticketId: ticket._id,
-        requestedBy: ticket.requestedBy || null,
-        // If you want: copy priority, facility/department, part request details, etc.
-      };
+      // Map ticket → work order
+    const woPayload = {
+      facilityId,
+      departmentId: ticket.departmentId,
+      assetId: ticket.assetId ?? undefined,
+      description: ticket.description || ticket.subject,
+      workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
+      status: 'Open',
+      requestDate: new Date(),
+      dueDate: undefined,
+      scheduledDate: undefined,
+      createdFrom: 'ticket',
+      ticketId: ticket._id,
+      createdBy: req.user._id,
+      requestedBy: ticket.requestedBy || null,
+    };
 
-      const workOrder = await WorkOrder.create([woPayload], { session });
+      const workOrder = await WorkOrder.create({...woPayload });
       const createdWO = workOrder[0];
 
       // keep a backlink for convenience (optional but useful)
       ticket.workOrderId = createdWO._id;
-      ticket.status = 'in_progress';   // or 'converted'
-      await ticket.save({ session });
+      ticket.status = 'converted';
+      await ticket.save();
 
-      await session.commitTransaction();
-      session.endSession();
-
-      return res.status(201).json({ message: 'Work order created from ticket', workOrder: createdWO });
+      return res.status(201).json({ message: 'Work order created from ticket', workOrder: createdWO, workOrder, ticket });
     } catch (err) {
       await session.abortTransaction();
       session.endSession();
@@ -246,6 +259,8 @@ router.post(
 // ---------- Update (internal only) ----------
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
+    const { timeLogs, travelLogs, ...rest } = req.body; // strip arrays
+
     const updated = await WorkOrder.findOneAndUpdate(
       { _id: req.params.id, ...buildTenantFilter(req) },
       { ...req.body, updatedBy: req.user.id },
@@ -322,7 +337,7 @@ router.post('/:id/time-logs', authenticateToken, authorizeRoles('admin', 'tech')
 
     const updated = await WorkOrder.findOneAndUpdate(
       { _id: req.params.id, ...buildTenantFilter(req) },
-      { $push: { timeLogs: { userId: req.user.id, timeSpent, description } }, $set: { updatedBy: req.user.id } },
+      { $push: { timeLogs: { userId: req.user.id, timeSpent, description, createdAt: new Date() } }, $set: { updatedBy: req.user.id } },
       { new: true }
     );
     res.json({ message: 'Time logged', workOrder: updated });
@@ -332,6 +347,15 @@ router.post('/:id/time-logs', authenticateToken, authorizeRoles('admin', 'tech')
   }
 });
 
+// ---------- Remove Time log (uses deleteSubLog helper) ---------
+router.delete(
+  "/:id/time-logs/:logId", 
+  authenticateToken, 
+  authorizeRoles("admin", "tech"), 
+  ensureTenantOwnsWorkOrder,
+  (req, res) => deleteSubLog(req, res, "timeLogs")
+);
+
 // ---------- Travel logs (internal) ----------
 router.post('/:id/travel-logs', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
@@ -340,7 +364,7 @@ router.post('/:id/travel-logs', authenticateToken, authorizeRoles('admin', 'tech
 
     const updated = await WorkOrder.findOneAndUpdate(
       { _id: req.params.id, ...buildTenantFilter(req) },
-      { $push: { travelLogs: { userId: req.user.id, travelTime, note } }, $set: { updatedBy: req.user.id } },
+      { $push: { travelLogs: { userId: req.user.id, travelTime, note, createdAt: new Date() } }, $set: { updatedBy: req.user.id } },
       { new: true }
     );
     res.json({ message: 'Travel logged', workOrder: updated });
@@ -350,31 +374,53 @@ router.post('/:id/travel-logs', authenticateToken, authorizeRoles('admin', 'tech
   }
 });
 
+// ---------- Remove Travel log (uses deleteSublog helper) --------
+router.delete(
+  "/:id/travel-logs/:logId", 
+  authenticateToken, 
+  authorizeRoles("admin", "tech"), 
+  ensureTenantOwnsWorkOrder,
+  (req, res) => deleteSubLog(req, res, "travelLogs")
+);
+
 // ---------- Attach procedure (internal) ----------
-router.put('/:id/procedure/:procedureId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+router.patch('/:id/procedure', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { id, procedureId } = req.params;
+    const { id } = req.params;
+    const { procedureId } = req.body;
     if (!isObjectId(procedureId)) return res.status(400).json({ error: 'Invalid procedureId' });
 
-    const proc = await Procedure.findById(procedureId).select('name tasks');
+    const proc = await Procedure.findById(procedureId).populate('tasks', 'description type unitOfMeasure');
     if (!proc) return res.status(404).json({ error: 'Procedure not found' });
 
-    // initialize taskResults from procedure tasks
+    // Initialize blank taskResults from procedure.tasks
     const taskResults = (proc.tasks || []).map(t => ({
       taskId: t._id,
-      label: t.name,
-      type: t.type,
+      label: t.description,
+      type: t.type.toLowerCase(),           // "pass/fail" | "measurement" | "comment"
       unitOfMeasure: t.unitOfMeasure || null,
       value: null,
       passed: null,
       comment: '',
     }));
 
+    // Create new procedure subdoc
+    const procedureEntry = {
+      _id: proc._id,
+      name: proc.name,
+      taskResults,
+    };
+
+    // Use $addToSet to prevent duplicates
     const updated = await WorkOrder.findOneAndUpdate(
       { _id: id, ...buildTenantFilter(req) },
-      { procedure: { _id: proc._id, name: proc.name, taskResults }, updatedBy: req.user.id },
+      {
+        $addToSet: { procedures: { _id: proc._id, name: proc.name, taskResults } },
+        $set: { updatedBy: req.user.id }
+      },
       { new: true }
     );
+
     res.json({ message: 'Procedure attached', workOrder: updated });
   } catch (err) {
     console.error('Attach procedure error:', err);
@@ -383,22 +429,58 @@ router.put('/:id/procedure/:procedureId', authenticateToken, authorizeRoles('adm
 });
 
 // ---------- Update task results (internal) ----------
-router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, 
+  async (req, res) => {
   try {
     const { id, procedureId } = req.params;
     const { taskResults } = req.body || {};
     if (!Array.isArray(taskResults)) return res.status(400).json({ error: 'taskResults array required' });
 
+    console.log("Incoming taskResults:", taskResults);
+
+    const normalizeType = (t) => {
+      if (!t) return null;
+      const val = t.toString().toLowerCase();
+      if (val.includes("pass")) return "pass/fail";
+      if (val.includes("measure")) return "measurement";
+      if (val.includes("comment")) return "comment";
+      return val;
+    };
+
+    const cleanedResults = taskResults.map((tr) => ({
+        ...tr,
+        type: normalizeType(tr.type),
+        submittedBy: req.user.id,
+        submittedAt: new Date(),
+      }));
+
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: id, 'procedure._id': procedureId, ...buildTenantFilter(req) },
-      { $set: { 'procedure.taskResults': taskResults, updatedBy: req.user.id } },
+      { 
+        _id: new mongoose.Types.ObjectId(id), 
+        'procedures._id': new mongoose.Types.ObjectId(procedureId), 
+        ...buildTenantFilter(req) },
+      { $set: { 'procedures.$.taskResults': cleanedResults, updatedBy: req.user.id } },
       { new: true }
     );
     if (!updated) return res.status(404).json({ error: 'Work order or procedure not found' });
+
+    // Sync results into TaskResult collection
+      for (const tr of cleanedResults) {
+        await TaskResult.findOneAndUpdate(
+          { workOrderId: id, taskId: tr.taskId },
+          {
+            ...tr,
+            workOrderId: id,
+            procedureId,
+          },
+          { upsert: true, new: true }
+        );
+      }
+
     res.json({ message: 'Task results updated', workOrder: updated });
   } catch (err) {
     console.error('Task results error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
@@ -416,5 +498,218 @@ router.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), ensureT
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+// DELETE: Remove procedure from work order ... update with deleteSubLog helper
+router.delete('/:id/procedure/:procedureId',
+  authenticateToken,
+  authorizeRoles('admin','tech'),
+  ensureTenantOwnsWorkOrder,
+  async (req, res) => {
+    try {
+      const { id, procedureId } = req.params;
+
+      // Ensure it's a valid ObjectId
+      if (!isObjectId(procedureId)) {
+        return res.status(400).json({ error: 'Invalid procedureId' });
+      }
+
+      const updated = await WorkOrder.findOneAndUpdate(
+        {
+          _id: id,
+          ...buildTenantFilter(req),
+          'procedures._id': procedureId, // make sure the work order has this procedure
+        },
+        {
+          $pull: { procedures: { _id: new mongoose.Types.ObjectId(procedureId) } },
+          $set: { updatedBy: req.user.id },
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Work order or procedure not found' });
+      }
+
+      res.json({ message: 'Procedure removed', workOrder: updated });
+    } catch (err) {
+      console.error('Remove procedure error:', err);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+);
+
+// =====================================================
+// GET /workorders/:id/parts
+// =====================================================
+router.get('/:id/parts', authenticateToken, async (req, res) => {
+  try {
+    const workOrder = await WorkOrder.findById(req.params.id)
+      .populate({
+        path: 'partsUsed.partId',
+        select: 'partNumber description price location supplierId manufacturerId',
+        populate: [
+          { path: 'supplierId', select: 'name' },
+          { path: 'manufacturerId', select: 'name' },
+        ],
+      })
+      .lean();
+
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    res.json(workOrder.partsUsed || []);
+  } catch (error) {
+    console.error('Error fetching parts for work order:', error);
+    res.status(500).json({ error: 'Failed to fetch parts' });
+  }
+});
+
+// =====================================================
+// POST /workorders/:id/parts
+// =====================================================
+router.post('/:id/parts', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  const { partId, quantity, note } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(partId)) {
+    return res.status(400).json({ error: 'Invalid partId' });
+  }
+
+  try {
+    const workOrder = await WorkOrder.findById(req.params.id);
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    // Optionally verify part exists
+    const part = await Part.findById(partId);
+    if (!part) return res.status(404).json({ error: 'Part not found' });
+
+    // Add new part usage
+    const newUsage = {
+      partId,
+      quantity,
+      note: note || '',
+      usedBy: req.user.id,
+      usedAt: new Date(),
+    };
+
+    workOrder.partsUsed.push(newUsage);
+    await workOrder.save();
+
+    res.status(201).json({ message: 'Part added successfully', part: newUsage });
+  } catch (error) {
+    console.error('Error adding part to work order:', error);
+    res.status(500).json({ error: 'Failed to add part' });
+  }
+});
+
+// =====================================================
+// PUT /workorders/:id/parts/:partId
+// =====================================================
+router.put('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  const { quantity, note } = req.body;
+
+  try {
+    const workOrder = await WorkOrder.findById(req.params.id);
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    const partUsage = workOrder.partsUsed.find(
+      (pu) => pu.partId.toString() === req.params.partId
+    );
+
+    if (!partUsage) return res.status(404).json({ error: 'Part not found on this work order' });
+
+    if (quantity !== undefined) partUsage.quantity = quantity;
+    if (note !== undefined) partUsage.note = note;
+    partUsage.usedBy = req.user.id;
+    partUsage.usedAt = new Date();
+
+    await workOrder.save();
+
+    res.json({ message: 'Part updated successfully', part: partUsage });
+  } catch (error) {
+    console.error('Error updating part:', error);
+    res.status(500).json({ error: 'Failed to update part' });
+  }
+});
+
+// =====================================================
+// DELETE /workorders/:id/parts/:partId
+// =====================================================
+router.delete('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  try {
+    const workOrder = await WorkOrder.findById(req.params.id);
+    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+    const beforeCount = workOrder.partsUsed.length;
+    workOrder.partsUsed = workOrder.partsUsed.filter(
+      (pu) => pu.partId.toString() !== req.params.partId
+    );
+
+    if (workOrder.partsUsed.length === beforeCount) {
+      return res.status(404).json({ error: 'Part not found on this work order' });
+    }
+
+    await workOrder.save();
+
+    res.json({ message: 'Part removed successfully' });
+  } catch (error) {
+    console.error('Error removing part from work order:', error);
+    res.status(500).json({ error: 'Failed to remove part' });
+  }
+});
+
+// POST: add test equipment to work order
+router.post("/:id/test-equipment", authenticateToken, async (req, res) => {
+  try {
+    const { equipmentId, note } = req.body;
+    const userId = req.user.id;
+
+    const workOrder = await WorkOrder.findById(req.params.id);
+    if (!workOrder) return res.status(404).json({ error: "Work order not found" });
+
+    workOrder.testEquipmentUsed.push({
+      equipmentId,
+      usedBy: userId,
+      usedAt: new Date(),
+      note,
+    });
+
+    await workOrder.save();
+
+    // Populate for UI
+    const updated = await WorkOrder.findById(req.params.id)
+      .populate("testEquipmentUsed.equipmentId", "assetTag model manufacturer")
+      .populate("testEquipmentUsed.usedBy", "name")
+      .lean();
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error adding test equipment:", error);
+    res.status(500).json({ error: "Failed to add test equipment" });
+  }
+});
+
+// DELETE: remove test equipment entry
+router.delete("/:id/test-equipment/:equipmentId", authenticateToken, async (req, res) => {
+  try {
+    const { id, equipmentId } = req.params;
+    const workOrder = await WorkOrder.findById(id);
+    if (!workOrder) return res.status(404).json({ error: "Work order not found" });
+
+    workOrder.testEquipmentUsed = workOrder.testEquipmentUsed.filter(
+      (te) => te.equipmentId.toString() !== equipmentId
+    );
+
+    await workOrder.save();
+
+    res.json({ message: "Test equipment removed" });
+  } catch (error) {
+    console.error("Error deleting test equipment:", error);
+    res.status(500).json({ error: "Failed to remove test equipment" });
+  }
+});
+
+
+module.exports = router;
+
+
 
 module.exports = router;

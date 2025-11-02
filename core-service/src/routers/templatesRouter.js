@@ -40,10 +40,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
 });
 
 // GET: a single template (internal only)
-router.get('/:id',
-  authenticateToken,
-  authorizeRoles('admin', 'tech'),
-  async (req, res) => {
+router.get('/:id',  authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -188,7 +185,7 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
     }
 
     // 6) Build asset payload (unchanged)
-    const pi = parseGS1PI(udi);
+    const { pi } = extractDIFromUDI(udi || '');
     const assetPayload = {
       ctrlNumber: assetInput.ctrlNumber?.trim(),
       templateId: templateDoc._id,
@@ -197,8 +194,8 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
       description: assetInput.description ?? templateDoc.description ?? templateDoc.brandName ?? '',
       equipmentClass: templateDoc.equipmentClass,
       serialNumber: assetInput.serialNumber ?? pi.serialNumber ?? undefined,
-      facility: assetInput.facility || undefined,
-      department: assetInput.department || undefined,
+      facilityId: assetInput.facilityId || undefined,
+      departmentId: assetInput.departmentId || undefined,
       locationNote: assetInput.locationNote || undefined,
       notes: assetInput.notes ?? null,
       parentAsset: assetInput.parentAsset || null,

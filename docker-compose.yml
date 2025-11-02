@@ -18,7 +18,7 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/aegisops
+      - MONGO_URI=mongodb://mongo:27017/cronus
       - JWT_SECRET=your_secret_here
     depends_on:
       - mongo

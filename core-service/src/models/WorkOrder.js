@@ -1,32 +1,34 @@
+// src/models/WorkOrder.js
+
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+
+const Counter = require('./Counter');
 
 const TimeLogSchema = new Schema({
   userId:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
   timeSpent: { type: Number, min: 1, required: true }, // minutes
   description: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
-}, { _id: false });
+});
 
 const TravelLogSchema = new Schema({
   userId:     { type: Schema.Types.ObjectId, ref: 'User', required: true },
   travelTime: { type: Number, min: 1, required: true }, // minutes
   note:       { type: String, default: '' },
   createdAt:  { type: Date, default: Date.now },
-}, { _id: false });
+});
 
 const TaskResultSchema = new mongoose.Schema({
-  taskId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Task', required: true },
-  label:         { type: String },                 // denormalized display label
-  type:          { type: String, enum: ['passfail', 'measure'], required: true },
-  value:         { type: mongoose.Schema.Types.Mixed, default: null }, // boolean/number/string
+  taskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', required: true },
+  label: { type: String },
+  type: { type: String, enum: ['pass/fail', 'measurement', 'comment'], required: true },
+  value: { type: mongoose.Schema.Types.Mixed, default: null },
   unitOfMeasure: { type: String, default: null },
-  passed:        { type: Boolean, default: null }, // for pass/fail tasks
-  comment:       { type: String, default: '' },
-
-  // who/when captured
-  submittedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  submittedAt:   { type: Date, default: null },
+  passed: { type: Boolean, default: null },
+  comment: { type: String, default: '' },
+  submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  submittedAt: { type: Date, default: null },
 }, { _id: false });
 
 const PartUsageSchema = new mongoose.Schema({
@@ -63,16 +65,29 @@ const WorkOrderSchema = new Schema({
   // NEW: soft link back to the ticket that originated this WO (if any)
   ticketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket', default: null },
 
-  // procedure: attach a procedure and store taskResults under it
-  procedure: {
+  // procedures: attach a procedures and store taskResults under it
+  procedures: [{
     _id:         { type: Schema.Types.ObjectId, ref: 'Procedure' },
     name:        { type: String }, // denormalize for fast display
     taskResults: [TaskResultSchema],
-  },
+  }],
 
   // logs
-  timeLogs:   [TimeLogSchema],
-  travelLogs: [TravelLogSchema],
+  timeLogs:   { type: [TimeLogSchema], default: [] },
+  travelLogs: { type: [TravelLogSchema], default: [] },
+
+  // parts used
+  partsUsed: { type: [PartUsageSchema], default: [] },
+
+  //test equipment used
+  testEquipmentUsed: [
+    { 
+      equipmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Asset", required: true }, 
+      usedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, 
+      usedAt: { type: Date, default: Date.now }, 
+      note: { type: String }, 
+    },
+  ],
 
   // soft delete + audit
   deletedAt:  { type: Date, default: null, index: true },
@@ -94,15 +109,17 @@ const WorkOrderSchema = new Schema({
 
 // indexes that matter
 WorkOrderSchema.index({ facilityId: 1, status: 1, dueDate: 1 });
-WorkOrderSchema.index({ customerId: 1, requestDate: -1 });
-WorkOrderSchema.index({ customerId: 1, 'timeLogs.userId': 1, status: 1 });
 WorkOrderSchema.index({ ticketId: 1 }); // for quick joins & lookups
+WorkOrderSchema.index({ workOrderNumber: 1 }, { unique: true });
 
 WorkOrderSchema.pre('save', async function (next) {
   if (!this.isNew || this.workOrderNumber) return next();
 
-  // Per-customer sequence (recommended)
-  const counterId = `wo:${this.customerId.toString()}`;
+  if (!Array.isArray(this.timeLogs)) this.timeLogs = [];
+  if (!Array.isArray(this.travelLogs)) this.travelLogs = [];
+
+  // Per-facility sequence
+  const counterId = 'wo:global';
   const c = await Counter.findOneAndUpdate(
     { _id: counterId },
     { $inc: { seq: 1 } },

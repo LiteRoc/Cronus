@@ -24,7 +24,11 @@ taskRouter.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (r
 taskRouter.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
 
     try {
-        const task = new Task(req.body);
+        const task = new Task({
+            ...req.body,
+            createdBy: req.user.id,
+            updatedBy: req.user.id,
+    });
         await task.save();
         res.status(201).json({ message: 'Task created successfully', task });
     } catch (error) {

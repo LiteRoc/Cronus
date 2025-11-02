@@ -11,11 +11,15 @@ const MaintenanceScheduleSchema = new Schema({
   procedure: { type: Schema.Types.ObjectId, ref: 'Procedure' },
 }, { _id: false });
 
+// custom, dynamic key-value pairs
+/*const attributeSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  value: mongoose.Schema.Types.Mixed,
+}, { _id: false });*/
+
 /** Base Asset schema (template‑first + parent/child) */
 const AssetSchema = new Schema({
-  // Location
-  facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
-  departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
+  
   // Identity
   ctrlNumber: { type: String, required: true, trim: true, unique: true, index: true },
   templateId: { type: Schema.Types.ObjectId, ref: 'EquipmentTemplate', default: null },
@@ -27,6 +31,12 @@ const AssetSchema = new Schema({
   revisionNumber: { type: String, trim: true },
   status: { type: String, enum: ['Active', 'Inactive', 'Pending', 'Retired'], default: 'Active' },
   notes: { type: String, default: null },
+  isArchived: { type: Boolean, default: false },
+
+  // Location
+  facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
+  departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
+  locationNote: { type: String, trim: true },
 
   // FDA Extras
   equipmentClass: { type: String, default: '' },
@@ -40,11 +50,6 @@ const AssetSchema = new Schema({
   manufacturerDUNS: { type: String, default: '' },
   gmdnDefinition: { type: String, default: '' },
 
-  // Org placement
-  facility: { type: String, trim: true },
-  department: { type: String, trim: true },
-  locationNote: { type: String, trim: true },
-
   // Parent/Child (single parent)
   parentAsset: { type: Schema.Types.ObjectId, ref: 'Asset', default: null },
   relationToParent: {
@@ -54,14 +59,38 @@ const AssetSchema = new Schema({
   },
 
   // PM
-  manufacturerRecommendedPMFrequency: { type: Number, default: undefined }, // months
   maintenanceSchedule: { type: MaintenanceScheduleSchema, default: null },
 
-  // Flexible extras
+  // Flexible extras (Map-based attributes)
   attributes: { type: Map, of: Schema.Types.Mixed, default: {} },
 
   // Links
   workOrders: [{ type: Schema.Types.ObjectId, ref: 'WorkOrder' }],
+
+  // In Asset schema (optional on most assets, but used for test equipment)
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+
+
+  // Compliance
+  riskLevel: { type: String, enum: ["Non-High Risk", "High Risk"] },
+  isHIPAARelevant: { type: Boolean },
+  isAlarmed: { type: Boolean },
+  isSecuritySensitive: { type: Boolean },
+  isAEMExcluded: { type: Boolean },
+
+  // Financial
+  purchaseDate: { type: Date },
+  purchaseCost: { type: Number },
+  budgetValue: { type: Number },
+  contractValue: { type: Number },
+  manufacturerRecommendedPMFrequency: { type: Number },
+
+  // Attachments
+  documents: [{ type: String }],
+  images: [{ type: String }],
 
   duplicateOf: {
     type: mongoose.Schema.Types.ObjectId,

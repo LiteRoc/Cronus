@@ -1,8 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware')
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const Procedure = require('../models/Procedure');
 const Task = require('../models/Task');
+const Asset = require('../models/Asset');
+const WorkOrder = require('../models/WorkOrder');
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const debug = require('debug')('app:procedureRouter');
 
@@ -14,7 +16,9 @@ procedureRouter.get('/', authenticateToken, async (req, res) => {
         // Optional: only show procedures actually used by their assets/WOs
         const assetIds = await Asset.find(buildTenantFilter(req)).distinct('_id');
         const woProcIds = await WorkOrder.find({ assetId: { $in: assetIds } }).distinct('procedure');
-        const procIds = new Set(woProcIds);
+        const procIds = woProcIds.filter((id) =>
+            typeof id === 'string' || (id && id._id) // account for object with _id too
+            ).map((id) => (typeof id === 'object' ? id._id : id));
         const procs = await Procedure.find({ _id: { $in: Array.from(procIds) } }).populate('tasks');
         return res.json(procs);
     }

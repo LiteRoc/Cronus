@@ -1,7 +1,6 @@
 const express = require('express');
 const debug = require('debug')('app:adminRouter');
 const { MongoClient } = require('mongodb');
-//const assets = require('../data/assets.json');
 const workOrders = require('../data/workorders.json');
 
 const adminRouter = express.Router();

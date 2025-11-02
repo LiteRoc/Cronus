@@ -1,9 +1,12 @@
+// src/routers/ticketRouter.js
+
 const express = require('express');
 const mongoose = require('mongoose');
 const Ticket = require('../models/Ticket');
 const Asset = require('../models/Asset');
 const WorkOrder = require('../models/WorkOrder');
-const { authenticateToken, authorizeRoles, buildTenantFilter } = require('../middleware/authMiddleware');
+const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 
 const router = express.Router();
 const isOid = mongoose.isValidObjectId;
@@ -33,31 +36,35 @@ router.get('/', authenticateToken, async (req, res) => {
   res.json({ items, total, page:p, totalPages: Math.ceil(total/l) });
 });
 
-// Create ticket — customer or internal
-router.post('/', authenticateToken, authorizeRoles('customer','user','admin'), async (req, res) => {
-  const { type, subject, description, assetId, partId, quantity, priority } = req.body || {};
-  if (!type || !['service','consumable'].includes(type)) return res.status(400).json({ error: 'type must be service|consumable' });
-  if (!subject) return res.status(400).json({ error: 'subject is required' });
-
-  // Determine customerId: for customers from token; for internal derive from asset if provided
-  let customerId = req.user.customerId || null;
-  if (!customerId && assetId && isOid(assetId)) {
-    const asset = await Asset.findById(assetId).select('customerId');
-    customerId = asset?.customerId || null;
+// Get one (customer can see own only; admin/tech any scoped)
+router.get('/:id',  authenticateToken, async (req, res, next) => {
+    try {
+      const ticket = await Ticket.findOne({ _id: req.params.id, ...buildTenantFilter(req) })
+        .populate('assetId', 'name manufacturer model')
+        .populate('createdBy', 'name email')
+        .populate('relatedWorkOrderId', 'workOrderNumber status');
+      if (!ticket) return res.status(404).json({ error: 'Not found' });
+      if (req.user.role === 'customer' && ticket.createdBy._id.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      res.json(ticket);
+    } catch (err) {
+      next(err);
+    }
   }
-  if (!customerId) return res.status(400).json({ error: 'customerId could not be determined' });
+);
 
-  const ticket = await Ticket.create({
-    type, subject, description, assetId,
-    partId: type==='consumable' ? partId : undefined,
-    quantity: type==='consumable' ? (quantity || 1) : undefined,
-    priority: priority || 'Normal',
-    customerId,
-    requestedBy: req.user.id,
-    updatedBy: req.user.id,
-  });
+// Create ticket — customer or internal
+router.post('/', authenticateToken, async (req, res, next) => {
 
-  res.status(201).json(ticket);
+  try {
+      const { facilityId } = req.headers['x-facility-id'] ? { facilityId: req.headers['x-facility-id'] } : {};
+      const body = { ...req.body, facilityId, createdBy: req.user._id };
+      const ticket = await Ticket.create({ ...body });
+      res.status(201).json(ticket);
+    } catch (err) {
+      next(err);
+    }
 });
 
 // Update status/priority (internal)
@@ -80,7 +87,7 @@ router.post('/:id/approve', authenticateToken, authorizeRoles('customer'), async
   if (!isOid(id)) return res.status(400).json({ error: 'Invalid ticket id' });
 
   const updated = await Ticket.findOneAndUpdate(
-    { _id: id, customerId: req.user.customerId, type: 'consumable', status: { $in: ['Open','Needs Info'] } },
+    { _id: id, facilityId: req.user.facilityId, type: 'consumable', status: { $in: ['Open','Needs Info'] } },
     { $set: { status: 'Approved', updatedBy: req.user.id } },
     { new: true }
   );

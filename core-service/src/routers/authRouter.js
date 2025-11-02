@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const Facility = require('../models/Facility');
 
 const authRouter = express.Router();
 
@@ -66,7 +67,8 @@ authRouter.post(
     const { email, password } = req.body;
 
     try {
-      const user = await User.findOne({ email });
+      const user = await User.findOne({ email }).populate('facilities', 'name');
+      console.log('Returned user:', user);
       if (!user) {
         return res.status(400).json({ error: 'Invalid email or password' });
       }
@@ -78,18 +80,25 @@ authRouter.post(
 
       // Minimal, standard payload
       const payload = {
-        sub: user._id.toString(),         // standard JWT "subject"
+        id: user._id.toString(),         // standard JWT "subject"
+        name: user.name,
+        username: user.username,
+        email: user.email,
         role: user.role,                  // 'admin' | 'tech' | 'customer'
-        facilityId: user.facilityId
+        facilityId: user.facilityId,
+        departmentId: user.departmentId, // optional
+        facilities: user.facilities?.map(f => f._id.toString())
       };
+
+      console.log("JWT-bound facilities:", payload.facilities);
 
       const token = jwt.sign(
         payload,
         JWT_SECRET,
         {
           expiresIn: '12h',
-          issuer: 'aegisops.api',         // optional but recommended
-          audience: 'aegisops.app'        // optional but recommended
+          issuer: 'cronus.api',         // optional but recommended
+          audience: 'cronus.app'        // optional but recommended
         }
       );
 
@@ -110,8 +119,16 @@ authRouter.post(
           email: user.email,
           role: user.role,
           name: user.name || user.username, // if you want a display name
+          facilityId: user.facilityId ? user.facilityId.toString() : null,
+          departmentId: user.departmentId ? user.departmentId.toString() : null,
+          facilities: user.facilities?.map((f) => ({
+            id: f._id.toString(),
+            name: f.name,
+          })) || [],
         },
       });
+      console.log('Frontend-bound user:', user);
+
     } catch (error) {
       console.error('Error during login:', error);
       res.status(500).json({ error: 'Internal Server Error' });

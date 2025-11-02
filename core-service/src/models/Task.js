@@ -3,7 +3,7 @@ const { Schema } = mongoose;
 
 const taskSchema = new Schema({
     description: { type: String, required: true }, // Task description
-    type: { type: String, enum: ['Pass/Fail', 'Measurement', 'Comment'], required: true }, // Task type
+    type: { type: String, enum: ['pass/fail', 'measurement', 'comment'], required: true }, // Task type
     minValue: { type: Number }, // For Measurement type
     maxValue: { type: Number }, // For Measurement type
     unit: { type: String },

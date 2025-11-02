@@ -1,24 +1,47 @@
-**/.classpath
-**/.dockerignore
-**/.env
-**/.git
-**/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
-**/.vscode
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/charts
-**/docker-compose*
-**/compose*
-**/Dockerfile*
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
-LICENSE
-README.md
+# Node modules and lockfiles
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
+
+# Logs
+*.log
+logs
+debug.log
+
+# Environment files
+.env
+.env.*  # in case you use .env.dev, .env.local, etc.
+
+# Build artifacts
+dist
+build
+*.tsbuildinfo
+
+# Git and version control
+.git
+.gitignore
+
+# IDE/editor config
+.vscode
+.idea
+*.swp
+*.tmp
+*.bak
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Docker / compose files (only ignore if not copying them intentionally)
+docker-compose*.yaml
+Dockerfile*
+
+# Test files / coverage (optional)
+coverage
+__tests__
+*.spec.js
+*.test.js
+*.spec.ts
+*.test.ts

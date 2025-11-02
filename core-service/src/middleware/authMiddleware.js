@@ -36,6 +36,8 @@ function authenticateToken(req, res, next) {
       id: userId?.toString?.() || String(userId),
       role: decoded.role || 'admin',
       facilityId: decoded.facilityId,
+      departmentId: decoded.departmentId || null,
+      facilities: decoded.facilities || [],
 
       // Keep raw claims you might care about:
       sub: decoded.sub,
