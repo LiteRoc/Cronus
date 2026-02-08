@@ -1,16 +1,30 @@
-// src/components/ui/Checkbox.tsx
+// src/components/ui/checkbox.tsx
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-import React from "react";
-
-interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface CheckboxProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   label?: string;
 }
 
-export const Checkbox: React.FC<CheckboxProps> = ({ label, ...props }) => {
-  return (
-    <label className="inline-flex items-center space-x-2 text-sm font-medium text-gray-700">
-      <input type="checkbox" {...props} className="form-checkbox h-4 w-4 text-blue-600" />
-      {label && <span>{label}</span>}
-    </label>
-  );
-};
+export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
+  ({ className, label, ...props }, ref) => {
+    return (
+      <label className={cn("flex items-center gap-2 text-sm text-gray-700", className)}>
+        <input
+          ref={ref}
+          type="checkbox"
+          className={cn(
+            "h-4 w-4 rounded border-gray-300 text-blue-600",
+            "focus:ring-2 focus:ring-blue-500 focus:ring-offset-1",
+            "disabled:cursor-not-allowed disabled:opacity-50"
+          )}
+          {...props}
+        />
+        {label && <span>{label}</span>}
+      </label>
+    );
+  }
+);
+
+Checkbox.displayName = "Checkbox";

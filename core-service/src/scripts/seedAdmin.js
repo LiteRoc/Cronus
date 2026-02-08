@@ -22,28 +22,28 @@ async function seedAdmin () {
   }
 
   const org = await Organization.create({
-    name: 'Seeded Admin Org',
+    name: 'The FourStones',
     type: 'System',
     notes: 'Default org for seeded admin',
   });
 
   const facility = await Facility.create({
     organizationId: org._id,
-    name: 'Admin HQ',
-    code: 'ADM-HQ',
-    phone: '123-456-7890',
+    name: 'The 4Stones',
+    code: '4_STONES',
+    phone: '6144022931',
     address: {
-      line1: '1 Admin Plaza',
-      city: 'Adminville',
-      state: 'AD',
-      zip: '00000',
+      line1: '6106 Sowerby Ln',
+      city: 'Westerville',
+      state: 'OH',
+      zip: '43081',
     },
   });
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
   const admin = await User.create({
-    username: 'admin',
-    email: 'admin@example.com',
+    username: 'Capt',
+    email: 'Jason.Featherston@thefourstones.com',
     password: passwordHash,
     role: 'admin',
     title: 'Super Admin',

@@ -1,3 +1,4 @@
+// Deprecated
 require('dotenv').config();
 const mongoose = require('mongoose');
 const Asset = require('../models/Asset');

@@ -69,6 +69,11 @@ authRouter.post(
     try {
       const user = await User.findOne({ email }).populate('facilities', 'name');
       console.log('Returned user:', user);
+
+      if (user && user.facilities.length === 0 && user.facilityId) {
+          user.facilities = [user.facilityId];
+      }
+      
       if (!user) {
         return res.status(400).json({ error: 'Invalid email or password' });
       }

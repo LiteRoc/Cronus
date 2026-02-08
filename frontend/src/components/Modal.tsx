@@ -1,3 +1,5 @@
+//src/components/Modal.tsx
+
 import React from "react";
 
 interface ModalProps {

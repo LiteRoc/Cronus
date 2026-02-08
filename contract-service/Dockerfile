@@ -1,8 +1,18 @@
 # contract-service/Dockerfile
-FROM node:lts-alpine
+FROM node:20-alpine
+
 WORKDIR /app
+
+# Copy dependency manifests first (better caching)
 COPY package*.json ./
+
+# Install dependencies
 RUN npm install
+
+# Copy app source code
 COPY . .
+
 EXPOSE 5001
-CMD ["node", "src/app.js"]
+
+# IMPORTANT: use npm, not node
+CMD ["npm", "run", "dev"]

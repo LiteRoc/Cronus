@@ -1,7 +1,8 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { useUser } from "@/context/UserContext";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
 import DashboardPage from "./pages/Dashboard/DashboardPage";
@@ -14,9 +15,20 @@ import FilteredWorkOrderPage from "./pages/ListWorkOrders/FilteredWorkOrderPage"
 import TemplateListPage from "./pages/ListTemplates/TemplateListPage";
 import TemplateEditPage from "./pages/EditTemplates/TemplateEditPage";
 import TemplateCreatePage from "./pages/AddTemplate/TemplateCreatePage";
-import ContractTable from "./pages/Contracts/ContractTable";
-import ContractDetailPage from "./pages/Contracts/ContractDetailPage";
 import SidebarLayout from "./components/SidebarLayout";
+
+import ContractsLayout from "@/pages/Contracts/ContractsLayout";
+import Dashboard from "@/pages/Contracts/Dashboard";
+import Assets from "@/pages/Contracts/Assets";
+import ContractsPage from "@/pages/Contracts/Contracts/ContractsPage";
+import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage";
+
+function RootRedirect() {
+  const { user } = useUser();
+  const token = localStorage.getItem("token");
+  const isAuthed = !!user?.id || !!(user as any)?._id || !!token;
+  return <Navigate to={isAuthed ? "/dashboard" : "/signin"} replace />;
+}
 
 export default function App() {
   return (
@@ -25,7 +37,8 @@ export default function App() {
       <Router>
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/home" element={<HomePage />} />
           <Route path="/signin" element={<SignInPage />} />
 
           {/* Authenticated routes wrapped in SidebarLayout */}
@@ -95,22 +108,24 @@ export default function App() {
               </SidebarLayout>
             }
           />
+          {/* 👇 Contracts area */}
           <Route
             path="/contracts"
             element={
               <SidebarLayout>
-                <ContractTable />
+                <ContractsLayout />
               </SidebarLayout>
             }
-          />
-          <Route
-            path="/contracts/:contractId"
-            element={
-              <SidebarLayout>
-                <ContractDetailPage />
-              </SidebarLayout>
-            }
-          />
+          >
+            <Route index element={<ContractsPage />} />
+            <Route path=":id" element={<ContractDetailsPage />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="assets" element={<Assets />} />
+          </Route>
+
+          {/* Legacy customer routes */}
+          <Route path="/customer/dashboard" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/customer" element={<Navigate to="/dashboard" replace />} />
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />

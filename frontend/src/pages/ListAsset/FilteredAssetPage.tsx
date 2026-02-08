@@ -1,5 +1,7 @@
+//src/pages/ListAsset/FilteredAssetPage.tsx
+
 import React, { useState } from "react";
-import { useAssets } from "./hooks/useAssets";
+import { useAssets } from "../../hooks/useAssets";
 import { Button } from "@/components/ui";
 import FilteredAssetControls from "./components/FilteredAssetControls";
 import AssetTable from "./components/AssetTable";

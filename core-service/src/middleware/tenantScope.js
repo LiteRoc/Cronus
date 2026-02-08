@@ -58,6 +58,21 @@ function buildTenantFilter(req) {
     filter.departmentId = mongoose.Types.ObjectId.createFromHexString(departmentId);
   }*/
 
+  // --- Contracts filtering: use linkedFacility instead of facilityId ---
+  if (req.baseUrl.includes("contracts")) {
+    console.log("Applying contract-specific tenant filter");
+
+    return {
+      linkedFacility: {
+        $in: facilities.map(f =>
+          mongoose.Types.ObjectId.createFromHexString(
+            typeof f === 'object' ? f._id?.toString() : f.toString()
+          )
+        )
+      }
+    };
+  }
+
   return filter;
 }
 

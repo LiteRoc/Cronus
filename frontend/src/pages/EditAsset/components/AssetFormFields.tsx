@@ -12,7 +12,7 @@ interface Props {
 }
 
 const AssetFormFields: React.FC<Props> = ({ asset, isReadOnly, handleChange, updateField }) => {
-  const { availableFacilities, departments } = useFacilityDepartmentData(asset?.facilityId);
+  const { availableFacilities, departments } = useFacilityDepartmentData();
 
   if (!asset) {
     return <div className="p-4 text-sm text-gray-500">Loading asset…</div>;

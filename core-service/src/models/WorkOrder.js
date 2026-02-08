@@ -61,6 +61,8 @@ const WorkOrderSchema = new Schema({
 
   // assignment
   assignedTo:     { type: Schema.Types.ObjectId, ref: 'User' },
+  contractId:     { type: mongoose.Schema.Types.ObjectId },
+
 
   // NEW: soft link back to the ticket that originated this WO (if any)
   ticketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket', default: null },
@@ -132,5 +134,56 @@ WorkOrderSchema.pre('save', async function (next) {
 WorkOrderSchema.add({
   partsUsed: [PartUsageSchema],
 });
+
+// Post-save hook to sync work order to the related Asset
+WorkOrderSchema.post("save", async function (doc) {
+  try {
+    const Asset = mongoose.model("Asset");
+
+    // If no assetId, nothing to do
+    if (!doc.assetId) return;
+
+    // Push minimal work order info to the asset
+    await Asset.findByIdAndUpdate(
+      doc.assetId,
+      {
+        $addToSet: {
+          workOrders: {
+            _id: doc._id,
+            description: doc.description,
+            status: doc.status,
+          },
+        },
+      },
+      { new: true }
+    );
+  } catch (err) {
+    console.error("Error syncing work order to asset:", err);
+  }
+});
+
+WorkOrderSchema.post("findOneAndUpdate", async function (doc) {
+  try {
+    const Asset = mongoose.model("Asset");
+
+    if (!doc || !doc.assetId) return;
+
+    await Asset.updateOne(
+      {
+        _id: doc.assetId,
+        "workOrders._id": doc._id
+      },
+      {
+        $set: {
+          "workOrders.$.status": doc.status,
+          "workOrders.$.description": doc.description
+        }
+      }
+    );
+  } catch (err) {
+    console.error("Error syncing updated work order on asset:", err);
+  }
+});
+
 
 module.exports = mongoose.model('WorkOrder', WorkOrderSchema);

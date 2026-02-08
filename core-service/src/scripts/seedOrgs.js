@@ -65,30 +65,30 @@ const seedData = [
   },
   {
     org: {
-      name: 'Starman Medical',
+      name: 'Zeppelin Medical',
       type: 'University Health Network',
       notes: 'Lab-tested across the stars',
     },
     facilities: [
       {
-        name: 'Ziggy Stardust Medical Center',
+        name: 'Kashmir Medical Center',
         code: 'ZSMC',
-        city: 'Berlin',
+        city: 'London',
         departments: [
           { name: 'Cardiology' },
           { name: 'Surgery' },
         ],
         users: [
           {
-            username: 'david',
-            email: 'david@starmanmed.org',
+            username: 'robert',
+            email: 'robert@kashmir.org',
             role: 'customer',
             title: 'Head of Cardiology',
             dept: 'Cardiology',
           },
           {
-            username: 'ziggy',
-            email: 'ziggy@starmanmed.org',
+            username: 'jimmy',
+            email: 'jimmy@kashmir.org',
             role: 'technician',
             title: 'Field Tech',
             dept: 'Surgery',

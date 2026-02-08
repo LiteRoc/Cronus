@@ -68,7 +68,7 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
           query.departmentId = req.user.departmentId;
         }*/
 
-        console.log('Final asset query:', query);
+        //console.log('Final asset query:', query);
 
         // Parse the `page` and `limit` to ensure they are numbers
         const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
@@ -89,10 +89,14 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
                 path: 'workOrders',
                 select: 'description status scheduledDate completionDate workOrderNumber', // Optimize with selected fields
             })
+            .populate({
+              path: 'contractId',
+              select: 'type name startDate endDate',
+            })
             .lean();
 
 
-        console.log('Returned assets:', assets);
+        console.log('Returned assets count:', assets.length);
         // Add a fallback for legacy-required fields & schedule shape
         const enrichedAssets = assets.map(asset => ({
             ...asset,
@@ -138,7 +142,6 @@ assetRouter.get('/test-equipment', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
 
 // GET a single asset by ID
 assetRouter.get('/:id', authenticateToken, async (req, res) => {
@@ -310,6 +313,40 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     return res.status(500).json({ error: 'Failed to create asset' });
   }
 });
+
+// ---------- Batch get assets ----------
+assetRouter.post("/batch", authenticateToken, async (req, res) => {
+    try {
+      // NOTE: do not destructure here ... req.body.assetIds is an array
+      const assetIds = req.body.assetIds ?? req.body.ids;
+      const tenantId = req.user.tenantId;
+
+      console.log( "assetIds:", assetIds);
+
+      if (!Array.isArray(assetIds) || assetIds.length === 0) {
+        console.warn("assets/batch called without assetIds array", req.body);
+        return res
+          .status(400)
+          .json({ message: "assetIds must be a non-empty array" });
+      }
+
+      // Query all assets by ID + tenant
+      const assets = await Asset.find({
+        _id: { $in: assetIds },
+        tenantId,
+      })
+        .lean();
+
+      return res.json({ assets: [].concat(assets) });
+    } catch (error) {
+      console.error("Error fetching batch assets:", error);
+      return res.status(500).json({
+        message: "Server error fetching assets",
+        error,
+      });
+    }
+  }
+);
 
 // PUT: Update an asset by ID
 assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
@@ -499,11 +536,20 @@ assetRouter.get('/:id/tree', authenticateToken, async (req, res) => {
 // Nested router for work orders
 assetRouter.use('/:assetId/workorders', authenticateToken, async (req, res, next) => {
     const { assetId } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(assetId)) return res.status(400).json({ error: 'Invalid assetId' });
+
+    // Ensure the asset belongs to the tenant
     const owned = await Asset.exists({ _id: assetId, ...buildTenantFilter(req) });
+
     if (!owned) return res.status(404).json({ error: 'Asset not found' });
-    req.assetId = assetId;
-    next();
-  }, workOrderRouter);
+
+    // Fetch asset-specific work orders
+    const workOrders = await WorkOrder.find({ assetId, ...buildTenantFilter(req) })
+      .select("workOrderNumber description status workOrderType assignedTo createdAt dueDate scheduledDate")
+      .populate("assignedTo", "name email username");
+
+    res.json({ workOrders });
+  });
 
 module.exports = assetRouter;

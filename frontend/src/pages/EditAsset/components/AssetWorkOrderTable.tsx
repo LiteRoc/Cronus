@@ -1,3 +1,5 @@
+// src/pages/EditAsset/components/AssetWorkOrderTable.tsx
+
 import React, { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { useNavigate } from "react-router-dom";
@@ -22,10 +24,7 @@ interface WorkOrderRow {
 }
 
 interface WorkOrderResponse {
-  items: WorkOrderRow[];
-  total: number;
-  page: number;
-  totalPages: number;
+  workOrders: WorkOrderRow[];
 }
 
 
@@ -51,17 +50,6 @@ const AssetWorkOrderTable: React.FC<Props> = ({ asset }) => {
     const finalPayload = { ...payload, assignedTo: payload.assignedTo || userId };
     await addWorkOrder(finalPayload);
   };
-
-  /*const handleCreate = async (newWorkOrder: WorkOrder) => {
-    try {
-      await apiClient.post(`/assets/${asset._id}/workorders`, newWorkOrder);
-      // Refresh the SWR cache for this asset's work orders
-      mutate(`/assets/${asset._id}/workorders`);
-    } catch (err) {
-      console.error("Error creating work order:", err);
-      throw err;
-    }
-  };*/
 
   const renderStatusChip = (status: WorkOrderRow["status"]) => {
     const colors: Record<string, string> = {
@@ -98,7 +86,7 @@ const AssetWorkOrderTable: React.FC<Props> = ({ asset }) => {
       {isLoading && <p>Loading work orders...</p>}
       {error && <p className="text-red-500">Failed to load work orders.</p>}
 
-      {data && data.items.length > 0 ? (
+      {data && data.workOrders.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 sticky top-0 z-10">
@@ -112,7 +100,7 @@ const AssetWorkOrderTable: React.FC<Props> = ({ asset }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {data.items.map((wo) => (
+              {data.workOrders.map((wo) => (
                 <tr
                   key={wo._id}
                   className="hover:bg-gray-50 cursor-pointer"

@@ -8,6 +8,7 @@ const vendorSchema = new Schema({
     phone: String,
     address: String,
   },
+  tenantId: { type: Schema.Types.ObjectId, required: true, index: true },
   notes: String
 }, { timestamps: true });
 

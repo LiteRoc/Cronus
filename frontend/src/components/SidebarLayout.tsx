@@ -10,7 +10,8 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setUser } = useUser() || {};
-  const links = useSidebarLinks(user?.role ?? "viewer");
+  const normalizedRole = user?.role === "tech" ? "technician" : (user?.role ?? "viewer");
+  const links = useSidebarLinks(normalizedRole);
   const { selectedFacilityId, setSelectedFacilityId, availableFacilities } = useFacility();
   //console.log("availableFacilities:", availableFacilities);
 
@@ -21,7 +22,6 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const name = user?.name;
   const username = user?.username;
-  const role = user?.role;
 
   const linkClasses = (path: string) =>
     `flex items-center p-2 rounded hover:bg-gray-700 ${
@@ -42,8 +42,8 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div>
           <h1 className="text-2xl font-bold mb-1">Welcome, {name || username}</h1>
 
-          {(role === "admin" || role === "technician") && (
-            <p className="text-xs text-gray-400 italic mb-4">{role}</p>
+          {(user?.role === "admin" || normalizedRole === "technician") && (
+            <p className="text-xs text-gray-400 italic mb-4">{user?.role}</p>
           )}
           {/* Facility switcher */}
           {availableFacilities.length > 1 && (

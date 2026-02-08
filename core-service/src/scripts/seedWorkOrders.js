@@ -1,3 +1,6 @@
+//src/scripts/seedWorkOrders.js
+// GOOD TO USE
+
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 dotenv.config();

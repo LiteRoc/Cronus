@@ -7,6 +7,7 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
+    "composite": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
@@ -15,7 +16,7 @@
     "skipLibCheck": true,
     "types": ["react", "react-dom", "react-to-print"],
     "typeRoots": ["node_modules/@types"],
-    "include": ["src/**/**"],
+    //"include": ["src/**/**"],
     "moduleResolution": "node"
   }
 }

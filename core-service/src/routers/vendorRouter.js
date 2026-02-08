@@ -2,6 +2,8 @@ const express = require('express');
 const Vendor = require('../models/Vendor');
 const vendorRouter = express.Router();
 
+const { authenticateToken } = require('../middleware/authMiddleware');
+
 // GET all vendors
 vendorRouter.get('/', async (req, res) => {
   try {
@@ -13,12 +15,17 @@ vendorRouter.get('/', async (req, res) => {
 });
 
 // GET a single vendor
-vendorRouter.get('/:id', async (req, res) => {
+vendorRouter.get('/:id', authenticateToken, async (req, res) => {
+  console.log("req.user:", req.user);
   try {
-    const vendor = await Vendor.findById(req.params.id).lean();
+    const vendor = await Vendor.findOne( {
+      _id: req.params.id,
+      tenantId: req.user.tenantId,
+  }).lean();
     if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
     res.status(200).json(vendor);
   } catch (err) {
+    console.log("Error fetching vendor:", err);
     res.status(500).json({ error: 'Failed to fetch vendor' });
   }
 });

@@ -39,12 +39,13 @@ const taskRouter = require('./src/routers/taskRouter');
 const dashboardRouter = require('./src/routers/dashboardRouter');
 const { title } = require('process');
 const vendorRouter = require('./src/routers/vendorRouter');
-const contractRouter = require('./src/routers/contractRouter');
-const contractAnalysisRouter = require('./src/routers/contractAnalysisRouter');
+//const contractRouter = require('./src/routers/contractRouter');
+//onst contractAnalysisRouter = require('./src/routers/contractAnalysisRouter');
 //const portalRouter = require('./src/routers/portalRouter');
 const facilityRouter = require('./src/routers/facilityRouter');
 const departmentRouter = require('./src/routers/departmentRouter');
 const manufacturerRouter = require('./src/routers/manufacturerRouter');
+const { attachContractClient } = require('./src/middleware/forwardContractHeaders');
 
 // View Engine
 app.set('views', './src/views');
@@ -84,8 +85,8 @@ app.use('/procedures', procedureRouter);
 app.use('/tasks', taskRouter);
 app.use('/dashboard', dashboardRouter);
 app.use('/vendors', vendorRouter);
-app.use('/contracts', contractRouter);
-app.use('/contract-analysis', contractAnalysisRouter);
+//app.use('/contracts', contractRouter);
+//app.use('/contract-analysis', contractAnalysisRouter);
 //app.use('/portal/', portalRouter);
 app.use('/facilities', facilityRouter);
 app.use('/departments', departmentRouter);

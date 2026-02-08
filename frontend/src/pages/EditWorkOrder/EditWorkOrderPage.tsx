@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useWorkOrderForm } from "@/hooks/workorders/useWorkOrderForm";
-import { useWorkOrderActions } from "@/hooks/workorders/useWorkOrderActions";
+import { useWorkOrderForm } from "./hooks/useWorkOrderForm";
+import { useWorkOrderActions } from "./hooks/useWorkOrderActions";
 import WorkOrderFormFields from "./components/WorkOrderFormFields";
 import { FaArrowLeft } from "react-icons/fa";
 import TimeAndTravelLogs from "./components/TimeAndTravelLogs";
@@ -14,15 +14,13 @@ import ProcedureTaskResults from "./components/ProcedureTaskResults";
 import PerformProcedureModal from "./modals/PerformProcedureModal";
 import AddProcedureModal from "./modals/AddProcedureModal";
 import ViewTaskModal from "./modals/ViewTaskResutsModal";
-import { useProcedureById, useProcedures } from "@/hooks/useProcedures";
+import { useProcedures } from "./hooks/useProcedures";
 import PartsUsedSection from "./components/PartsUsedSection";
-import { usePartById, useParts } from "@/hooks/useParts";
+import { useParts } from "./hooks/useParts";
 import AddPartModal from "./modals/AddPartModal";
 import TestEquipmentSection from "./components/TestEquipmentSection";
-import { tr } from "date-fns/locale";
-import { removeTestEquipFromWorkOrder } from "@/services";
 import AddTestEquipmentModal from "./modals/AddTestEquipmentModal";
-import { useTestEquipment } from "@/hooks/useTestEquipment";
+import { useTestEquipment } from "./hooks/useTestEquipment";
 
 const EditWorkOrderPage: React.FC = () => {
   const { id: workOrderId } = useParams<{ id: string }>();
@@ -37,7 +35,6 @@ const EditWorkOrderPage: React.FC = () => {
   const [selectedProcedureId, setSelectedProcedureId] = useState<string | null>(null);
   const [showAddPartModal, setShowAddPartModal] = useState(false);
   const [showAddTestEquipModal, setShowAddTestEquipModal] = useState(false);
-  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
 
 
 
@@ -76,7 +73,7 @@ const EditWorkOrderPage: React.FC = () => {
 
   const { parts } = useParts();
 
-  const { testEquip} = useTestEquipment();
+  const { testEquip } = useTestEquipment();
 
   console.log("Selected Procedure's TaskResults being retrieved:", selectedProcedure?.taskResults);
 

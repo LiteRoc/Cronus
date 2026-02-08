@@ -33,6 +33,8 @@ const AssetSchema = new Schema({
   notes: { type: String, default: null },
   isArchived: { type: Boolean, default: false },
 
+  contractId: { type: Schema.Types.ObjectId, ref: 'Contract' },
+
   // Location
   facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
   departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },

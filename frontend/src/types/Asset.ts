@@ -23,6 +23,8 @@ export interface Asset {
   revisionNumber?: string;
   description?: string;
 
+  contractId: string,
+
   // Location / Org
   facilityId: string;
   departmentId?: string;
@@ -103,6 +105,8 @@ export type AssetFilters = {
 // Shape returned by GET /assets used by useAssets()
 // Your hook reads: assets, currentPage, totalPages, totalAssets
 export interface AssetListResponse {
+  forEach(arg0: (a: any) => any): unknown;
+  filter(arg0: (a: any) => boolean): any;
   assets: Asset[];     // list payload
   currentPage: number; // 1-based current page
   totalPages: number;  // total number of pages

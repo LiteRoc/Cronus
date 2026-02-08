@@ -1,49 +1,77 @@
-version: '3.8'
+version: "3.8"
+
+networks:
+  cronus-network:   # shared network across all Cronus containers
+    driver: bridge
+
+volumes:
+  mongo-data:
 
 services:
   mongo:
     image: mongo
+    container_name: mongo
     restart: always
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    networks:
+      - cronus-network
 
   core-service:
     build: ./core-service
-    volumes:
-      - ./core-service:/app
-      - /app/node_modules
+    container_name: core-service
     command: npm run dev
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/cronus
-      - JWT_SECRET=your_secret_here
+      MONGO_URI: mongodb://mongo:27017/cronus
+      JWT_SECRET: your_secret_here
+      PORT: 4000
+    volumes:
+      - ./core-service:/app
+      #- contract_node_modules:/app/node_modules
+      - /app/node_modules
     depends_on:
       - mongo
-      
+    networks:
+      - cronus-network
+
   contract-service:
     build: ./contract-service
+    container_name: contract-service
+    command: npm run dev
     ports:
       - "5001:5001"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/aegisops
-      - JWT_SECRET=your_secret
+      MONGO_URI: mongodb://mongo:27017/cronus
+      CORE_API_URL: "http://core-service:4000"
+      JWT_SECRET: your_secret_here
+      PORT: 5001
+      CRON_ENABLED: "true"
+      TZ: "America/New_York"
+    volumes:
+      - ./contract-service:/app
+      - /app/node_modules
     depends_on:
       - mongo
+      - core-service
+    networks:
+      - cronus-network
 
   frontend:
     build: ./frontend
+    container_name: frontend
+    command: npm run dev
+    ports:
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    ports:
-      - "5173:5173"
-    command: npm run dev
     depends_on:
       - core-service
       - contract-service
+    networks:
+      - cronus-network
 
-volumes:
-  mongo-data:

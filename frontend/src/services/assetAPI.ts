@@ -41,6 +41,17 @@ export const fetchAssets = async (
   return response.data;
 };
 
+export const fetchAssetsForSelect = async (facilityId?: string | null): Promise<Asset[]> => {
+  const { data } = await apiClient.get<AssetListResponse>("/assets", {
+    params: {
+      facilityId: facilityId || undefined,
+      page: 1,
+      limit: 100, // fetch a large number for select dropdown
+    },
+  });
+  return data.assets ?? [];
+}
+
 export const getTestEquip = async (): Promise<Asset[]> => {
   const response = await apiClient.get<Asset[]>(`/assets/test-equipment`);
   return response.data;

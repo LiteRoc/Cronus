@@ -1,4 +1,7 @@
-// ✅ src/components/procedures/ProcedureSelector.tsx
+// src/components/procedures/ProcedureSelector.tsx
+// Deprecated ???
+// grep -R "ProcedureSelector" src/
+
 import useSWR from "swr";
 import { Select } from "@/components/ui/select";
 import { getProcedures } from "@/services/procedureAPI";

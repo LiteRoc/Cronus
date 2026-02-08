@@ -1,3 +1,4 @@
+//src/routers/departmentRouter.js
 const express = require("express");
 const Department = require("../models/Department");
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
@@ -5,27 +6,33 @@ const { buildTenantFilter } = require("../middleware/tenantScope");
 
 const departmentRouter = express.Router();
 
-// GET /departments/by-facility/:facilityId
-departmentRouter.get("/by-facility/:facilityId", authenticateToken, async (req, res) => {
+// GET /departments/ uses header: x-facility-id to filter
+departmentRouter.get("/", authenticateToken, async (req, res) => {
   try {
-    // Validate and scope facility access
     const tenantFilter = buildTenantFilter(req);
+    const facilityId = req.headers["x-facility-id"];
 
-    // Force the filter to match the requested facilityId
-    const { facilityId } = req.params;
-    if (
-      tenantFilter.facilityId.toString() !== facilityId.toString()
-    ) {
+    if (!facilityId)
+      return res.status(400).json({ error: "x-facility-id header required" });
+
+    // Admin have rights to everything
+    if (req.user.role === "admin") {
+        const departments = await Department.find({ facilityId });
+        return res.json(departments);
+      }
+
+    const allowedFacilities = tenantFilter.facilities || [tenantFilter.facilityId];
+
+    if (!allowedFacilities.includes(facilityId.toString())) {
       return res.status(403).json({ error: "Access denied for this facility." });
     }
 
     const departments = await Department.find({ facilityId });
-    console.log('Returned departments:', departments);
     res.json(departments);
   } catch (err) {
-    console.error("Error fetching departments:", err.message);
-    res.status(403).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = departmentRouter;

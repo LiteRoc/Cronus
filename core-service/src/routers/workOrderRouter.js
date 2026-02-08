@@ -1,5 +1,8 @@
+//src/routers/workOrderRouter.js
+
 const express = require('express');
 const mongoose = require('mongoose');
+const axios = require('axios');
 const WorkOrder = require('../models/WorkOrder');
 const Asset = require('../models/Asset');
 const Procedure = require('../models/Procedure');
@@ -10,8 +13,12 @@ const { authenticateToken, authorizeRoles } = require('../middleware/authMiddlew
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const { deleteSubLog } = require ('../helpers/workOrderHelpers');
 
+const { attachContractClient } = require('../middleware/forwardContractHeaders');
+
 const router = express.Router();
 const isObjectId = (id) => mongoose.isValidObjectId(id);
+
+const CONTRACT = process.env.CONTRACT_SERVICE_URL || 'http://contract-servcie:5001';
 
 // ---------- Helpers ----------
 async function deriveFacilityIdFromAsset(assetId) {
@@ -41,20 +48,46 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
   try {
     const tf = buildTenantFilter(req);
     const {
-      status, assignedTo, assetId, q, start, end,
+      status, assignedTo, assetId, assetIds, q, start, end, 
+      dateField = 'requestDate', 
+      mode, // optional: "analytics" to avoid pagination + populates"
       page = '1', limit = '20',
     } = req.query;
 
     const query = { ...tf, status: { $ne: 'Archived' } };
+
+    // status filter
     if (status) query.status = status;
+
+    // assignedTo filter
     if (assignedTo && isObjectId(assignedTo)) query.assignedTo = assignedTo;
-    if (assetId && isObjectId(assetId)) query.assetId = assetId;
+
+    // asset filter ... assetIds wins if present
+    //if (assetId && isObjectId(assetId)) query.assetId = assetId;
+    if (assetIds) {
+      const ids = String(assetIds)
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean)
+        .filter(isObjectId);
+
+      if (ids.length === 0) return res.status(400).json({ error: 'No valid assetIds provided' });
+      query.assetId = { $in: ids };
+    } else if (assetId && isObjectId(assetId)) {
+      query.assetId = assetId;
+    }
+
+    // date range filter ... supports requestDate/createdAt/closedAt
     if (start || end) {
-      query.requestDate = {
+      const allowedFields = new Set(['requestDate', 'createdAt', 'closedAt']);
+      const field = allowedFields.has(dateField) ? dateField : 'requestDate';
+
+      query[field] = {
         ...(start ? { $gte: new Date(start) } : {}),
-        ...(end   ? { $lte: new Date(end)   } : {}),
+        ...(end ? { $lte: new Date(end) } : {}),
       };
     }
+    // text search
     if (q) {
       query.$or = [
         { description: { $regex: q, $options: 'i' } },
@@ -62,19 +95,38 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
       ];
     }
 
+    // pagination
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 200);
 
-    const total = await WorkOrder.countDocuments(query);
-    const items = await WorkOrder.find(query)
-      .sort({ requestDate: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .populate('assetId', 'ctrlNumber manufacturer model')
-      .populate('assignedTo', 'username role')
-      .lean();
+    // analytics mode (no pagination + no heavy populates)
+    const isAnalytics = String(mode) === 'analytics';
 
-    res.json({ items, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
+    const total = await WorkOrder.countDocuments(query);
+
+    let woQuery = WorkOrder.find(query).sort({ requestDate: -1 });
+
+      if (!isAnalytics) {
+        woQuery = woQuery
+          .skip((pageNum - 1) * limitNum)
+          .limit(limitNum)
+          .populate('assetId', 'ctrlNumber manufacturer model')
+          .populate('assignedTo', 'username role');
+      } else {
+        // keep the payload light for performance calculations
+        woQuery = woQuery.select(
+          'assetId requestDate createdAt closedAt type workOrderType status partsUsed timeLogs travelLogs responseTimeHours dueDate'
+        );
+      }
+
+    const items = await woQuery.lean();
+
+    res.json({ 
+      items, 
+      total, 
+      page: isAnalytics ? 1 : pageNum, 
+      totalPages: isAnalytics ? 1 : Math.ceil(total / limitNum) 
+    });
   } catch (err) {
     console.error('List WOs error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -102,6 +154,7 @@ router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res
         path: 'testEquipmentUsed.usedBy',
         select: 'name email username'
       })
+      .populate('contractId')
       .lean();
     if (!wo) return res.status(404).json({ error: 'Work order not found' });
     res.json(wo);
@@ -111,23 +164,57 @@ router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res
   }
 });
 
+// ---------- Get work orders by contract ----------
+router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
+    try {
+      const { contractId } = req.params;
+      const tenantFilter = buildTenantFilter(req);
+      const { start, end, dateField = "requestDate" } = req.query;
+
+      const query = {
+        contractId,
+        ...tenantFilter,
+        status: { $ne: "Archived" },
+      };
+
+      if (start || end) {
+        const allowedFields = new Set(["requestDate", "createdAt", "completionDate", "closedAt"]);
+        const field = allowedFields.has(dateField) ? dateField : "requestDate";
+
+        query[field] = { 
+          ...(start ? { $gte: new Date(start) } : {}),
+          ...(end ? { $lte: new Date(end) } : {}),
+        };
+      }
+
+    const workOrders = await WorkOrder.find(query)
+      .select(
+        "assetId workOrderNumber type workOrderType status requestDate createdAt completionDate closedAt dueDate responseTimeHours resolutionTimeHours partsUsed timeLogs travelLogs"
+      )
+        .sort({ requestDate: -1 })
+        .lean();
+
+      return res.json({ workOrders });
+    } catch (error) {
+      console.error("Error fetching work orders by contract:", error);
+      return res.status(500).json({
+        message: "Server error fetching contract work orders",
+        error,
+      });
+    }
+  }
+);
+
 // ---------- Create (internal only) ----------
-router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const assetId = req.assetId || req.body.assetId;
-    console.log('AssetId is:', assetId);
+    //console.log('AssetId is:', assetId);
     if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
-
-    /*const facilityId = req.headers['x-facility-id'];
-      const body = {
-        ...req.body,
-        facilityId,
-        createdBy: req.user._id,
-      };*/
 
     // derive facilityId from asset (prevents cross-tenant WO creation)
     const facilityId = await deriveFacilityIdFromAsset(assetId);
-    console.log('FacilityId is:', facilityId);
+    //console.log('FacilityId is:', facilityId);
     if (!facilityId) return res.status(400).json({ error: 'Asset has no facilityId' });
 
     // 🔧 Coerce assignedTo to an ObjectId string no matter what the client sent
@@ -135,8 +222,27 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req,
     if (assignedTo && typeof assignedTo === 'object') assignedTo = assignedTo._id;
     if (!assignedTo) assignedTo = req.user.id; // default to creator (admin/tech)
 
-    console.log('Create WO → assignedTo:', assignedTo);
+    const requestDate = req.body.requestDate || new Date();
+
+    let contractId = null;
+    try {
+      const contractResponse = await req.contract.get(
+        `/contracts/active-for-asset/${assetId}`,
+        { params: {date: requestDate } } 
+      );
+      contractId = contractResponse.data?.contractId || null;
+    } catch (err) {
+        console.warn('No matching contract found or contract service unavailable:', err.message);
+    }
+
+    //console.log('Create WO → assignedTo:', assignedTo);
     const normalize = (s) => s ? (s[0].toUpperCase() + s.slice(1).toLowerCase()) : s;
+
+    if (contractId && mongoose.isValidObjectId(contractId)) {
+      req.body.contractId = mongoose.Types.ObjectId.createFromHexString(contractId);
+    } else {
+      req.body.contractId = null;
+    }
 
     const wo = await WorkOrder.create({
       ...req.body,
@@ -148,9 +254,18 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req,
       requestDate: req.body.requestDate || new Date(),
       createdBy: req.user.id ?? null,
       updatedBy: req.user.id ?? null,
+      contractId: req.body.contractId,
     });
 
-    console.log('New work order:', wo);
+    if (contractId) {
+      try {
+        await req.contract.post(`/contracts/${contractId}/workorders`, {
+          workOrderId: wo._id.toString(),
+        });
+      } catch (err) {
+      console.error('Error linking work order to contract:', err.message);
+      }
+    }
 
     res.status(201).json(wo);
   } catch (err) {
@@ -707,9 +822,6 @@ router.delete("/:id/test-equipment/:equipmentId", authenticateToken, async (req,
   }
 });
 
-
 module.exports = router;
-
-
 
 module.exports = router;
