@@ -69,7 +69,7 @@ const WorkOrderFormFields: React.FC<Props> = ({ workOrder, isReadOnly, handleCha
             <option value="Open">Open</option>
             <option value="In_Progress">In Progress</option>
             <option value="On_Hold">On Hold</option>
-            <option value="Closed">Closed</option>
+            <option value="Completed">Completed</option>
             <option value="Cancelled">Cancelled</option>
           </Select>
 

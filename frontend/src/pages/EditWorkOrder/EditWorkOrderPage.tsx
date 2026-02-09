@@ -9,6 +9,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import TimeAndTravelLogs from "./components/TimeAndTravelLogs";
 import { useUser } from "@/context/UserContext";
 import { Button, FormCard } from "@/components/ui";
+import { showError, showSuccess } from "@/utils/toastUtils";
 import AddTimeLogModal from "./modals/AddTimeLogModal";
 import ProcedureTaskResults from "./components/ProcedureTaskResults";
 import PerformProcedureModal from "./modals/PerformProcedureModal";
@@ -36,14 +37,14 @@ const EditWorkOrderPage: React.FC = () => {
   const [showAddPartModal, setShowAddPartModal] = useState(false);
   const [showAddTestEquipModal, setShowAddTestEquipModal] = useState(false);
 
-
-
   const {
     workOrder,
     isLoading,
     isError,
+    isSaving,
     handleChange,
     updateField,
+    saveWorkOrder,
     mutate
   } = useWorkOrderForm(workOrderId || "");
 
@@ -70,7 +71,6 @@ const EditWorkOrderPage: React.FC = () => {
     (p) => p._id === selectedProcedureId
   );
 
-
   const { parts } = useParts();
 
   const { testEquip } = useTestEquipment();
@@ -81,11 +81,36 @@ const EditWorkOrderPage: React.FC = () => {
   if (isLoading) return <p className="p-4">Loading work order...</p>;
   if (isError || !workOrder) return <p className="p-4 text-red-500">Failed to load work order.</p>;
 
+  const handleCloseWorkOrder = async () => {
+    try {
+      await saveWorkOrder({
+        status: "Completed",
+        completionDate: workOrder.completionDate || new Date().toISOString(),
+      });
+      showSuccess("Work order completed");
+    } catch (error) {
+      console.error("Failed to complete work order:", error);
+      showError("Failed to complete work order");
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
-      <button className="mb-4 flex items-center text-blue-600 hover:underline" onClick={() => navigate(-1)}>
-        <FaArrowLeft className="mr-2" /> Back
-      </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <button className="flex items-center text-blue-600 hover:underline" onClick={() => navigate(-1)}>
+          <FaArrowLeft className="mr-2" /> Back
+        </button>
+        <Button
+          onClick={handleCloseWorkOrder}
+          variant="outline"
+          size="md"
+          disabled={isSaving || workOrder.status === "Completed" || workOrder.status === "Closed"}
+        >
+          {workOrder.status === "Completed" || workOrder.status === "Closed"
+            ? "Work Order Completed"
+            : "Complete Work Order"}
+        </Button>
+      </div>
 
       <h1 className="text-2xl font-bold mb-6">Edit Work Order</h1>
 
@@ -253,9 +278,9 @@ const EditWorkOrderPage: React.FC = () => {
       {showAddTestEquipModal && (
         <AddTestEquipmentModal
           equip={testEquip}
-          onAttachEquip={async (equipId: string) =>
-            await addTestEquip(workOrderId, equipId)
-          }
+          onAttachEquip={async (equipId: string) => {
+            await addTestEquip(workOrderId, equipId);
+          }}
           onClose={() => setShowAddTestEquipModal(false)}
         />
       )}

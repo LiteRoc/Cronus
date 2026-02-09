@@ -12,7 +12,7 @@ export interface WorkOrder {
   };
   workOrderType: string;
   description: string;
-  status: 'Open'|'In_Progress'|'On_Hold'|'Closed'|'Cancelled';
+  status: 'Open'|'In_Progress'|'On_Hold'|'Completed'|'Cancelled'|'Closed';
   priority: 'Low'|'Normal'|'High'|'Urgent';
   requestDate: string;
   procedures?: WorkOrderProcedure[];
@@ -143,5 +143,4 @@ export type TestEquipmentUsed = {
   usedAt?: string;
   note?: string;
 };
-
 

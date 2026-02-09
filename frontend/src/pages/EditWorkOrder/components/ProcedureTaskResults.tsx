@@ -49,7 +49,7 @@ const ProcedureTaskResults: React.FC<Props> = ({
               >
                 View Results
               </button>
-              {workOrder.status !== "Closed" && (
+              {workOrder.status !== "Completed" && workOrder.status !== "Closed" && (
                 <button
                   type="button"
                   className="bg-red-600 text-white px-3 py-1 rounded"
