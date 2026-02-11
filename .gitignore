@@ -6,6 +6,7 @@ backend/node_modules/
 frontend/.env
 backend/.env
 .env
+.env.*
 
 # Ignore build/dist folders
 frontend/dist/
