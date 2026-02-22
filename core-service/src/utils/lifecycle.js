@@ -1,10 +1,8 @@
-// src/utils/lifecycle.js
-
 function round2(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
-export function computeLifecycleMetrics({
+function computeLifecycleMetrics({
   asset,
   template = null,
   lifetimeMaintenanceTotal = 0,
@@ -86,4 +84,6 @@ export function computeLifecycleMetrics({
     annualDepreciation,
     computedAt: now,
   };
-};
+}
+
+module.exports = { computeLifecycleMetrics };
