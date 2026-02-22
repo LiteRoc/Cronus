@@ -11,6 +11,26 @@ const MaintenanceScheduleSchema = new Schema({
   procedure: { type: Schema.Types.ObjectId, ref: 'Procedure' },
 }, { _id: false });
 
+const PurchaseSchema = new Schema({
+  price: { type: Number, min: 0 },
+  date: { type: Date },
+  expectedLifeYears: { type: Number, min: 0 },
+  salvageValue: { type: Number, min: 0, default: 0 },
+}, { _id: false });
+
+const LifecycleMetricsSchema = new Schema({
+  totalMaintenanceCost: { type: Number, min: 0, default: 0 },
+  currentBookValue: { type: Number, min: 0, default: 0 },
+  projectedAnnualMaintenance: { type: Number, min: 0, default: 0 },
+  replacementRecommended: { type: Boolean, default: false },
+  replacementReason: { type: String, default: null },
+
+  // optional but very handy
+  yearsInService: { type: Number, min: 0, default: 0 },
+  annualDepreciation: { type: Number, min: 0, default: 0 },
+  computedAt: { type: Date, default: null },
+}, { _id: false });
+
 // custom, dynamic key-value pairs
 /*const attributeSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -39,6 +59,17 @@ const AssetSchema = new Schema({
   facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
   departmentId: { type: Schema.Types.ObjectId, ref: 'Department' },
   locationNote: { type: String, trim: true },
+
+    // Lifecycle (new structured approach)
+  purchase: { type: PurchaseSchema, default: null },
+  metrics: { type: LifecycleMetricsSchema, default: () => ({}) },
+
+  // (optional) store the resolved expected life source
+  // metricsMeta: { expectedLifeSource: { type: String, enum: ['asset', 'template', 'none'], default: 'none' } },
+
+  acquisitionDate: { type: Date },
+  installationDate: { type: Date },
+  retirementDate: { type: Date },
 
   // FDA Extras
   equipmentClass: { type: String, default: '' },

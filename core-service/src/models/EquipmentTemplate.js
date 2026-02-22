@@ -1,3 +1,5 @@
+// src/models/EquipmentTemplate.js
+
 const mongoose = require('mongoose');
 
 const EquipmentTemplateSchema = new mongoose.Schema({
@@ -19,8 +21,17 @@ const EquipmentTemplateSchema = new mongoose.Schema({
 
   isTestEquipment: { type: Boolean, default: false, index: true },
 
-  eolYears: { type: Number },
+  // expectedLifeYears = template.lifecycleDefaults?.expectedLifeYears ?? template.eolYears
+  // eventually we want to migrate all templates to use lifecycleDefaults.expectedLifeYears and deprecate the old eolYears field, but for now we can support both and use whichever is present for better backwards compatibility with existing templates
+  eolYears: { type: Number }, // new field for expected life in years (can be used for lifecycle calculations)
+
+  // Optional GUDID fields for better template‑to‑asset matching
   lineItemPricing: { type: Number },
+
+  lifecycleDefaults: {
+    expectedLifeYears: { type: Number, min: 0 },
+    typicalAnnualMaintenance: { type: Number, min: 0 },
+  },
 
   // FDA / GUDID (optional but ideal when DI is known)
   di: { type: String, unique: true, sparse: true, trim: true },

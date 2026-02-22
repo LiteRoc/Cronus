@@ -1,18 +1,46 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { EquipmentTemplate, WithDuplicate } from "@/types";
-import { getTemplateById, syncTemplate, updateTemplate, deleteTemplate } from "@/services";
+import { EquipmentTemplate, TemplateLifecycleBenchmarks, TemplateLifecycleResponse, WithDuplicate } from "@/types";
+import { getTemplateById, getTemplateLifecycle, syncTemplate, updateTemplate, deleteTemplate } from "@/services";
 import SyncFromFDAModal from "./modals/SyncFromFDAModal";
 import DuplicateBanner from "../../components/DuplicateBanner";
+
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
+const formatCurrency = (value: number | null | undefined) =>
+  typeof value === "number" ? currencyFormatter.format(value) : "N/A";
+
+const formatScalar = (value: number | null | undefined) =>
+  typeof value === "number" ? String(value) : "N/A";
+
+const BenchmarksCard: React.FC<{ title: string; data: TemplateLifecycleBenchmarks }> = ({ title, data }) => (
+  <div className="border border-gray-200 rounded-lg p-3">
+    <h4 className="font-semibold text-gray-800 mb-2">{title}</h4>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+      <div><strong>Sample Assets:</strong> {data.sampleAssets}</div>
+      <div><strong>Sample WOs (Annual):</strong> {data.sampleWOsAnnual}</div>
+      <div><strong>Sample WOs (Lifetime):</strong> {data.sampleWOsLifetime}</div>
+      <div><strong>Avg Annual Maintenance:</strong> {formatCurrency(data.avgAnnualMaintenance)}</div>
+      <div><strong>Median Annual Maintenance:</strong> {formatCurrency(data.medianAnnualMaintenance)}</div>
+      <div><strong>Avg Lifetime Maintenance:</strong> {formatCurrency(data.avgLifetimeMaintenance)}</div>
+    </div>
+  </div>
+);
 
 const TemplateEditPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [template, setTemplate] = useState<EquipmentTemplate | null>(null);
+  const [templateLifecycle, setTemplateLifecycle] = useState<TemplateLifecycleResponse | null>(null);
   const [formData, setFormData] = useState<Partial<EquipmentTemplate>>({});
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
   const [dupMeta, setDupMeta] = useState<{
     duplicateOf?: string;
@@ -30,9 +58,25 @@ const TemplateEditPage: React.FC = () => {
 
   const fetchTemplate = async (id: string) => {
     try {
-      const res = await getTemplateById(id);
-      setTemplate(res);
-      setFormData(res);
+      const [templateResult, lifecycleResult] = await Promise.allSettled([
+        getTemplateById(id),
+        getTemplateLifecycle(id),
+      ]);
+
+      if (templateResult.status === "fulfilled") {
+        setTemplate(templateResult.value);
+        setFormData(templateResult.value);
+      } else {
+        throw templateResult.reason;
+      }
+
+      if (lifecycleResult.status === "fulfilled") {
+        setTemplateLifecycle(lifecycleResult.value);
+        setLifecycleError(null);
+      } else {
+        setTemplateLifecycle(null);
+        setLifecycleError("Unable to load lifecycle metrics.");
+      }
     } catch (err) {
       console.error("Error loading template", err);
     } finally {
@@ -143,6 +187,25 @@ const TemplateEditPage: React.FC = () => {
           <div><strong>Issuing Agency:</strong> {template.issuingAgency || "N/A"}</div>
           <div><strong>GMDN:</strong> {template.gmdnTerm || "N/A"}</div>
           <div><strong>Class:</strong> {template.equipmentClass || "N/A"}</div>
+        </div>
+
+        <div className="space-y-3 border border-gray-200 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-gray-800">Lifecycle Metrics</h3>
+          {lifecycleError && <p className="text-sm text-red-600">{lifecycleError}</p>}
+          {!lifecycleError && !templateLifecycle && (
+            <p className="text-sm text-gray-600">No lifecycle metrics found.</p>
+          )}
+          {!lifecycleError && templateLifecycle && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <div><strong>Template ID:</strong> {templateLifecycle.templateId}</div>
+                <div><strong>Expected Life (Years):</strong> {formatScalar(templateLifecycle.lifecycleDefaults.expectedLifeYears)}</div>
+                <div><strong>Typical Annual Maintenance:</strong> {formatCurrency(templateLifecycle.lifecycleDefaults.typicalAnnualMaintenance)}</div>
+              </div>
+              <BenchmarksCard title="Tenant Benchmarks" data={templateLifecycle.benchmarks.tenant} />
+              <BenchmarksCard title="Global Benchmarks" data={templateLifecycle.benchmarks.global} />
+            </>
+          )}
         </div>
 
         {/* Add Schedule Assignment Component here if needed */}

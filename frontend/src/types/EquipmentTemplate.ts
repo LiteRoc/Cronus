@@ -57,3 +57,24 @@ export interface TemplateListResponse {
   totalPages?: number;
   currentPage?: number;
 }
+
+export interface TemplateLifecycleBenchmarks {
+  sampleAssets: number;
+  avgAnnualMaintenance: number;
+  medianAnnualMaintenance: number;
+  sampleWOsAnnual: number;
+  avgLifetimeMaintenance: number;
+  sampleWOsLifetime: number;
+}
+
+export interface TemplateLifecycleResponse {
+  templateId: string;
+  lifecycleDefaults: {
+    expectedLifeYears: number | null;
+    typicalAnnualMaintenance: number | null;
+  };
+  benchmarks: {
+    tenant: TemplateLifecycleBenchmarks;
+    global: TemplateLifecycleBenchmarks;
+  };
+}

@@ -6,8 +6,9 @@ const WorkOrder = require('./src/models/WorkOrder');
 const expressLayouts = require('express-ejs-layouts');
 const { authenticateToken } = require('./src/middleware/authMiddleware');
 require('dotenv').config(); // Load environment variables
-require('./src/cronJobs/cronJobs'); // Initialize all cron jobs
-const { scheduleMaintenanceJobs } = require('./src/cronJobs/cronJobs');
+//require('./src/cronJobs/cronJobs'); // Initialize all cron jobs
+//const { scheduleMaintenanceJobs } = require('./src/cronJobs/cronJobs');
+require('./src/cronJobs/index'); // Initialize all cron jobs, including lifecycle recompute
 const cors = require('cors');
 
 const connectDB = require('./src/config/db'); // MongoDB connection logic
@@ -92,7 +93,7 @@ app.use('/facilities', facilityRouter);
 app.use('/departments', departmentRouter);
 app.use('/manufacturers', manufacturerRouter);
 
-scheduleMaintenanceJobs();
+//scheduleMaintenanceJobs();
 
 // Root Route
 app.get('/', async (req, res) => {

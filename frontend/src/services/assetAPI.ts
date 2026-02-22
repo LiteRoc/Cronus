@@ -1,4 +1,4 @@
-import { Asset, Procedure } from "../types";
+import { Asset, AssetLifecycleResponse, Procedure } from "../types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
 
@@ -77,6 +77,11 @@ export const getAssetById = async (id: string): Promise<Asset> => {
     console.error('Error is getAssetById:', error);
     throw error;
   }
+};
+
+export const getAssetLifecycle = async (id: string): Promise<AssetLifecycleResponse> => {
+  const response = await apiClient.get<AssetLifecycleResponse>(`/assets/${id}/lifecycle`);
+  return response.data;
 };
 
 export async function createAsset(payload: Partial<Asset>): Promise<WithDuplicate<Asset>> {

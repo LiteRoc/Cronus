@@ -7,6 +7,8 @@ const WorkOrder = require('../models/WorkOrder'); // Import the WorkOrder model
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware'); // Middleware for authentication/authorization
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
+const { computeLifecycleMetrics } = require('../utils/lifecycle');
+const { getMaintenanceTotals } = require('../services/lifecycleMaintenance.js').default;
 
 mongoose.set('strictPopulate', false); // Allow non-strict population
 
@@ -550,6 +552,39 @@ assetRouter.use('/:assetId/workorders', authenticateToken, async (req, res, next
       .populate("assignedTo", "name email username");
 
     res.json({ workOrders });
-  });
+});
+
+assetRouter.get('/:id/lifecycle', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid asset ID format' });
+
+    const asset = await Asset.findOne({ _id: id, ...buildTenantFilter(req) })
+      .populate('templateId')
+      .lean();
+
+    if (!asset) return res.status(404).json({ error: 'Asset not found' });
+
+    const template = asset.templateId || null // in case we want to pull lifecycle defaults from the template;
+
+    const maintenanceTotals = await getMaintenanceTotals(asset._id);
+
+    const metrics = computeLifecycleMetrics({
+      asset,
+      template,
+      lifetimeMaintenanceTotal: maintenanceTotals.lifetime.total,
+      last12MonthMaintenanceTotal: maintenanceTotals.last12Months.total,
+    });
+    
+    res.json({ 
+      assetId: asset._id,
+      templateId: asset.templateId?._id || null,
+      purchase: asset.purchase || null,
+      metrics });
+  } catch (err) {
+    console.error('GET /assets/:id/lifecycle failed:', err);
+    return res.status(500).json({ error: 'Failed to calculate lifecycle' });
+  }
+});
 
 module.exports = assetRouter;

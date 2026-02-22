@@ -10,6 +10,10 @@ const TimeLogSchema = new Schema({
   timeSpent: { type: Number, min: 1, required: true }, // minutes
   description: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
+
+  // NEW: labor cost snapshot
+  laborRate: { type: Number, min: 0, default: 0 }, // $/hour
+  laborCost: { type: Number, min: 0, default: 0 }, // computed: minutes/60 * rate
 });
 
 const TravelLogSchema = new Schema({
@@ -35,6 +39,10 @@ const PartUsageSchema = new mongoose.Schema({
   partId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Part', required: true },
   quantity: { type: Number, min: 1, required: true },
   note:     { type: String, default: '' },
+
+  // NEW: cost snapshot fields
+  unitCost: { type: Number, min: 0, default: 0 },
+  extendedCost: { type: Number, min: 0, default: 0 },
 
   usedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   usedAt:   { type: Date, default: Date.now },
@@ -91,6 +99,15 @@ const WorkOrderSchema = new Schema({
     },
   ],
 
+  // optional fields for better analytics & lifecycle management
+  costs: {
+    labor: { type: Number, min: 0, default: 0 },
+    parts: { type: Number, min: 0, default: 0 },
+    total: { type: Number, min: 0, default: 0 },
+    calculatedAt: { type: Date, default: null },
+  },
+
+
   // soft delete + audit
   deletedAt:  { type: Date, default: null, index: true },
   deletedBy:  { type: Schema.Types.ObjectId, ref: 'User', default: null },
@@ -112,7 +129,8 @@ const WorkOrderSchema = new Schema({
 // indexes that matter
 WorkOrderSchema.index({ facilityId: 1, status: 1, dueDate: 1 });
 WorkOrderSchema.index({ ticketId: 1 }); // for quick joins & lookups
-WorkOrderSchema.index({ workOrderNumber: 1 }, { unique: true });
+WorkOrderSchema.index({ workOrderNumber: 1 }, { unique: true, sparse: true }); // if using sequential numbers
+WorkOrderSchema.index({ assetId: 1, status: 1, deletedAt: 1, completionDate: 1 });
 
 WorkOrderSchema.pre('save', async function (next) {
   if (!this.isNew || this.workOrderNumber) return next();
@@ -135,55 +153,39 @@ WorkOrderSchema.add({
   partsUsed: [PartUsageSchema],
 });
 
-// Post-save hook to sync work order to the related Asset
-WorkOrderSchema.post("save", async function (doc) {
-  try {
-    const Asset = mongoose.model("Asset");
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
 
-    // If no assetId, nothing to do
-    if (!doc.assetId) return;
-
-    // Push minimal work order info to the asset
-    await Asset.findByIdAndUpdate(
-      doc.assetId,
-      {
-        $addToSet: {
-          workOrders: {
-            _id: doc._id,
-            description: doc.description,
-            status: doc.status,
-          },
-        },
-      },
-      { new: true }
-    );
-  } catch (err) {
-    console.error("Error syncing work order to asset:", err);
+WorkOrderSchema.pre('save', function (next) {
+  // parts extended cost (in case caller didn’t compute)
+  if (Array.isArray(this.partsUsed)) {
+    for (const p of this.partsUsed) {
+      const qty = Number(p.quantity) || 0;
+      const unit = Number(p.unitCost) || 0;
+      p.extendedCost = round2(qty * unit);
+    }
   }
-});
 
-WorkOrderSchema.post("findOneAndUpdate", async function (doc) {
-  try {
-    const Asset = mongoose.model("Asset");
-
-    if (!doc || !doc.assetId) return;
-
-    await Asset.updateOne(
-      {
-        _id: doc.assetId,
-        "workOrders._id": doc._id
-      },
-      {
-        $set: {
-          "workOrders.$.status": doc.status,
-          "workOrders.$.description": doc.description
-        }
-      }
-    );
-  } catch (err) {
-    console.error("Error syncing updated work order on asset:", err);
+  // labor cost (in case caller didn’t compute)
+  if (Array.isArray(this.timeLogs)) {
+    for (const t of this.timeLogs) {
+      const mins = Number(t.timeSpent) || 0;
+      const rate = Number(t.laborRate) || 0;
+      t.laborCost = round2((mins / 60) * rate);
+    }
   }
-});
 
+  const labor = round2((this.timeLogs || []).reduce((sum, t) => sum + (Number(t.laborCost) || 0), 0));
+  const parts = round2((this.partsUsed || []).reduce((sum, p) => sum + (Number(p.extendedCost) || 0), 0));
+
+  this.costs = this.costs || {};
+  this.costs.labor = labor;
+  this.costs.parts = parts;
+  this.costs.total = round2(labor + parts);
+  this.costs.calculatedAt = new Date();
+
+  next();
+});
 
 module.exports = mongoose.model('WorkOrder', WorkOrderSchema);

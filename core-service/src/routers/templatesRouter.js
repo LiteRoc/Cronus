@@ -5,6 +5,8 @@ const EquipmentTemplate = require('../models/EquipmentTemplate');
 const Asset = require('../models/Asset');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { extractDIFromUDI, fetchDeviceFromGUDID, mapGUDIDToTemplatePayload, fetchClassificationByProductCode } = require('../helpers/templateHelpers');
+const { getTemplateMaintenanceBenchmarks } = require('../services/templateLifecycleBenchmarks');
+const debug = require('debug')('app:templatesRouter');
 
 const router = express.Router();
 const BASE = process.env.FDA_GUDID_BASE || 'https://accessgudid.nlm.nih.gov/api/v2';
@@ -459,6 +461,45 @@ router.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (r
   } catch (error) {
     debug('Error achiving Template:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// GET: lifecycle benchmarks for a template (internal only)
+router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid template ID format' });
+    }
+
+    const template = await EquipmentTemplate.findById(id).lean();
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+
+    // Resolve defaults (support both lifecycleDefaults + legacy eolYears)
+    const lifecycleDefaults = {
+      expectedLifeYears:
+        template.lifecycleDefaults?.expectedLifeYears ??
+        template.eolYears ??
+        null,
+      typicalAnnualMaintenance:
+        template.lifecycleDefaults?.typicalAnnualMaintenance ??
+        null,
+    };
+
+    const benchmarks = await getTemplateMaintenanceBenchmarks(id, {
+      facilityId: req.user?.facilityId, // tenant view
+      // completedStatuses: ['Completed'],
+      // includeRetired: false,
+    });
+
+    return res.json({
+      templateId: template._id,
+      lifecycleDefaults,
+      benchmarks, // { tenant: {...}, global: {...} }
+    });
+  } catch (err) {
+    console.error('GET /templates/:id/lifecycle failed:', err);
+    return res.status(500).json({ error: 'Failed to compute template lifecycle benchmarks' });
   }
 });
 

@@ -9,10 +9,20 @@ const unwrap = <T,>(resp: any): T => {
   return resp?.success === true ? (resp.data as T) : (resp as T);
 }
 
+const toContractsArray = (payload: unknown): Contract[] => {
+  const unwrapped = unwrap<any>(payload);
+
+  if (Array.isArray(unwrapped)) return unwrapped;
+  if (Array.isArray(unwrapped?.contracts)) return unwrapped.contracts;
+  if (Array.isArray(unwrapped?.items)) return unwrapped.items;
+
+  return [];
+};
+
 export const getContracts = async (): Promise<Contract[]> => {
   //console.trace("⚠️ getContracts called");
   const { data } = await contractClient.get("/contracts");
-  return data;
+  return toContractsArray(data);
 };
 
 export const getContractById = async (id: string) => {

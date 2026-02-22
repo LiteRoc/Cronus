@@ -80,6 +80,24 @@ export interface Asset {
   updatedAt?: string;
 };
 
+export interface AssetLifecycleMetrics {
+  totalMaintenanceCost: number;
+  currentBookValue: number;
+  projectedAnnualMaintenance: number;
+  replacementRecommended: boolean;
+  replacementReason: string | null;
+  yearsInService: number;
+  annualDepreciation: number;
+  computedAt: string;
+}
+
+export interface AssetLifecycleResponse {
+  assetId: string;
+  templateId?: string | null;
+  purchase: Record<string, string | number | boolean | null> | null;
+  metrics: AssetLifecycleMetrics;
+}
+
 // Query options your /assets endpoint understands.
 // Keep these loose so you don’t fight the backend.
 export type AssetFilters = {

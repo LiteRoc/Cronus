@@ -5,10 +5,9 @@ import { getContractById, getContracts } from "@/services/contractAPI";
 import { Contract } from "@/types/Contract";
 
 export const useContracts = () => {
+    const { data: contracts, error, isLoading, mutate } = useSWR<Contract[]>("contracts", getContracts);
 
-    const { data: vendors, error, isLoading, mutate } = useSWR("contracts", getContracts);
-
-    return { vendors, error, isLoading, mutate };
+    return { contracts, error, isLoading, mutate };
 };
 
 export const useContract = (contractId?: string | null) => {
