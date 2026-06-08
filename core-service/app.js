@@ -60,7 +60,10 @@ app.set('layout', 'layout'); // The layout file should be named layout.ejs and s
 
 // Allow requests from the React development server
 app.use(cors({
-    origin: 'http://localhost:5173', // React dev server
+    origin: [
+	'http://localhost:5173',
+	'http://192.168.1.185:5173'
+	],
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'], // Allow these HTTP methods
     allowedHeaders: [ 'Content-Type', 'Authorization', 'x-facility-id'], // Allow necessary headers
     credentials: true, // If using cookies/auth

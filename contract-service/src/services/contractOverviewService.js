@@ -91,18 +91,32 @@ export async function buildAssetAnalyticsOverview({
   };
 
   for (const wo of workOrders) {
-    const aId = String(wo.assetId);
-    const row = ensure(aId);
-    row.woCount += 1;
+  const aId = String(wo.assetId);
+  const row = ensure(aId);
 
-    const parts = Array.isArray(wo.partsUsed) ? wo.partsUsed : [];
-    row.partsCost += parts.reduce((s, p) => s + (p.extendedPrice || 0), 0);
+  row.woCount += 1;
 
-    const tls = Array.isArray(wo.timeLogs) ? wo.timeLogs : [];
-    row.laborMinutes += tls.reduce((s, t) => s + (t.timeSpent || 0), 0);
+  // Parts
+  const parts = Array.isArray(wo.partsUsed) ? wo.partsUsed : [];
+  row.partsCost += parts.reduce((s, p) => s + (p.extendedCost || p.extendedPrice || 0), 0);
 
-    const trls = Array.isArray(wo.travelLogs) ? wo.travelLogs : [];
-    row.travelMinutes += trls.reduce((s, t) => s + (t.travelTime || 0), 0);
+  // Labor Minutes
+  const tls = Array.isArray(wo.timeLogs) ? wo.timeLogs : [];
+  row.laborMinutes += tls.reduce((s, t) => s + (t.timeSpent || 0), 0);
+
+  // Travel Minutes
+  const trls = Array.isArray(wo.travelLogs) ? wo.travelLogs : [];
+  row.travelMinutes += trls.reduce((s, t) => s + (t.travelTime || 0), 0);
+
+  // Vendor Service
+  if (wo.vendorService) {
+    row.laborMinutes += (wo.vendorService.laborHours || 0) * 60;
+    row.travelMinutes += (wo.vendorService.travelHours || 0) * 60;
+
+    row.partsCost +=
+      (wo.vendorService.partsCost || 0) +
+      (wo.vendorService.shippingCost || 0);
+    }
   }
 
   const openCount = workOrders.filter((wo) => wo.status !== "Closed" && !wo.closedAt).length;
@@ -126,8 +140,15 @@ export async function buildAssetAnalyticsOverview({
   const partsUsed = allParts.length;
   const partsCost = allParts.reduce((s, p) => s + (p.extendedPrice || 0), 0);
 
-  const laborHoursYTD = workOrders.reduce((s, wo) => s + laborHoursFromTimeLogs(wo.timeLogs), 0);
-  const travelHoursYTD = workOrders.reduce((s, wo) => s + travelHoursFromTravelLogs(wo.travelLogs), 0);
+  const laborHoursYTD = workOrders.reduce(
+  (s, wo) => s + laborHoursFromTimeLogs(wo.timeLogs) + Number(wo.vendorService?.laborHours || 0),
+    0
+  );
+
+  const travelHoursYTD = workOrders.reduce(
+    (s, wo) => s + travelHoursFromTravelLogs(wo.travelLogs) + Number(wo.vendorService?.travelHours || 0),
+    0
+  );
 
   const laborCostYTD = laborHoursYTD * laborRate;
   const travelCostYTD = travelHoursYTD * travelRate;
@@ -248,6 +269,7 @@ export const getContractOverviewService = async ({
         assetId,
         woCount: 0,
         partsCost: 0,
+        vendorCost: 0,
         laborMinutes: 0,
         travelMinutes: 0,
       });
@@ -261,7 +283,15 @@ export const getContractOverviewService = async ({
   for (const wo of workOrders) {
     const aId = String(wo.assetId);
     const row = ensure(aId);
+    const vs = wo.vendorService;
     row.woCount += 1;
+
+    if (vs) {
+      row.laborMinutes += Number(vs.laborHours || 0) * 60;
+      row.travelMinutes += Number(vs.travelHours || 0) * 60;
+      row.partsCost += Number(vs.partsCost || 0) + Number(vs.shippingCost || 0);
+      row.vendorCost += Number(wo.vendorService.totalCost || 0);
+    }
 
     // Parts
     const parts = Array.isArray(wo.partsUsed) ? wo.partsUsed : [];
@@ -325,26 +355,36 @@ export const getContractOverviewService = async ({
 
     const laborCost = laborHours * laborRate;
     const travelCost = travelHours * travelRate;
+    const vendorCost = Number(r.vendorCost || 0);
 
     return {
       assetId: r.assetId,
       woCount: r.woCount,
       partsCost: Number(r.partsCost.toFixed(2)),
+      vendorCost: Number(vendorCost.toFixed(2)),
       laborHours: Number(laborHours.toFixed(2)),
       travelHours: Number(travelHours.toFixed(2)),
       laborCost: Number(laborCost.toFixed(2)),
       travelCost: Number(travelCost.toFixed(2)),
-      totalCost: Number((r.partsCost + laborCost + travelCost).toFixed(2)),
+
+      // estimated labor/travel + actual vendor invoice/parts cost
+      //totalCost: Number((r.partsCost + laborCost + travelCost + vendorCost).toFixed(2)), // <-- this method double counts
+      totalCost: Number(
+        (vendorCost > 0
+          ? vendorCost
+          : r.partsCost + laborCost + travelCost
+        ).toFixed(2)
+      ),
     };
   }).sort((a, b) => b.totalCost - a.totalCost);
 
   const laborHoursYTD = workOrders.reduce(
-    (s, wo) => s + laborHoursFromTimeLogs(wo.timeLogs),
+    (s, wo) => s + laborHoursFromTimeLogs(wo.timeLogs) + Number(wo.vendorService?.laborHours || 0),
     0
   );
 
   const travelHoursYTD = workOrders.reduce(
-    (s, wo) => s + travelHoursFromTravelLogs(wo.travelLogs),
+    (s, wo) => s + travelHoursFromTravelLogs(wo.travelLogs) + Number(wo.vendorService?.travelHours || 0),
     0
   );
   

@@ -189,7 +189,7 @@ router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
 
     const workOrders = await WorkOrder.find(query)
       .select(
-        "assetId workOrderNumber type workOrderType status requestDate createdAt completionDate closedAt dueDate responseTimeHours resolutionTimeHours partsUsed timeLogs travelLogs"
+        "assetId workOrderNumber type workOrderType status requestDate createdAt completionDate closedAt dueDate responseTimeHours resolutionTimeHours partsUsed timeLogs travelLogs vendorService"
       )
         .sort({ requestDate: -1 })
         .lean();

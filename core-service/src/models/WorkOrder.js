@@ -48,6 +48,25 @@ const PartUsageSchema = new mongoose.Schema({
   usedAt:   { type: Date, default: Date.now },
 }, { _id: false });
 
+const VendorServiceSchema = new Schema({
+  vendorId: { type: Schema.Types.ObjectId, ref: 'Vendor', default: null },
+  vendorName: { type: String, default: '' },
+  vendorWorkOrderNumber: { type: String, default: '' },
+
+  laborHours: { type: Number, min: 0, default: 0 },
+  travelHours: { type: Number, min: 0, default: 0 },
+
+  laborCost: { type: Number, min: 0, default: 0 },
+  travelCost: { type: Number, min: 0, default: 0 },
+  partsCost: { type: Number, min: 0, default: 0 },
+  shippingCost: { type: Number, min: 0, default: 0 },
+  totalCost: { type: Number, min: 0, default: 0 },
+
+  invoiceNumber: { type: String, default: '' },
+  poNumber: { type: String, default: '' },
+  sourceDocument: { type: String, default: '' },
+}, { _id: false });
+
 const WorkOrderSchema = new Schema({
   // tenant + identity
   facilityId: { type: Schema.Types.ObjectId, ref: 'Facility', required: true },
@@ -85,6 +104,9 @@ const WorkOrderSchema = new Schema({
   // logs
   timeLogs:   { type: [TimeLogSchema], default: [] },
   travelLogs: { type: [TravelLogSchema], default: [] },
+
+  // vendor service details (if this WO was created from a vendor report or includes vendor work)
+  vendorService: { type: VendorServiceSchema, default: null },
 
   // parts used
   partsUsed: { type: [PartUsageSchema], default: [] },

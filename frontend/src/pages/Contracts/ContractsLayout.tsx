@@ -1,5 +1,6 @@
 // src/pages/Contracts/ContractsLayout.tsx
 
+/// <reference types="react" />
 import React from "react";
 import { Outlet } from "react-router-dom";
 

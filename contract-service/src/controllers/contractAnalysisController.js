@@ -25,8 +25,22 @@ exports.getAnalysis = async (req, res) => {
     let totalPartsCost = 0;
     let totalLaborHours = 0;
     let laborRate = 120; // Placeholder, customize later
+    let vendorLaborHours = 0;
+    let vendorTravelHours = 0;
+    let vendorPartsCost = 0;
+    let vendorShippingCost = 0;
+    let vendorTotalCost = 0;
 
     for (const wo of workOrders) {
+      const vs = wo.vendorService;
+
+      if (vs) {
+        vendorLaborHours += vs.laborHours || 0;
+        vendorTravelHours += vs.travelHours || 0;
+        vendorPartsCost += vs.partsCost || 0;
+        vendorShippingCost += vs.shippingCost || 0;
+        vendorTotalCost += vs.totalCost || 0;
+      }
       for (const partUsage of wo.partsUsed) {
         totalPartsCost += (partUsage.partId?.price || 0) * partUsage.quantity;
       }

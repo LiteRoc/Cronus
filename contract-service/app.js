@@ -8,7 +8,10 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: ["http://localhost:5173"],
+      origin: [
+	"http://localhost:5173",
+	"http://192.168.1.185:5173"
+	],
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       credentials: true,
     })
