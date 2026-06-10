@@ -4,6 +4,7 @@ const debug = require('debug')('app:assetsRouter');
 const Asset = require('../models/Asset'); // Import the Asset model
 const EquipmentTemplate = require('../models/EquipmentTemplate.js');
 const WorkOrder = require('../models/WorkOrder'); // Import the WorkOrder model
+//const Contract = require('../models/Contract'); // Import the Contract model
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware'); // Middleware for authentication/authorization
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
@@ -91,10 +92,10 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
                 path: 'workOrders',
                 select: 'description status scheduledDate completionDate workOrderNumber', // Optimize with selected fields
             })
-            .populate({
-              path: 'contractId',
-              select: 'type name startDate endDate',
-            })
+            //.populate({
+              //path: 'contractId',
+              //select: 'type name startDate endDate',
+            //})
             .lean();
 
 
