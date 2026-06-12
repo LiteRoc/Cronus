@@ -27,7 +27,15 @@ async function recomputeLifecycleForAllAssets() {
     if (assets.length === 0) break;
 
     // Load templates in batch for this page
-    const templateIds = [...new Set(assets.map(a => String(a.templateId)).filter(Boolean))];
+    //const templateIds = [...new Set(assets.map(a => String(a.templateId)).filter(Boolean))];
+    const templateIds = [
+      ...new Set(
+        assets
+          .map(a => a.templateId)
+          .filter(id => id && mongoose.Types.ObjectId.isValid(id))
+          .map(String)
+      )
+    ];
     const templates = templateIds.length
       ? await EquipmentTemplate.find({ _id: { $in: templateIds } }).lean()
       : [];

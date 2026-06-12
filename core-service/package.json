@@ -42,5 +42,8 @@
     "env": {
       "PORT": 4000
     }
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
   }
 }

@@ -151,7 +151,7 @@ const WorkOrderSchema = new Schema({
 // indexes that matter
 WorkOrderSchema.index({ facilityId: 1, status: 1, dueDate: 1 });
 WorkOrderSchema.index({ ticketId: 1 }); // for quick joins & lookups
-WorkOrderSchema.index({ workOrderNumber: 1 }, { unique: true, sparse: true }); // if using sequential numbers
+//WorkOrderSchema.index({ workOrderNumber: 1 }, { unique: true, sparse: true }); // if using sequential numbers
 WorkOrderSchema.index({ assetId: 1, status: 1, deletedAt: 1, completionDate: 1 });
 
 WorkOrderSchema.pre('save', async function (next) {

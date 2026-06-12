@@ -16,7 +16,7 @@ function asObjectId(id) {
  * @param {string[]} [opts.completedStatuses] - default ['Completed']
  * @param {ObjectId|string} [opts.facilityId] - optional tenant scoping
  */
-async function getMaintenanceTotals(assetId, opts = {}) {
+export async function getMaintenanceTotals(assetId, opts = {}) {
   const {
     now = new Date(),
     completedStatuses = ['Completed'],

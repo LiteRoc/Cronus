@@ -33,6 +33,29 @@ const EquipmentTemplateSchema = new mongoose.Schema({
     typicalAnnualMaintenance: { type: Number, min: 0 },
   },
 
+  benchmark: {
+    source: { type: String, default: '' }, // ECRI
+    reportDate: { type: Date, index: true },
+
+    expectedUsefulLifeYears: { type: Number, min: 0 },
+
+    averageListPrice: { type: Number, min: 0 },
+    averageQuotedPrice: { type: Number, min: 0 },
+
+    expectedAnnualMaintenance: { type: Number, min: 0 },
+    expectedCapitalCostRatio: { type: Number, min: 0 },
+
+    marketInterest: { type: Number, min: 0 },
+
+    confidence: {
+      type: String,
+      enum: ['low', 'medium', 'high', ''],
+      default: ''
+    },
+
+  notes: { type: String, default: '' }
+},
+
   // FDA / GUDID (optional but ideal when DI is known)
   di: { type: String, unique: true, sparse: true, trim: true },
   fdaProductCode: { type: String, default: '' },
@@ -74,7 +97,7 @@ EquipmentTemplateSchema.index(
 );
 
 // GUDID mapping & de‑duplication
-EquipmentTemplateSchema.index({ di: 1 }, { unique: true, sparse: true });
+//EquipmentTemplateSchema.index({ di: 1 }, { unique: true, sparse: true });
 
 // Optional: product code lookups / admin searches
 EquipmentTemplateSchema.index({ fdaProductCode: 1 });

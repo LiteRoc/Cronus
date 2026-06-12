@@ -10,6 +10,7 @@ const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
 const { computeLifecycleMetrics } = require('../utils/lifecycle');
 const { getMaintenanceTotals } = require('../services/lifecycleMaintenance.js').default;
+const { computeBenchmarkComparison } = require('../utils/lifecycleBenchmark');
 
 mongoose.set('strictPopulate', false); // Allow non-strict population
 
@@ -157,12 +158,18 @@ assetRouter.get('/:id', authenticateToken, async (req, res) => {
     try {
         const filter = { _id: id, ...buildTenantFilter(req) };
         const asset = await Asset.findOne(filter)
+          .populate({ path: 'templateId', select:  'manufacturer model description benchmark lifecycleDefaults eolYears' })
           .populate({ path: 'workOrders', select: 'description status scheduledDate completionDate' })
           .populate({ path: 'maintenanceSchedule.procedure', select: 'name tasks' });
 
         if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
-        res.status(200).json(asset);
+        const benchmarkComparison = computeBenchmarkComparison(asset, asset.templateId);
+
+        res.status(200).json({
+          ...asset.toObject(),
+          benchmarkComparison,
+        });
     } catch (error) {
         debug('Error fetching asset:', error);
         res.status(500).json({ error: 'Internal Server Error' });

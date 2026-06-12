@@ -13,7 +13,10 @@ function computeLifecycleMetrics({
   const price =
     asset.purchase?.price ??
     asset.purchaseCost ??
+    template?.benchmark?.averageQuotedPrice ??
     0;
+
+  const hasPurchaseValue = price > 0;
 
   const purchaseDate =
     asset.purchase?.date ??
@@ -28,6 +31,7 @@ function computeLifecycleMetrics({
   const expectedLifeYears =
     asset.purchase?.expectedLifeYears ??
     template?.lifecycleDefaults?.expectedLifeYears ??
+    template?.benchmark?.expectedUsefulLifeYears ??
     template?.eolYears ??
     null;
 
@@ -65,6 +69,7 @@ function computeLifecycleMetrics({
   }
 
   if (
+    hasPurchaseValue &&
     currentBookValue <= 1.5 * projectedAnnualMaintenance &&
     projectedAnnualMaintenance > 0
   ) {
