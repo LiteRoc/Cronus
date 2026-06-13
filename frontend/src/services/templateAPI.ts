@@ -1,4 +1,4 @@
-import { EquipmentTemplate, TemplateLifecycleResponse, TemplateListResponse } from "@/types";
+import { EquipmentTemplate, TemplateLifecycleSummaryResponse, TemplateListResponse } from "@/types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
 
@@ -15,8 +15,8 @@ export const getTemplateById = async (id: string): Promise<EquipmentTemplate> =>
     }
 };
 
-export const getTemplateLifecycle = async (id: string): Promise<TemplateLifecycleResponse> => {
-  const response = await apiClient.get<TemplateLifecycleResponse>(`/templates/${id}/lifecycle`);
+export const getTemplateLifecycle = async (id: string): Promise<TemplateLifecycleSummaryResponse> => {
+  const response = await apiClient.get<TemplateLifecycleSummaryResponse>(`/templates/${id}/lifecycle`);
   return response.data;
 };
 

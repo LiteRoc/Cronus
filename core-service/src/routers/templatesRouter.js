@@ -464,42 +464,136 @@ router.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (r
   }
 });
 
-// GET: lifecycle benchmarks for a template (internal only)
+// GET: lifecycle summary for a template/model
 router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid template ID format' });
     }
 
     const template = await EquipmentTemplate.findById(id).lean();
-    if (!template) return res.status(404).json({ error: 'Template not found' });
 
-    // Resolve defaults (support both lifecycleDefaults + legacy eolYears)
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
     const lifecycleDefaults = {
       expectedLifeYears:
         template.lifecycleDefaults?.expectedLifeYears ??
+        template.benchmark?.expectedUsefulLifeYears ??
         template.eolYears ??
         null,
+
       typicalAnnualMaintenance:
         template.lifecycleDefaults?.typicalAnnualMaintenance ??
+        template.benchmark?.expectedAnnualMaintenance ??
         null,
     };
 
+    const assetQuery = {
+      templateId: new mongoose.Types.ObjectId(id),
+      isArchived: { $ne: true },
+      status: { $ne: 'Retired' },
+    };
+
+    const facilityId = req.user?.facilityId;
+
+    if (facilityId && mongoose.Types.ObjectId.isValid(facilityId)) {
+      assetQuery.facilityId = new mongoose.Types.ObjectId(facilityId);
+    }
+
+    const assets = await Asset.find(assetQuery)
+      .select(
+        '_id ctrlNumber manufacturer model serialNumber status facilityId departmentId purchaseDate purchaseCost metrics'
+      )
+      .lean();
+
+    const ageBuckets = {
+      '0-2': 0,
+      '3-5': 0,
+      '6-8': 0,
+      '>8': 0,
+      unknown: 0,
+    };
+
+    let totalProjectedAnnualMaintenance = 0;
+    let maintenanceSampleCount = 0;
+    let replacementRecommendedCount = 0;
+
+    for (const asset of assets) {
+      const years = asset.metrics?.yearsInService;
+
+      if (typeof years !== 'number') {
+        ageBuckets.unknown += 1;
+      } else if (years <= 2) {
+        ageBuckets['0-2'] += 1;
+      } else if (years <= 5) {
+        ageBuckets['3-5'] += 1;
+      } else if (years <= 8) {
+        ageBuckets['6-8'] += 1;
+      } else {
+        ageBuckets['>8'] += 1;
+      }
+
+      if (typeof asset.metrics?.projectedAnnualMaintenance === 'number') {
+        totalProjectedAnnualMaintenance += asset.metrics.projectedAnnualMaintenance;
+        maintenanceSampleCount += 1;
+      }
+
+      if (asset.metrics?.replacementRecommended === true) {
+        replacementRecommendedCount += 1;
+      }
+    }
+
+    const totalAssets = assets.length;
+
+    const averageAnnualMaintenancePerAsset =
+      maintenanceSampleCount > 0
+        ? totalProjectedAnnualMaintenance / maintenanceSampleCount
+        : 0;
+
+    const replacementRecommendedPercent =
+      totalAssets > 0
+        ? (replacementRecommendedCount / totalAssets) * 100
+        : 0;
+
     const benchmarks = await getTemplateMaintenanceBenchmarks(id, {
-      facilityId: req.user?.facilityId, // tenant view
-      // completedStatuses: ['Completed'],
-      // includeRetired: false,
+      facilityId:
+        facilityId && mongoose.Types.ObjectId.isValid(facilityId)
+          ? facilityId
+          : undefined,
     });
 
     return res.json({
       templateId: template._id,
+      template: {
+        _id: template._id,
+        manufacturer: template.manufacturer,
+        model: template.model,
+        description: template.description,
+      },
       lifecycleDefaults,
-      benchmarks, // { tenant: {...}, global: {...} }
+      summary: {
+        totalAssets,
+        ageBuckets,
+        averageAnnualMaintenancePerAsset,
+        maintenanceSampleCount,
+        replacementRecommendedCount,
+        replacementRecommendedPercent,
+      },
+      benchmarks,
+      links: {
+        assets: `/assets?templateId=${template._id}`,
+        replacementRecommendedAssets: `/assets?templateId=${template._id}&replacementRecommended=true`,
+      },
     });
   } catch (err) {
     console.error('GET /templates/:id/lifecycle failed:', err);
-    return res.status(500).json({ error: 'Failed to compute template lifecycle benchmarks' });
+    return res.status(500).json({
+      error: 'Failed to compute template lifecycle summary',
+    });
   }
 });
 

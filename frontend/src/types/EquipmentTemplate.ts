@@ -69,15 +69,39 @@ export interface TemplateLifecycleBenchmarks {
   sampleWOsLifetime: number;
 }
 
-export interface TemplateLifecycleResponse {
+export interface TemplateLifecycleSummaryResponse {
   templateId: string;
+  template: {
+    _id: string;
+    manufacturer: string;
+    model: string;
+    description?: string;
+  };
   lifecycleDefaults: {
     expectedLifeYears: number | null;
     typicalAnnualMaintenance: number | null;
   };
+  summary: {
+    totalAssets: number;
+    ageBuckets: {
+      "0-2": number;
+      "3-5": number;
+      "6-8": number;
+      ">8": number;
+      unknown: number;
+    };
+    averageAnnualMaintenancePerAsset: number;
+    maintenanceSampleCount: number;
+    replacementRecommendedCount: number;
+    replacementRecommendedPercent: number;
+  };
   benchmarks: {
     tenant: TemplateLifecycleBenchmarks;
     global: TemplateLifecycleBenchmarks;
+  };
+  links: {
+    assets: string;
+    replacementRecommendedAssets: string;
   };
 }
 

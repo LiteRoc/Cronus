@@ -1,155 +1,174 @@
-import React, { useEffect, useState } from "react";
+// src/pages/EditTemplate/TemplateEditPage.tsx
+
+import React, { useState } from "react";
+import useSWR from "swr";
 import { useParams, useNavigate } from "react-router-dom";
-import { EquipmentTemplate, TemplateLifecycleBenchmarks, TemplateLifecycleResponse, WithDuplicate } from "@/types";
-import { getTemplateById, getTemplateLifecycle, syncTemplate, updateTemplate, deleteTemplate } from "@/services";
+
+import type { EquipmentTemplate, WithDuplicate } from "@/types";
+import {
+  getTemplateById,
+  getTemplateLifecycle,
+  syncTemplate,
+  updateTemplate,
+  deleteTemplate,
+} from "@/services";
+
 import SyncFromFDAModal from "./modals/SyncFromFDAModal";
 import DuplicateBanner from "../../components/DuplicateBanner";
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
-
-const formatCurrency = (value: number | null | undefined) =>
-  typeof value === "number" ? currencyFormatter.format(value) : "N/A";
-
-const formatScalar = (value: number | null | undefined) =>
-  typeof value === "number" ? String(value) : "N/A";
-
-const BenchmarksCard: React.FC<{ title: string; data: TemplateLifecycleBenchmarks }> = ({ title, data }) => (
-  <div className="border border-gray-200 rounded-lg p-3">
-    <h4 className="font-semibold text-gray-800 mb-2">{title}</h4>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-      <div><strong>Sample Assets:</strong> {data.sampleAssets}</div>
-      <div><strong>Sample WOs (Annual):</strong> {data.sampleWOsAnnual}</div>
-      <div><strong>Sample WOs (Lifetime):</strong> {data.sampleWOsLifetime}</div>
-      <div><strong>Avg Annual Maintenance:</strong> {formatCurrency(data.avgAnnualMaintenance)}</div>
-      <div><strong>Median Annual Maintenance:</strong> {formatCurrency(data.medianAnnualMaintenance)}</div>
-      <div><strong>Avg Lifetime Maintenance:</strong> {formatCurrency(data.avgLifetimeMaintenance)}</div>
-    </div>
-  </div>
-);
+import TemplateLifecycleSummaryCard from "./components/TemplateLifecycleSummaryCard";
+import { FaArrowLeft } from "react-icons/fa";
 
 const TemplateEditPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [template, setTemplate] = useState<EquipmentTemplate | null>(null);
-  const [templateLifecycle, setTemplateLifecycle] = useState<TemplateLifecycleResponse | null>(null);
+
   const [formData, setFormData] = useState<Partial<EquipmentTemplate>>({});
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [lifecycleError, setLifecycleError] = useState<string | null>(null);
 
   const [dupMeta, setDupMeta] = useState<{
     duplicateOf?: string;
     warning?: string;
-    matchedOn: string[];   // always string[]
+    matchedOn: string[];
   }>({
     duplicateOf: undefined,
     warning: undefined,
-    matchedOn: [],         // ✅ ensures no undefined
+    matchedOn: [],
   });
 
-  useEffect(() => {
-    if (id) fetchTemplate(id);
-  }, [id]);
+  const {
+    data: template,
+    error: templateError,
+    isLoading: isTemplateLoading,
+    mutate: mutateTemplate,
+  } = useSWR(id ? ["template", id] : null, ([, templateId]) =>
+    getTemplateById(templateId)
+  );
 
-  const fetchTemplate = async (id: string) => {
-    try {
-      const [templateResult, lifecycleResult] = await Promise.allSettled([
-        getTemplateById(id),
-        getTemplateLifecycle(id),
-      ]);
+  const {
+    data: lifecycleSummary,
+    error: lifecycleSummaryError,
+    isLoading: isLifecycleSummaryLoading,
+    mutate: mutateLifecycleSummary,
+  } = useSWR(id ? ["template-lifecycle-summary", id] : null, ([, templateId]) =>
+    getTemplateLifecycle(templateId)
+  );
 
-      if (templateResult.status === "fulfilled") {
-        setTemplate(templateResult.value);
-        setFormData(templateResult.value);
-      } else {
-        throw templateResult.reason;
-      }
-
-      if (lifecycleResult.status === "fulfilled") {
-        setTemplateLifecycle(lifecycleResult.value);
-        setLifecycleError(null);
-      } else {
-        setTemplateLifecycle(null);
-        setLifecycleError("Unable to load lifecycle metrics.");
-      }
-    } catch (err) {
-      console.error("Error loading template", err);
-    } finally {
-      setLoading(false);
+  React.useEffect(() => {
+    if (template) {
+      setFormData(template);
     }
-  };
+  }, [template]);
 
-  const handleChange = (field: keyof EquipmentTemplate, value: string) => {
+  const handleChange = (
+    field: keyof EquipmentTemplate,
+    value: string | number | boolean | null
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
     if (!id) return;
+
     setSaving(true);
+
     try {
-      const res = await updateTemplate(id, formData) as WithDuplicate<typeof template>;
-      setTemplate(res as any);
+      const res = (await updateTemplate(
+        id,
+        formData
+      )) as WithDuplicate<EquipmentTemplate>;
+
       setDupMeta({
         duplicateOf: res.duplicateOf,
         warning: res.warning,
-        matchedOn: res.matchedOn ?? [], // ✅ fallback to []
+        matchedOn: res.matchedOn ?? [],
       });
 
+      await Promise.all([mutateTemplate(), mutateLifecycleSummary()]);
       navigate("/templates");
     } catch (err) {
       console.error("Save failed", err);
+      alert("Save failed.");
     } finally {
       setSaving(false);
     }
   };
 
-  /*const handleSync = async () => {
-    if (!template?._id) return;
-    try {
-      await syncTemplate(template._id);
-      fetchTemplate(template._id); // refresh data
-    } catch (err) {
-      console.error("Sync failed", err);
-    }
-  };*/
-
   const handleDelete = async () => {
     if (!template?._id) return;
     if (!confirm("Are you sure you want to delete this template?")) return;
+
     try {
       await deleteTemplate(template._id);
       navigate("/templates");
     } catch (err) {
       console.error("Delete failed", err);
+      alert("Delete failed.");
     }
   };
 
+  const handleSyncFromFDA = async (input: string) => {
+    try {
+      if (!template?._id) return;
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (!template) return <div className="p-6 text-red-600">Template not found.</div>;
+      const updatedTemplate = await syncTemplate(template._id, input);
+      if (!updatedTemplate) throw new Error("No template returned");
+
+      setFormData(updatedTemplate);
+      await mutateTemplate(updatedTemplate, false);
+      await mutateLifecycleSummary();
+
+      alert("Template synced successfully from FDA.");
+      setIsSyncModalOpen(false);
+    } catch (err) {
+      console.error("FDA Sync failed", err);
+      alert("Sync failed. Check DI/UDI and try again.");
+    }
+  };
+
+  if (isTemplateLoading) {
+    return <div className="p-6">Loading template...</div>;
+  }
+
+  if (templateError || !template) {
+    return <div className="p-6 text-red-600">Template not found.</div>;
+  }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Edit Template</h1>
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Edit Template</h1>
+          <p className="text-sm text-gray-500">
+            {template.manufacturer} — {template.model}
+          </p>
+        </div>
 
-      <>
-        <DuplicateBanner
-          entity="template"
-          selfId={template?._id ?? ""}
-          duplicateOf={dupMeta.duplicateOf}
-          warning={dupMeta.warning}
-          matchedOn={dupMeta.matchedOn}
-          onDismiss={() => setDupMeta((m) => ({ ...m, warning: undefined }))}
-        />
-        {/* form... */}
-      </>
+        <div className="fixed top-4 right-4 z-50">
+        <button
+          onClick={() => navigate("/templates")}
+          className="flex items-center text-blue-600 hover:text-blue-800"
+        >
+          <FaArrowLeft className="mr-2" />
+          Back to Templates
+        </button>
+      </div>  
+      </div>
 
-      <div className="space-y-4">
+      <DuplicateBanner
+        entity="template"
+        selfId={template._id}
+        duplicateOf={dupMeta.duplicateOf}
+        warning={dupMeta.warning}
+        matchedOn={dupMeta.matchedOn}
+        onDismiss={() => setDupMeta((m) => ({ ...m, warning: undefined }))}
+      />
+
+      <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
+        <h2 className="text-lg font-semibold text-gray-800">
+          Template Details
+        </h2>
+
         <div>
           <label className="block text-sm font-medium">Manufacturer</label>
           <input
@@ -179,92 +198,78 @@ const TemplateEditPage: React.FC = () => {
           />
         </div>
 
-        {/* Read-Only FDA Fields */}
-        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-          <div><strong>DI:</strong> {template.di || "N/A"}</div>
-          <div><strong>Brand:</strong> {template.brandName || "N/A"}</div>
-          <div><strong>FDA Code:</strong> {template.fdaProductCode || "N/A"}</div>
-          <div><strong>Issuing Agency:</strong> {template.issuingAgency || "N/A"}</div>
-          <div><strong>GMDN:</strong> {template.gmdnTerm || "N/A"}</div>
-          <div><strong>Class:</strong> {template.equipmentClass || "N/A"}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700 border-t pt-4">
+          <ReadOnlyField label="DI" value={template.di} />
+          <ReadOnlyField label="Brand" value={template.brandName} />
+          <ReadOnlyField label="FDA Code" value={template.fdaProductCode} />
+          <ReadOnlyField label="Issuing Agency" value={template.issuingAgency} />
+          <ReadOnlyField label="GMDN" value={template.gmdnTerm} />
+          <ReadOnlyField label="Class" value={template.equipmentClass} />
         </div>
+      </section>
 
-        <div className="space-y-3 border border-gray-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-gray-800">Lifecycle Metrics</h3>
-          {lifecycleError && <p className="text-sm text-red-600">{lifecycleError}</p>}
-          {!lifecycleError && !templateLifecycle && (
-            <p className="text-sm text-gray-600">No lifecycle metrics found.</p>
-          )}
-          {!lifecycleError && templateLifecycle && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                <div><strong>Template ID:</strong> {templateLifecycle.templateId}</div>
-                <div><strong>Expected Life (Years):</strong> {formatScalar(templateLifecycle.lifecycleDefaults.expectedLifeYears)}</div>
-                <div><strong>Typical Annual Maintenance:</strong> {formatCurrency(templateLifecycle.lifecycleDefaults.typicalAnnualMaintenance)}</div>
-              </div>
-              <BenchmarksCard title="Tenant Benchmarks" data={templateLifecycle.benchmarks.tenant} />
-              <BenchmarksCard title="Global Benchmarks" data={templateLifecycle.benchmarks.global} />
-            </>
-          )}
-        </div>
+      <TemplateLifecycleSummaryCard
+        summary={lifecycleSummary}
+        isLoading={isLifecycleSummaryLoading}
+        error={lifecycleSummaryError}
+      />
 
-        {/* Add Schedule Assignment Component here if needed */}
+      <div className="flex gap-4 mt-6">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "💾 Save"}
+        </button>
 
-        <div className="flex gap-4 mt-6">
+        <button
+          type="button"
+          onClick={() => navigate("/templates")}
+          className="px-4 py-2 border rounded hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+
+        {!template.verified && (
           <button
-            onClick={handleSave}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            disabled={saving}
+            type="button"
+            onClick={() => setIsSyncModalOpen(true)}
+            className="text-yellow-600 hover:underline"
           >
-            {saving ? "Saving..." : "💾 Save"}
+            🔄 Sync from FDA
           </button>
-          <button
-            onClick={() => navigate("/templates")}
-            className="px-4 py-2 border rounded hover:bg-gray-100"
-          >
-            Cancel
-          </button>
+        )}
 
-          <button
-            onClick={handleDelete}
-            className="text-red-600 hover:underline ml-auto"
-          >
-            🗑 Delete
-          </button>
-          {!template.verified && (
-            <button
-              onClick={() => setIsSyncModalOpen(true)}
-              className="ml-auto text-yellow-600 hover:underline"
-            >
-              🔄 Sync from FDA
-            </button>
-          )}
-        </div>
-
-        <SyncFromFDAModal
-          isOpen={isSyncModalOpen}
-          onClose={() => setIsSyncModalOpen(false)}
-          onSync={async (input) => {
-            try {
-              if (!template?._id) return;
-              
-              const updatedTemplate = await syncTemplate(template._id, input);
-              if (!updatedTemplate) throw new Error("No template returned");
-            
-              setTemplate(updatedTemplate);
-              setFormData(updatedTemplate);
-              alert("Template synced successfully from FDA.");
-              setIsSyncModalOpen(false);
-            } catch (err) {
-              console.error("FDA Sync failed", err);
-              alert("Sync failed. Check DI/UDI and try again.");
-            }
-          }}
-        />
-
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="text-red-600 hover:underline ml-auto"
+        >
+          🗑 Delete
+        </button>
       </div>
+
+      <SyncFromFDAModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSync={handleSyncFromFDA}
+      />
     </div>
   );
 };
+
+const ReadOnlyField = ({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) => (
+  <div>
+    <strong>{label}:</strong> {value || "N/A"}
+  </div>
+);
 
 export default TemplateEditPage;
