@@ -1,17 +1,57 @@
 // src/types/Asset.ts
 
 export interface MaintenanceSchedule {
-  frequency?: string; // e.g., Monthly, Quarterly, Annually
+  frequency?: string;
   intervalMonths?: number;
-  lastMaintenance?: string; // ISO date string
-  nextMaintenance?: string; // ISO date string
-  procedure?: string; // Procedure ID or name
-};
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  procedure?: string;
+}
 
-export interface Attribute {
-  name: string;
-  value: string | number | boolean;
-};
+export interface Benchmark {
+  source?: string;
+  reportDate?: string;
+  expectedUsefulLifeYears?: number;
+  averageListPrice?: number;
+  averageQuotedPrice?: number;
+  expectedAnnualMaintenance?: number;
+  expectedCapitalCostRatio?: number;
+  marketInterest?: string;
+  confidence?: string;
+  notes?: string;
+}
+
+export interface AssetTemplateRef {
+  _id: string;
+  manufacturer?: string;
+  model?: string;
+  description?: string;
+  benchmark?: Benchmark;
+}
+
+export interface BenchmarkComparison {
+  capitalValue?: number;
+  actualAnnualMaintenance?: number;
+  expectedAnnualMaintenance?: number;
+  actualCapitalCostRatio?: number;
+  expectedCapitalCostRatio?: number;
+  annualMaintenanceVariance?: number;
+  annualMaintenanceVariancePercent?: number;
+  ccrVariance?: number;
+  ccrVariancePercent?: number;
+}
+
+export interface AssetLifecycleMetrics {
+  totalMaintenanceCost?: number;
+  last12MonthsMaintenanceCost?: number;
+  currentBookValue?: number;
+  projectedAnnualMaintenance?: number;
+  replacementRecommended?: boolean;
+  replacementReason?: string | null;
+  yearsInService?: number;
+  annualDepreciation?: number;
+  computedAt?: string;
+}
 
 export interface Asset {
   _id: string;
@@ -23,111 +63,85 @@ export interface Asset {
   revisionNumber?: string;
   description?: string;
 
-  contractId: string,
+  templateId?: string | AssetTemplateRef | null;
+  contractId?: string;
 
-  // Location / Org
   facilityId: string;
   departmentId?: string;
   locationNote?: string;
 
-  // Status & Metadata
-  status?: 'Active' | 'Inactive' | 'Retired' | 'Pending';
+  status?: "Active" | "Inactive" | "Retired" | "Pending";
   notes?: string;
   isArchived?: boolean;
 
-  // Maintenance
   maintenanceSchedule?: MaintenanceSchedule;
-
-  // Custom Attributes
   attributes?: Record<string, string>;
 
-  // Parent / Child Assets
-  parentAsset?: string; // assetId
-  relationToParent?: string; // e.g. "Component", "Accessory"
-  children?: string[]; // array of asset IDs
+  parentAsset?: string;
+  relationToParent?: string;
+  children?: string[];
 
-  // Compliance Flags
-  riskLevel?: 'Low' | 'Medium' | 'High';
+  riskLevel?: "Low" | "Medium" | "High";
   isHIPAARelevant?: boolean;
   isAlarmed?: boolean;
   isSecuritySensitive?: boolean;
   isAEMExcluded?: boolean;
 
-  // Financials
-  purchaseDate?: string; // ISO date
+  purchaseDate?: string;
   purchaseCost?: number;
   budgetValue?: number;
   contractValue?: number;
   manufacturerRecommendedPMFrequency?: number;
 
-  // FDA / Regulatory
   equipmentClass?: string;
   classificationName?: string;
   regulationNumber?: string;
-  panel?: string; // e.g. "General Hospital"
+  panel?: string;
   prescriptionRequired?: boolean;
   otc?: boolean;
   submissionNumber?: string;
   manufacturerDUNS?: string;
   gmdnDefinition?: string;
 
-  // Attachments (for future use)
-  documents?: string[]; // file IDs or URLs
-  images?: string[]; // image URLs or base64 strings
+  documents?: string[];
+  images?: string[];
 
-  // Timestamps
+  metrics?: AssetLifecycleMetrics;
+  benchmarkComparison?: BenchmarkComparison;
+
   createdAt?: string;
   updatedAt?: string;
-};
-
-export interface AssetLifecycleMetrics {
-  totalMaintenanceCost: number;
-  currentBookValue: number;
-  projectedAnnualMaintenance: number;
-  replacementRecommended: boolean;
-  replacementReason: string | null;
-  yearsInService: number;
-  annualDepreciation: number;
-  computedAt: string;
 }
 
 export interface AssetLifecycleResponse {
   assetId: string;
-  templateId?: string | null;
+  templateId?: string | AssetTemplateRef | null;
   purchase: Record<string, string | number | boolean | null> | null;
   metrics: AssetLifecycleMetrics;
+  benchmarkComparison?: BenchmarkComparison;
+  template?: AssetTemplateRef | null;
 }
 
-// Query options your /assets endpoint understands.
-// Keep these loose so you don’t fight the backend.
 export type AssetFilters = {
-  q?: string;                 // free-text (ctrl #, mfr, model, serial, etc.)
-  status?: string;            // e.g., "Active", "Inactive", "Archived"
+  q?: string;
+  status?: string;
   departmentId?: string;
-  facilityId?: string;        // optional (you usually pass via header or helper)
+  facilityId?: string;
   manufacturer?: string;
   model?: string;
   ctrlNumber?: string;
   serialNumber?: string;
-
-  // Projection & sorting (only if your API supports them)
-  select?: string;            // e.g., "_id,ctrlNumber,manufacturer,model,serialNumber,status"
+  select?: string;
   sortBy?: "ctrlNumber" | "manufacturer" | "model" | "serialNumber" | "status" | "createdAt" | "updatedAt";
   sortDir?: "asc" | "desc";
-
-  // Optional date range filters (if supported)
-  start?: string;             // ISO date
-  end?: string;               // ISO date
+  start?: string;
+  end?: string;
 };
 
-// Shape returned by GET /assets used by useAssets()
-// Your hook reads: assets, currentPage, totalPages, totalAssets
 export interface AssetListResponse {
-  forEach(arg0: (a: any) => any): unknown;
-  filter(arg0: (a: any) => boolean): any;
-  assets: Asset[];     // list payload
-  currentPage: number; // 1-based current page
-  totalPages: number;  // total number of pages
-  totalAssets: number; // total matching records
-  pageSize?: number;   // optional, if your API returns it
-};
+  assets: Asset[];
+  currentPage: number;
+  totalPages: number;
+  totalAssets: number;
+  pageSize?: number;
+}

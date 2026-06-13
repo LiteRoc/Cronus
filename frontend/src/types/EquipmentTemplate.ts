@@ -35,6 +35,8 @@ export interface EquipmentTemplate {
   eolYears?: number;
   lineItemPricing?: number;
 
+  benchmark?: TemplateBenchmark;
+
   // Extra fields
   classificationName?: string;
   regulationNumber?: string;
@@ -77,4 +79,17 @@ export interface TemplateLifecycleResponse {
     tenant: TemplateLifecycleBenchmarks;
     global: TemplateLifecycleBenchmarks;
   };
+}
+
+export interface TemplateBenchmark {
+  source?: string;
+  reportDate?: string;
+  expectedUsefulLifeYears?: number;
+  averageListPrice?: number;
+  averageQuotedPrice?: number;
+  expectedAnnualMaintenance?: number;
+  expectedCapitalCostRatio?: number;
+  marketInterest?: string;
+  confidence?: string;
+  notes?: string;
 }
