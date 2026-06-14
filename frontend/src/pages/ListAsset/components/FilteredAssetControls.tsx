@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { fetchManufacturers, fetchModels } from "@/services";
 import { useFilteredStore } from "@/hooks/useFilteredStore";
-import { Filters } from "@/types"
+import { Asset, AssetFilters } from "@/types"
 
 const FilteredAssetControls: React.FC = () => {
-  const { filters, setFilters, resetFilters } = useFilteredStore();
+  const { filters, setFilters, resetFilters } = useFilteredStore<AssetFilters, Asset>();
 
   const { data: manufacturers = [] } = useSWR("manufacturers", fetchManufacturers);
   const { data: models = [] } = useSWR(
@@ -17,6 +17,20 @@ const FilteredAssetControls: React.FC = () => {
 
   const [field, setField] = useState("manufacturer");
   const [value, setValue] = useState("");
+
+  const toggleBooleanFilter = (key: keyof AssetFilters) => {
+    const isActive = filters[key] === "true";
+
+    if (isActive) {
+      removeFilter(key);
+      return;
+    }
+
+    setFilters({
+      ...filters,
+      [key]: "true",
+    });
+  };
 
   const addFilter = () => {
     if (!value) return;
@@ -30,7 +44,7 @@ const FilteredAssetControls: React.FC = () => {
     setValue("");
   };
 
-  const removeFilter = (key: keyof Filters) => {
+  const removeFilter = (key: keyof AssetFilters) => {
     const { [key]: _, ...remaining } = filters;
     resetFilters();
     setFilters(remaining);
@@ -50,6 +64,7 @@ const FilteredAssetControls: React.FC = () => {
             }}
             className="border rounded px-2 py-1"
           >
+            <option value="ctrlNumber">Ctrl Number</option>
             <option value="manufacturer">Manufacturer</option>
             <option value="model">Model</option>
             <option value="status">Status</option>
@@ -124,6 +139,36 @@ const FilteredAssetControls: React.FC = () => {
           Reset All
         </button>
       </div>
+      {/* Lifecycle Filter Buttons */}
+      <div className="border-t pt-4 mt-4">
+        <h2 className="text-sm font-semibold mb-2">Lifecycle Filters</h2>
+
+          <div className="flex flex-wrap gap-2">
+            <LifecycleFilterButton
+              active={filters.replacementRecommended === "true"}
+              label="Replacement Recommended"
+              onClick={() => toggleBooleanFilter("replacementRecommended" as keyof AssetFilters)}
+            />
+
+            <LifecycleFilterButton
+              active={filters.ageExceeded === "true"}
+              label="Age > Expected Life"
+              onClick={() => toggleBooleanFilter("ageExceeded" as keyof AssetFilters)}
+            />
+
+            <LifecycleFilterButton
+              active={filters.highMaintenance === "true"}
+              label="High Maintenance"
+              onClick={() => toggleBooleanFilter("highMaintenance" as keyof AssetFilters)}
+            />
+
+            <LifecycleFilterButton
+              active={filters.ccrAboveBenchmark === "true"}
+              label="Above ECRI CCR"
+              onClick={() => toggleBooleanFilter("ccrAboveBenchmark" as keyof AssetFilters)}
+            />
+          </div>
+        </div>
 
       {/* Active filters */}
       {Object.keys(filters).length > 0 && (
@@ -136,10 +181,10 @@ const FilteredAssetControls: React.FC = () => {
                 className="bg-gray-200 px-3 py-1 rounded-full text-sm flex items-center gap-2"
               >
                 <span>
-                  {key}: {val}
+                  {key}: {String(val)}
                 </span>
                 <button
-                  onClick={() => removeFilter( key as keyof Filters)}
+                  onClick={() => removeFilter( key as keyof AssetFilters)}
                   className="text-red-500"
                 >
                   &times;
@@ -152,5 +197,27 @@ const FilteredAssetControls: React.FC = () => {
     </div>
   );
 };
+
+const LifecycleFilterButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`px-3 py-1 rounded-full text-sm border ${
+      active
+        ? "bg-blue-600 text-white border-blue-600"
+        : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+    }`}
+  >
+    {label}
+  </button>
+);
 
 export default FilteredAssetControls;

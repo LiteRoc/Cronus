@@ -44,7 +44,7 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
   const tenantFilter = buildTenantFilter(req);
   const base = { ...tenantFilter, status: { $ne: 'Archived' }};
 
-    const { search, manufacturer, model, status, page = 1, limit = 10, facilityId, departmentId } = req.query;
+    const { search, manufacturer, model, status, page = 1, limit = 10, facilityId, departmentId, templateId, ctrlNumber, replacementRecommended, ageExceeded, highMaintenance, ccrAboveBenchmark } = req.query;
 
     try {
         const query = { ...base };
@@ -56,9 +56,41 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
                 { serialNumber: { $regex: search, $options: 'i' } },
             ];
         }
+
         if (facilityId && mongoose.Types.ObjectId.isValid(facilityId)) {
           query.facilityId = facilityId;
         }
+
+        if (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) {
+          query.departmentId = departmentId;
+        }
+
+        if (templateId && mongoose.Types.ObjectId.isValid(templateId)) {
+          query.templateId = new mongoose.Types.ObjectId(templateId);
+        }
+
+        if (ctrlNumber) {
+          query.ctrlNumber = { $regex: ctrlNumber, $options: "i" };
+        }
+
+        if (replacementRecommended === "true") {
+          query["metrics.replacementRecommended"] = true;
+        }
+
+        if (ageExceeded === "true") {
+          query["metrics.replacementRecommended"] = true;
+          query["metrics.replacementReason"] = /expected life|useful life|exceeds/i;
+        }
+
+        if (highMaintenance === "true") {
+          query["metrics.projectedAnnualMaintenance"] = { $gt: 0 };
+          // Better comparison to benchmark can come later if needed.
+        }
+
+        if (ccrAboveBenchmark === "true") {
+          query["metrics.replacementReason"] = /maintenance|CCR|capital cost/i;
+        }
+
         if (manufacturer) query.manufacturer = manufacturer;
         if (model) query.model = model;
         //if (status) query.status = status || "Active";
@@ -76,7 +108,7 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
 
         // Parse the `page` and `limit` to ensure they are numbers
         const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
-        const limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
+        let limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
 
         // Cap limit between 1 and 100
         if (limitNumber < 1) limitNumber = 1;

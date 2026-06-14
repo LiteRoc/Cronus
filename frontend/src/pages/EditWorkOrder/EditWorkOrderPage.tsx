@@ -251,7 +251,7 @@ const EditWorkOrderPage: React.FC = () => {
             setSelectedProcedureId(null); // clear selection when modal closes
           }}
           userId={userId}
-          userName={user?.name || ""}
+          userName={user?.username || ""}
         />
       )}
 

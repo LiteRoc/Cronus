@@ -10,7 +10,13 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setUser } = useUser() || {};
-  const normalizedRole = user?.role === "tech" ? "technician" : (user?.role ?? "viewer");
+  const normalizedRole = (() => {
+    if (user?.role === "tech") return "technician";
+    if (user?.role === "admin" || user?.role === "customer" || user?.role === "viewer") {
+      return user.role;
+    }
+    return "viewer";
+  })();
   const links = useSidebarLinks(normalizedRole);
   const { selectedFacilityId, setSelectedFacilityId, availableFacilities } = useFacility();
   //console.log("availableFacilities:", availableFacilities);
@@ -20,7 +26,7 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     setSelectedFacilityId(newId); // ✅ this will now also save to localStorage
   };
 
-  const name = user?.name;
+  //const name = user?.name;
   const username = user?.username;
 
   const linkClasses = (path: string) =>
@@ -40,7 +46,7 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <aside className="w-64 bg-gray-800 text-white flex flex-col justify-between p-4 h-screen overflow-hidden">
         {/* Top section (welcome + nav) */}
         <div>
-          <h1 className="text-2xl font-bold mb-1">Welcome, {name || username}</h1>
+          <h1 className="text-2xl font-bold mb-1">Welcome, {username}</h1>
 
           {(user?.role === "admin" || normalizedRole === "technician") && (
             <p className="text-xs text-gray-400 italic mb-4">{user?.role}</p>

@@ -27,7 +27,7 @@ const CreateAssetFromUdiModal: React.FC<Props> = ({ isOpen, onClose, onAssetCrea
 
   useEffect(() => {
     if (isOpen && selectedFacilityId) {
-      getDepartmentsByFacility(selectedFacilityId)
+      getDepartmentsByFacility()
         .then(setDepartments)
         .catch((err) => console.error("Error fetching departments:", err));
     }

@@ -18,7 +18,7 @@ export default function AssetPickerModal({ isOpen, onClose, onSelect }: Props) {
   const [page, setPage] = useState(1);
   const pageSize = 8;
 
-  const filters: AssetFilters = { q: debouncedQ /*, status: "Active" */ };
+  const filters: AssetFilters = { q: debouncedQ, search: debouncedQ /*, status: "Active" */ };
 
   const { assets, totalPages, isLoading } = useAssetsLite(filters, page, pageSize);
 

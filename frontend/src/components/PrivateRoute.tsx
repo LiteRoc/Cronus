@@ -10,7 +10,7 @@ export default function PrivateRoute({ children }: { children: JSX.Element }) {
   const token = localStorage.getItem("token");
   //console.log("PrivateRoute - token:", localStorage.getItem('token'));
 
-  if (!user?.id && !token) {
+  if (!user?._id && !token) {
     return <Navigate to="/signin" replace />;
   }
 

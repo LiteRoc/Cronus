@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "@/components/Modal"; // Shared modal
-import { getTemplates, getTemplateById, getDepartmentsByFacility, addAsset } from "@/services";
-import { Department, EquipmentTemplate, TemplateListResponse } from "@/types";
+import { getTemplates, getDepartmentsByFacility, addAsset } from "@/services";
+import { Department, TemplateListResponse } from "@/types";
 import CreateAssetFromUdiModal from "./CreateAssetFromUdiModal";
 import { useFacility } from "@/context/FacilityContext";
 
@@ -52,7 +52,7 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ isOpen, onClose, on
 
     useEffect(() => {
       if (isOpen && selectedFacilityId) {
-        getDepartmentsByFacility(selectedFacilityId)
+        getDepartmentsByFacility()
           .then(setDepartments)
           .catch((err) => console.error("Error fetching departments:", err));
       }
@@ -67,12 +67,12 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ isOpen, onClose, on
     setSubmitting(true);
 
     try {
-      let templates: EquipmentTemplate | null = null;
+      //let templates: EquipmentTemplate | null = null;
 
-      if (selectedTemplateId) {
+      /*if (selectedTemplateId) {
         const res = await getTemplateById(selectedTemplateId);
         templates = res;
-      }
+      }*/
 
       // Build payload from state
       const payload = {

@@ -93,7 +93,7 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
 
         <div className="form-group">
           <Label htmlFor="workOrderType" required>Work Order Type</Label>
-          <select
+          <Select
             id="workOrderType"
             name="workOrderType"
             value={form.workOrderType || ""}
@@ -101,7 +101,7 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
           >
             <option value="Corrective Maintenance">Corrective Maintenance</option>
             <option value="Planned Maintenance">Planned Maintenance</option>
-          </select>
+          </Select>
         </div>
 
         <div className="modal-actions">

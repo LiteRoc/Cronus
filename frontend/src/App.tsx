@@ -26,7 +26,7 @@ import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage"
 function RootRedirect() {
   const { user } = useUser();
   const token = localStorage.getItem("token");
-  const isAuthed = !!user?.id || !!(user as any)?._id || !!token;
+  const isAuthed = !!(user as any)?._id || !!token;
   return <Navigate to={isAuthed ? "/dashboard" : "/signin"} replace />;
 }
 

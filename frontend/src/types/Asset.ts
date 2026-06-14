@@ -124,13 +124,21 @@ export interface AssetLifecycleResponse {
 
 export type AssetFilters = {
   q?: string;
+  search: string,
   status?: string;
   departmentId?: string;
   facilityId?: string;
+  templateId?: string;
   manufacturer?: string;
   model?: string;
   ctrlNumber?: string;
   serialNumber?: string;
+
+  replacementRecommended?: string;
+  ageExceeded?: string;
+  highMaintenance?: string;
+  ccrAboveBenchmark?: string;
+  
   select?: string;
   sortBy?: "ctrlNumber" | "manufacturer" | "model" | "serialNumber" | "status" | "createdAt" | "updatedAt";
   sortDir?: "asc" | "desc";

@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import useSWR from "swr";
 import { fetchAssets } from "@/services";
+import type { AssetFilters } from "@/types";
 import { useFacility } from "@/context/FacilityContext";
 import { useFilteredStore } from "@/hooks/useFilteredStore";
 
@@ -11,7 +12,7 @@ export const useAssets = () => {
 
   const { data, error, isLoading, mutate } = useSWR(
     ["assets", selectedFacilityId || "none", filters, pagination.page, pagination.pageSize],
-    ([, fid, f, page, size]) => fetchAssets(fid, f, page, size),
+    ([, fid, f, page, size]) => fetchAssets(fid, f as AssetFilters, page, size),
     {
       dedupingInterval: 0,
       revalidateOnFocus: true,

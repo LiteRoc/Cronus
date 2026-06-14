@@ -1,7 +1,7 @@
 // src/pages/EditAsset/components/AssetWorkOrderTable.tsx
 
 import React, { useState } from "react";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import { useNavigate } from "react-router-dom";
 import { FaPlus } from "react-icons/fa";
 import { format } from "date-fns";
@@ -10,7 +10,7 @@ import { useUser } from "@/context/UserContext";
 import apiClient from "@/services/apiClient";
 import { FormCard } from "@/components/ui/formCard";
 import CreateWorkOrderModal from "@/pages/EditAsset/modals/CreateWorkOrderModal"
-import { Asset, WorkOrder, WorkOrderCreatePayload } from "@/types";
+import { Asset, WorkOrderCreatePayload } from "@/types";
 import { addWorkOrder } from "@/services";
 
 interface WorkOrderRow {

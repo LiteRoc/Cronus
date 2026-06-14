@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useFilteredStore } from "@/hooks/useFilteredStore";
 import { fetchManufacturers, fetchModels } from "@/services";
-import { Filters } from "@/types";
+import { WorkOrder, WorkOrderFilters } from "@/types";
 
 
 const FilteredWorkOrderControls: React.FC = () => {
-    const { filters, setFilters, resetFilters } = useFilteredStore();
+    const { filters, setFilters, resetFilters } = useFilteredStore<WorkOrderFilters, WorkOrder>();
 
     const { data: manufacturers = [] } = useSWR("manufacturers", fetchManufacturers);
     const { data: models = [] } = useSWR(
@@ -29,7 +29,7 @@ const FilteredWorkOrderControls: React.FC = () => {
         setValue("");
       };
     
-      const removeFilter = (key: keyof Filters) => {
+      const removeFilter = (key: keyof WorkOrderFilters) => {
         const { [key]: _, ...remaining } = filters;
         resetFilters();
         setFilters(remaining);
@@ -138,7 +138,7 @@ const FilteredWorkOrderControls: React.FC = () => {
                       {key}: {val}
                     </span>
                     <button
-                      onClick={() => removeFilter( key as keyof Filters)}
+                      onClick={() => removeFilter( key as keyof WorkOrderFilters)}
                       className="text-red-500"
                     >
                       &times;

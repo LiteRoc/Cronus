@@ -1,6 +1,14 @@
 // src/hooks/useFilteredStore.ts
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Filters, Pagination } from "@/types"; 
+import { Pagination } from "@/types"; 
+
+// Aliases / small interfaces
+//export type Filters = AssetFilters;
+
+//type FiltersState = AssetFilters | Record<string, unknown>;
+
+//type FilterSetter = (next: Partial<AssetFilters> | ((prev: AssetFilters) => AssetFilters)) => void;
+type BaseFilters = Record<string, string | number | boolean | undefined | null>;
 
 // Generic filtered-data cache (no need to extend the union)
 interface FilteredData<TItem> {
@@ -9,7 +17,7 @@ interface FilteredData<TItem> {
 }
 
 // Generic context value
-interface FilteredDataContextValue<TFilters, TItem> {
+interface FilteredDataContextValue<TFilters extends BaseFilters, TItem> {
   // Facility selection
   selectedFacilityId: string | null;
   setSelectedFacilityId: (id: string | null) => void;
@@ -41,27 +49,36 @@ export const FilteredDataProvider: React.FC<Props> = ({ children }) => {
     () => localStorage.getItem("selectedFacilityId")
   );
 
-  const setSelectedFacilityId = (id: string | null) => {
+  const setSelectedFacilityId: (id: string | null) => void = (id: string | null) => {
     setSelectedFacilityIdState(id);
     if (id) localStorage.setItem("selectedFacilityId", id);
     else localStorage.removeItem("selectedFacilityId");
   };
 
   // Filters (generic; default to Filters)
-  const [filters, setFiltersState] = useState<Filters | Record<string, unknown>>({});
+  const [filters, setFiltersState] = useState<BaseFilters>({});
+  // Pagination
+  const [pagination, setPaginationState] = useState<Pagination>({
+    page: 1,
+    pageSize: 10,
+  });
 
-  const setFilters = (next: Partial<Filters> | ((prev: Filters) => Filters)) => {
-    setFiltersState((prev) =>
-      typeof next === "function" ? (next as (p: Filters) => Filters)(prev as Filters) : { ...(prev as object), ...next }
-    );
+  const setFilters = (
+    next: Partial<BaseFilters> | ((prev: BaseFilters) => BaseFilters)
+    ) => {
+      setFiltersState((prev) =>
+        typeof next === "function" ? next(prev) : { ...prev, ...next }
+      );
     // Reset pagination when filters change
     setPaginationState((prev) => ({ ...prev, page: 1 }));
   };
 
-  const resetFilters = () => setFiltersState({});
+  const resetFilters = () => {
+    setFiltersState({});
+    setPaginationState((prev) => ({ ...prev, page: 1 }));
+  };
 
   // Pagination
-  const [pagination, setPaginationState] = useState<Pagination>({ page: 1, pageSize: 10 });
   const setPagination = (newPage: Partial<Pagination>) =>
     setPaginationState((prev) => ({ ...prev, ...newPage }));
 
@@ -86,8 +103,15 @@ export const FilteredDataProvider: React.FC<Props> = ({ children }) => {
 
 // ✅ Generic hook signature.
 //    You supply the concrete types when you consume it (per page).
-export function useFilteredStore<TFilters = Filters, TItem = unknown>(): FilteredDataContextValue<TFilters, TItem> {
+export function useFilteredStore<
+  TFilters extends BaseFilters = BaseFilters,
+  TItem = unknown
+>(): FilteredDataContextValue<TFilters, TItem> {
   const context = useContext(FilteredDataContext);
-  if (!context) throw new Error("useFilteredStore must be used within a FilteredDataProvider");
+
+  if (!context) {
+    throw new Error("useFilteredStore must be used within a FilteredDataProvider");
+  }
+
   return context as FilteredDataContextValue<TFilters, TItem>;
 }

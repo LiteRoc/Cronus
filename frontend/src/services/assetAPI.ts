@@ -1,22 +1,6 @@
-import { Asset, AssetLifecycleResponse, Procedure } from "../types";
+import { Asset, AssetLifecycleResponse, AssetFilters, AssetListResponse, Procedure } from "../types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
-
-// Define filters shape (same as in useFilteredStore)
-interface AssetFilters {
-  manufacturer?: string;
-  model?: string;
-  status?: string;
-  search?: string;
-}
-
-// Response shape returned by backend
-interface AssetListResponse {
-  assets: Asset[];
-  totalPages: number;
-  currentPage: number;
-  totalAssets: number;
-}
 
 /**
  * Fetch paginated assets with optional filters and facilityId

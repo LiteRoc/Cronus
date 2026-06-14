@@ -41,14 +41,17 @@ export interface WorkOrderCreatePayload {
 };
 
 export type WorkOrderFilters = {
-  page?: number;
-  limit?: number;
+  search?: string;
   status?: string;
+  workOrderType?: string;
   priority?: string;
   assignedTo?: string;
-  q?: string;
-  start?: string;
-  end?: string;
+  assetId?: string;
+  facilityId?: string;
+  departmentId?: string;
+  manufacturer: string,
+  startDate?: string;
+  endDate?: string;
 };
 
 export interface AssignedTo {

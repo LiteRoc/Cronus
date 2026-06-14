@@ -1,6 +1,6 @@
 import apiClient from "./apiClient";
 import { mutate } from "swr";
-import { User } from "../types/types";
+import { User } from "@/types";
 
 // Login API call
 export const loginUser = async (

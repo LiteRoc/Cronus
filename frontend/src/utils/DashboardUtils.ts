@@ -1,4 +1,4 @@
-import { Asset, WorkOrder, Part } from "../types/types";
+import { Asset, WorkOrder, Part } from "@/types";
 
 /**
  * Filters items by type (work orders, assets, or parts).

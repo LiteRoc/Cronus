@@ -1,5 +1,5 @@
 import apiClient from "./apiClient";
-import { Facility } from "../types/types";
+import { Facility } from "@/types";
 
 // Fetch all facilities (admin see all, others see scoped facilities)
 export async function getFacilities(): Promise<Facility[]> {
