@@ -361,7 +361,6 @@ assetRouter.post("/batch", authenticateToken, async (req, res) => {
     try {
       // NOTE: do not destructure here ... req.body.assetIds is an array
       const assetIds = req.body.assetIds ?? req.body.ids;
-      const tenantId = req.user.tenantId;
 
       console.log( "assetIds:", assetIds);
 
@@ -375,8 +374,12 @@ assetRouter.post("/batch", authenticateToken, async (req, res) => {
       // Query all assets by ID + tenant
       const assets = await Asset.find({
         _id: { $in: assetIds },
-        tenantId,
+        ...buildTenantFilter(req),
       })
+        .populate({
+          path: "templateId",
+          select: "manufacturer model description benchmark lifecycleDefaults eolYears",
+        })
         .lean();
 
       return res.json({ assets: [].concat(assets) });

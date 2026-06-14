@@ -35,6 +35,7 @@ import {
 } from "../controllers/contractController.js";
 
 import { getContractValue } from "../controllers/contractValueController.js";
+import { getContractLifecycleIntelligence } from "../controllers/contractLifecycleController.js";
 
 const router = express.Router();
 
@@ -71,6 +72,7 @@ router.patch('/:id/vendor-links/:linkId', authenticateToken, updateVendorLink);
 router.post('/:id/vendor-links/:linkId/assets', authenticateToken, updateVendorLinkAssets);
 router.get("/:id/vendor-links/:linkId/overview", authenticateToken, getVendorLinkOverview);
 router.get("/:id/profitability", authenticateToken, getContractProfitability);
+router.get('/:id/lifecycle-intelligence', authenticateToken, getContractLifecycleIntelligence);
 
 /*
 router.post('/', authenticateToken, createContract);

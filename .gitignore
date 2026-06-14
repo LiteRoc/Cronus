@@ -33,3 +33,10 @@ mongo-data/
 # Misc
 *.env.local
 *.local
+
+# Local database backups
+cronus-backup*/
+*-backup*/
+backups/
+*.bson
+*.metadata.json
