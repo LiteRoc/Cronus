@@ -166,6 +166,104 @@ dashboardRouter.get('/assets/summary', authenticateToken, async (req, res) => {
     }
 });
 
+// Replacement forecast route -> (tenant scoped)
+dashboardRouter.get('/lifecycle/replacement-forecast', authenticateToken, async (req, res) => {
+    try {
+      const tenantFilter = buildTenantFilter(req);
+
+      const assets = await Asset.find({
+        ...tenantFilter,
+        status: { $ne: 'Archived' },
+        isArchived: { $ne: true },
+        deletedAt: null,
+        "metrics.yearsInService": { $exists: true },
+      })
+        .select(
+          "ctrlNumber manufacturer model purchaseCost metrics templateId"
+        )
+        .populate({
+          path: "templateId",
+          select: "benchmark",
+        })
+        .lean();
+
+      const forecast = {};
+      let totalEstimatedCapitalNeed = 0;
+      let totalForecastedAssets = 0;
+
+      for (const asset of assets) {
+        const yearsInService = asset.metrics?.yearsInService;
+        const expectedLife =
+          asset.templateId?.benchmark?.expectedUsefulLifeYears;
+
+        if (
+          typeof yearsInService !== "number" ||
+          typeof expectedLife !== "number"
+        ) {
+          continue;
+        }
+
+        totalForecastedAssets += 1;
+
+        const yearsUntilReplacement = Math.max(
+          0,
+          Math.ceil(expectedLife - yearsInService)
+        );
+
+        const replacementYear =
+          new Date().getFullYear() + yearsUntilReplacement;
+
+        const estimatedCost =
+          asset.purchaseCost ??
+          asset.templateId?.benchmark?.averageQuotedPrice ??
+          0;
+
+        if (!forecast[replacementYear]) {
+          forecast[replacementYear] = {
+            year: replacementYear,
+            assetCount: 0,
+            estimatedCapitalNeed: 0,
+            assets: [],
+          };
+        }
+
+        forecast[replacementYear].assetCount += 1;
+        forecast[replacementYear].estimatedCapitalNeed += estimatedCost;
+        forecast[replacementYear].assets.push({
+          _id: asset._id,
+          templateId: asset.templateId?._id ?? asset.templateId,
+          ctrlNumber: asset.ctrlNumber,
+          manufacturer: asset.manufacturer,
+          model: asset.model,
+          estimatedReplacementCost: estimatedCost,
+        });
+
+        totalEstimatedCapitalNeed += estimatedCost;
+      }
+
+      const forecastYears = Object.values(forecast).sort(
+        (a, b) => a.year - b.year
+      );
+
+      res.json({
+        forecastYears,
+        totalForecastedAssets,
+        totalAssetsEvaluated: assets.length,
+        totalEstimatedCapitalNeed,
+      });
+    } catch (error) {
+      console.error(
+        "Error generating replacement forecast:",
+        error
+      );
+
+      res.status(500).json({
+        error: "Failed to generate replacement forecast",
+      });
+    }
+  }
+);
+
 // Technician performance route -> (tenant scoped) - internal only
 dashboardRouter.get('/technicians/performance', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   const tenantFilter = buildTenantFilter(req);

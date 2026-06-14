@@ -1,16 +1,44 @@
 //src/pages/ListAsset/FilteredAssetPage.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAssets } from "../../hooks/useAssets";
 import { Button } from "@/components/ui";
 import FilteredAssetControls from "./components/FilteredAssetControls";
 import AssetTable from "./components/AssetTable";
 import CreateAssetModal from "../AddAsset/modals/CreateAssetModal";
 import Pagination from "../../components/Pagination";
+import { useFilteredStore } from "@/hooks/useFilteredStore";
+import { AssetFilters } from "@/types/Asset";
 
 const FilteredAssetPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { assets, totalPages, totalCount, pagination, setPagination, isLoading, error, refresh } = useAssets();
+  const [searchParams] = useSearchParams();
+  const { setFilters } = useFilteredStore<AssetFilters>();
+
+  useEffect(() => {
+    const urlFilters: Partial<AssetFilters> = {};
+
+    if (searchParams.get("replacementRecommended")) {
+      urlFilters.replacementRecommended =
+        searchParams.get("replacementRecommended")!;
+    }
+
+    if (searchParams.get("ctrlNumber")) {
+      urlFilters.ctrlNumber =
+        searchParams.get("ctrlNumber")!;
+    }
+
+    if (searchParams.get("templateId")) {
+      urlFilters.templateId =
+        searchParams.get("templateId")!;
+    }
+
+    if (Object.keys(urlFilters).length > 0) {
+      setFilters(urlFilters);
+    }
+  }, []);
 
   if (error) return <div className="p-4 text-red-500">Failed to load assets</div>;
 

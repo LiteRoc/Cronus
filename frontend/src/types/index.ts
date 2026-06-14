@@ -15,5 +15,6 @@ export * from "./Contract";
 export * from "./ContractValue";
 export * from "./Coverage";
 export * from "./Pagination";
+export * from "./Dashboard";
 // export other types as needed
 // Add more as needed

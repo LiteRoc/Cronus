@@ -2,6 +2,9 @@ import React from "react";
 import Charts from "./charts/Charts";
 import { useDashboardSummaries } from "../../hooks/useDashboardSummaries";
 import { useUser } from "../../context/UserContext";
+import { getReplacementForecast } from "@/services/dashboard";
+import useSWR from "swr";
+import ReplacementForecastCard from "./components/ReplacementForecastCard";
 
 const DashboardPage: React.FC = () => {
   const { user } = useUser();
@@ -14,6 +17,12 @@ const DashboardPage: React.FC = () => {
     isLoading,
     error,
   } = useDashboardSummaries();
+
+  const {
+    data: replacementForecast,
+    error: replacementForecastError,
+    isLoading: isReplacementForecastLoading,
+  } = useSWR("replacement-forecast", getReplacementForecast);
 
   const isCustomer = user?.role === 'customer';
 
@@ -31,6 +40,12 @@ const DashboardPage: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 bg-gray-100">
         <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+
+        <ReplacementForecastCard
+          forecast={replacementForecast}
+          isLoading={isReplacementForecastLoading}
+          error={replacementForecastError}
+        />
 
         <Charts
           isCustomer = {isCustomer}

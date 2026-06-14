@@ -3,6 +3,7 @@
 {
   "compilerOptions": {
     "baseUrl": ".", // ✅ Required for aliasing
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["src/*"]
     },
