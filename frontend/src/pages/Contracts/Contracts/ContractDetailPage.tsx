@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createDraftAmendment } from "@/services/contractAPI";
+import { createDraftAmendment, getContractLifecycleIntelligence } from "@/services/contractAPI";
 import { previewApplyAmendment, applyApprovedAmendment } from "@/services/contractAPI";
 import { submitAmendment, approveAmendment, declineAmendment, voidAmendment } from "@/services/contractAPI";
 import { addVendorLink, updateVendorLink, updateVendorLinkAssets, getVendorLinkOverview } from "@/services/contractAPI";
@@ -22,6 +22,8 @@ import { fmtMoney, safeDiv } from "@/utils/format";
 import { ytdFraction } from "@/utils/dateUtils";
 import { showSuccess } from "@/utils/toastUtils";
 import { useVendors } from "@/hooks/useVendors";
+import ContractLifecycleIntelligenceCard from "../components/ContractLifecycleIntelligenceCard"
+import useSWR from "swr";
 
 export default function ContractDetailPage() {
   const { id: contractId } = useParams<{ id: string }>();
@@ -77,6 +79,15 @@ export default function ContractDetailPage() {
       ])
     );
   }, [assetsForLabels]);
+
+  const {
+    data: lifecycle,
+    isLoading: isLifecycleLoading,
+    error: lifecycleError,
+  } = useSWR(
+    contractId ? ["contract-lifecycle-intelligence", contractId] : null,
+    ([, id]) => getContractLifecycleIntelligence(id)
+  );
 
   const openEvent = (row: ContractValueTimelineEvent) => {
     setSelectedEvent(row);
@@ -1151,6 +1162,12 @@ export default function ContractDetailPage() {
           })()
         )}
       </FormCard>
+
+      <ContractLifecycleIntelligenceCard
+        lifecycle={lifecycle}
+        isLoading={isLifecycleLoading}
+        error={lifecycleError}
+      />
         
       <FormCard title="Top Cost Assets (YTD)">
         {!value ? (

@@ -3,6 +3,7 @@
 import contractClient from "./contractClient";
 import { AmendmentChangeType, AmendmentItem, Contract } from "@/types/Contract";
 import { ContractValueResponse } from "@/types";
+import { ContractLifecycleIntelligenceResponse } from "@/types/ContractLifecycle";
 
 const unwrap = <T,>(resp: any): T => {
   // supports both { success:true, data } and raw payloads
@@ -169,4 +170,14 @@ export const getVendorLinkOverview = async (contractId: string, linkId: string) 
 export const getContractProfitability = async (contractId: string) => {
   const { data } = await contractClient.get(`/contracts/${contractId}/profitability`);
   return unwrap<any>(data);
+};
+
+export const getContractLifecycleIntelligence = async (
+  contractId: string
+): Promise<ContractLifecycleIntelligenceResponse> => {
+  const { data } = await contractClient.get(
+    `/contracts/${contractId}/lifecycle-intelligence`
+  );
+
+  return data;
 };
