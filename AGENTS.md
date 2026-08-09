@@ -290,6 +290,18 @@ Treat cron, preventive-maintenance generation, lifecycle recomputation, notifica
 
 ## Documentation and Engineering Memory
 
+Use this principle:
+
+> Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
+
+The repository's sources of engineering knowledge have distinct roles:
+
+- Code tells us what Cronus does.
+- Tests tell us whether expected behavior works.
+- Git tells us exactly what changed.
+- Engineering history tells us why it changed.
+- AI Memory tells us what matters right now.
+
 Important architectural changes should be reflected in documentation. Preserve:
 
 - Architectural reasoning and tradeoffs.
@@ -310,6 +322,95 @@ Clearly separate:
 - Unresolved questions.
 
 Do not turn a proposal or comment into an accepted architectural decision without explicit agreement. When appropriate, recommend an ADR or another durable decision record, but do not create one outside the requested scope.
+
+### Persistent Documentation Roles
+
+For significant verified engineering work, evaluate whether the work creates knowledge worth preserving in one or more of the following locations.
+
+#### Current Context
+
+`docs/ai-memory/Current Context.md` is concise working state. It should contain:
+
+- The current engineering priority.
+- Important verified baselines or status.
+- Pointers to relevant authoritative documentation.
+
+Current Context describes where the project is now. It should not preserve the project's entire history or become a chronological log.
+
+#### Open Threads
+
+`docs/ai-memory/Open Threads.md` tracks:
+
+- Unresolved verified defects.
+- Important unanswered engineering questions.
+- Known risks requiring investigation.
+
+Distinguish verified defects from hypotheses and unresolved risks. Remove or deliberately close items when they are resolved; do not allow completed work to remain presented as open.
+
+#### Lessons Learned
+
+`docs/ai-memory/Lessons Learned.md` is a staging area for reusable engineering lessons. Lessons must be supported by evidence, and not every observation should become a permanent lesson. A sufficiently durable lesson may later be promoted into authoritative documentation or, when it forms part of an accepted architectural decision, an ADR.
+
+Do not present a staged lesson as an architectural decision merely because it may influence later work.
+
+#### Engineering Journal
+
+`docs/engineering-journal/` is the durable chronological record of significant engineering work. A useful entry records, as applicable:
+
+- The problem and its context.
+- Investigation and evidence.
+- Decisions and reasoning.
+- Implementation.
+- Verification, including useful before-and-after results.
+- Remaining uncertainty and follow-up work.
+
+Engineering Journal entries explain why work happened and how understanding changed. Do not duplicate Git diffs line by line; Git remains the authority for the exact patch.
+
+#### Architecture Decision Records
+
+Use an ADR only for a meaningful architectural decision that has actually been accepted. Do not create ADRs for ordinary bug fixes, implementation details, or temporary choices. Clearly distinguish proposed decisions from accepted decisions, and never record an unaccepted proposal as accepted architecture.
+
+### Documentation Trigger
+
+Consider documentation after significant **verified** work such as:
+
+- Security remediation.
+- Architectural changes.
+- Schema or data-model changes.
+- Service-boundary changes.
+- Important bug investigations.
+- New major capabilities.
+- Significant operational or recovery discoveries.
+- Decisions likely to matter to a future engineer or AI agent.
+
+Do not require documentation updates for trivial changes, formatting, minor refactors, routine dependency maintenance, or changes that add no meaningful engineering knowledge. Do not create documentation merely to satisfy this rule. The goal is useful institutional memory, not documentation volume.
+
+### Verification Rule
+
+Do not update durable engineering history to claim a result before it has been verified.
+
+If work is incomplete:
+
+- Current Context or Open Threads may record its current state.
+- An Engineering Journal entry may record investigation or progress while clearly labeling the work incomplete.
+- Lessons Learned must preserve uncertainty and must not overstate evidence.
+- ADRs must not present an unaccepted proposal as an accepted decision.
+
+Continue to distinguish current verified architecture, architecture inferred from code, proposals, historical implementation, hypotheses, and unresolved questions.
+
+### Documentation Workflow
+
+After significant verified work:
+
+1. Determine what meaningful knowledge emerged.
+2. Recommend which documentation, if any, should be updated.
+3. Update only the appropriate documentation when authorized or when documentation updates are already within the explicitly approved task scope.
+4. Keep AI Memory concise.
+5. Preserve durable engineering history in the Engineering Journal.
+6. Use ADRs only for actual architectural decisions.
+7. Report documentation changes in the final handoff.
+
+Evaluation of documentation needs does not itself authorize documentation changes. Preserve the repository's scope and authorization rules.
 
 ## Observe Before Acting
 
