@@ -215,11 +215,10 @@ describe("core JWT validation", () => {
 
 describe("core authentication logging", () => {
   test("login and authenticated requests do not log passwords, hashes, or bearer tokens", async () => {
-    const hash = await bcrypt.hash(PLAINTEXT_PASSWORD, 10);
     await User.create({
       username: "logging-user",
       email: "logging-user@example.test",
-      password: hash,
+      password: PLAINTEXT_PASSWORD,
       role: "admin",
     });
 

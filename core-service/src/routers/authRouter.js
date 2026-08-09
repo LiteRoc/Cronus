@@ -16,7 +16,7 @@ authRouter.post(
         body('username').notEmpty().withMessage('Username is required'),
         body('email').isEmail().withMessage('Valid email is required'),
         body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-        body('role').optional().isIn(['admin', 'tech', 'customer']).withMessage('Role must be admin, tech, or customer'),
+        body('role').optional().isIn(['admin', 'technician', 'customer', 'viewer']).withMessage('Role must be admin, technician, customer, or viewer'),
         body('customerId').optional().isMongoId().withMessage('customerId must be a valid Mongo ObjectId'),
     ],
     async (req, res) => {
@@ -25,7 +25,11 @@ authRouter.post(
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { username, email, password, role = 'tech', customerId } = req.body;
+        const { username, email, password, role, customerId } = req.body;
+
+        if (role === 'admin') {
+            return res.status(403).json({ error: 'Administrator registration is not allowed' });
+        }
 
         try {
             const existingUser = await User.findOne({ email });
