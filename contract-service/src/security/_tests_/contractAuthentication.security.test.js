@@ -4,6 +4,8 @@ import request from "supertest";
 import { createRequire } from "node:module";
 import { jest } from "@jest/globals";
 import { createIsolatedMongoHarness } from "./securityTestHarness.js";
+import Contract from "../../models/Contract.js";
+import Counter from "../../models/Counter.js";
 
 const JWT_SECRET = "cronus-security-suite-only-secret-with-adequate-length";
 const JWT_ISSUER = "cronus.api";
@@ -49,7 +51,8 @@ beforeAll(async () => {
   app = createApp();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all([Contract.deleteMany({}), Counter.deleteMany({})]);
   jest.restoreAllMocks();
 });
 
@@ -133,6 +136,95 @@ describe("contract mutation role authorization", () => {
       .set(bearer(tokenFor("customer")))
       .send({})
       .expect(403);
+  });
+});
+
+describe("contract tenant invariants and audit provenance", () => {
+  const contractPayload = {
+    name: "Security Test Contract",
+    type: "customer",
+    startDate: "2026-01-01T00:00:00.000Z",
+    endDate: "2026-12-31T23:59:59.999Z",
+    totalValue: 1000,
+    coveredAssets: [],
+  };
+
+  test("admin can create a facility-scoped contract with authenticated audit provenance", async () => {
+    const userId = new mongoose.Types.ObjectId();
+    const facilityId = new mongoose.Types.ObjectId();
+    const token = jwt.sign(
+      { id: String(userId), role: "admin", facilityId: String(facilityId), facilities: [] },
+      JWT_SECRET,
+      { expiresIn: "10m", issuer: JWT_ISSUER, audience: JWT_AUDIENCE },
+    );
+
+    const response = await request(app)
+      .post("/contracts")
+      .set(bearer(token))
+      .set("x-facility-id", String(facilityId))
+      .send({ ...contractPayload, facilityId: new mongoose.Types.ObjectId().toString() })
+      .expect(201);
+
+    const created = await Contract.findById(response.body.contract._id).lean();
+    expect(String(created.facilityId)).toBe(String(facilityId));
+    expect(String(created.createdBy)).toBe(String(userId));
+    await request(app)
+      .post("/contracts/" + created._id + "/submit")
+      .set(bearer(token))
+      .set("x-facility-id", String(facilityId))
+      .expect(200);
+
+    const submitted = await Contract.findById(created._id).lean();
+    expect(String(submitted.submittedBy)).toBe(String(userId));
+  });
+
+  test("cross-facility mutation is rejected", async () => {
+    const facilityA = new mongoose.Types.ObjectId();
+    const facilityB = new mongoose.Types.ObjectId();
+    const contract = await Contract.create({
+      contractNumber: "SEC-CROSS-FACILITY",
+      ...contractPayload,
+      facilityId: facilityB,
+    });
+
+    await request(app)
+      .delete(`/contracts/${contract._id}`)
+      .set(bearer(tokenFor("admin")))
+      .set("x-facility-id", String(facilityA))
+      .expect(404);
+
+    await expect(Contract.exists({ _id: contract._id })).resolves.not.toBeNull();
+  });
+
+  test("active-for-asset returns only the selected facility contract", async () => {
+    const assetId = new mongoose.Types.ObjectId();
+    const facilityA = new mongoose.Types.ObjectId();
+    const facilityB = new mongoose.Types.ObjectId();
+    const [contractA] = await Contract.create([
+      {
+        contractNumber: "SEC-ASSET-A",
+        ...contractPayload,
+        status: "active",
+        facilityId: facilityA,
+        coveredAssets: [assetId],
+      },
+      {
+        contractNumber: "SEC-ASSET-B",
+        ...contractPayload,
+        status: "active",
+        facilityId: facilityB,
+        coveredAssets: [assetId],
+      },
+    ]);
+
+    const response = await request(app)
+      .get(`/contracts/active-for-asset/${assetId}`)
+      .query({ date: "2026-06-01T00:00:00.000Z" })
+      .set(bearer(tokenFor("admin")))
+      .set("x-facility-id", String(facilityA))
+      .expect(200);
+
+    expect(String(response.body.contractId)).toBe(String(contractA._id));
   });
 });
 

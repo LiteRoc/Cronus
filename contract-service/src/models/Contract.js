@@ -100,6 +100,8 @@ const amendmentSchema = new Schema({
   declinedAt: { type: Date },
   declinedBy: { type: Schema.Types.ObjectId },
   declineReason: { type: String },
+  voidedAt: { type: Date },
+  voidedBy: { type: Schema.Types.ObjectId },
 
   // business fields
   date: { type: Date, required: true }, // effective date
@@ -169,6 +171,7 @@ const contractSchema = new Schema({
   status: { type: String, enum: CONTRACT_STATUSES, default: 'draft' },
 
   // audit
+  createdBy: { type: Schema.Types.ObjectId },
   activatedAt: { type: Date },
   activatedBy: { type: Schema.Types.ObjectId },
   submittedAt: { type: Date },

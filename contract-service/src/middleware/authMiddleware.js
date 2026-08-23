@@ -3,8 +3,8 @@
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
-const JWT_ISS = process.env.JWT_ISS || 'aegisops.api';
-const JWT_AUD = process.env.JWT_AUD || 'aegisops.app';
+const JWT_ISS = process.env.JWT_ISS || 'cronus.api';
+const JWT_AUD = process.env.JWT_AUD || 'cronus.app';
 
 function getTokenFromRequest(req) {
   const authHeader = req.headers['authorization'] || req.header('Authorization');
@@ -33,10 +33,8 @@ export function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      // Uncomment if you added iss/aud when signing:
-      // issuer: JWT_ISS,
-      // audience: JWT_AUD,
-      // clockTolerance: 5 // seconds of skew if needed
+      issuer: JWT_ISS,
+      audience: JWT_AUD,
     });
 
     // Normalize into a consistent shape for the rest of the app
@@ -45,7 +43,7 @@ export function authenticateToken(req, res, next) {
 
     req.user = {
       id: userId?.toString?.() || String(userId),
-      role: decoded.role || 'admin',
+      role: decoded.role || null,
       facilityId: decoded.facilityId,
       departmentId: decoded.departmentId || null,
       facilities: decoded.facilities || [],

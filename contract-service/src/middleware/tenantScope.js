@@ -2,6 +2,38 @@
 
 import mongoose from 'mongoose';
 
+function asId(value) {
+  return value == null ? '' : value.toString().trim();
+}
+
+export function resolveAuthorizedFacilityId(req) {
+  if (!req.user) {
+    throw new Error('Unauthorized: user context is missing');
+  }
+
+  const selectedFacilityId = asId(req.headers['x-facility-id']);
+  const tokenFacilityId = asId(req.user.facilityId);
+  const activeFacilityId = selectedFacilityId || tokenFacilityId;
+
+  if (!activeFacilityId || !mongoose.Types.ObjectId.isValid(activeFacilityId)) {
+    throw new Error('A valid facility context is required');
+  }
+
+  if (req.user.role !== 'admin' && selectedFacilityId) {
+    const allowedFacilityIds = new Set(
+      (req.user.facilities || []).map((facility) =>
+        asId(typeof facility === 'object' ? facility._id : facility)
+      )
+    );
+
+    if (!allowedFacilityIds.has(selectedFacilityId)) {
+      throw new Error('Forbidden: selected facility is not within user scope');
+    }
+  }
+
+  return mongoose.Types.ObjectId.createFromHexString(activeFacilityId);
+}
+
 export function buildTenantFilter(req) {
   if (!req.user) {
     throw new Error('Unauthorized: user context is missing');

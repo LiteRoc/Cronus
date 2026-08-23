@@ -9,7 +9,7 @@ import {
  } from "../services/contractOverviewService.js";
 import Contract from '../models/Contract.js';
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
-import { buildTenantFilter } from "../middleware/tenantScope.js";
+import { buildTenantFilter, resolveAuthorizedFacilityId } from "../middleware/tenantScope.js";
 import { buildCoreLookup } from "../services/coreLookupService.js";
 import { makeCoreClient, withForwardedHeaders } from "../services/coreAPIClient.js";
 import { generateContractNumber } from "../services/contractNumberService.js";
@@ -79,6 +79,10 @@ export const getAssetContract = async (req, res) => {
     console.log("x-facility-id header:", req.headers['x-facility-id']);
 
     const { assetId } = req.params;
+    if (!isValidId(assetId)) {
+      return res.status(400).json({ error: "Invalid asset ID" });
+    }
+    const facilityId = resolveAuthorizedFacilityId(req);
     const dateParam = req.query.date || new Date();
     const date = new Date(dateParam);
     date.setUTCHours(0, 0, 0, 0); // 🛠 force 00:00 UTC
@@ -87,6 +91,7 @@ export const getAssetContract = async (req, res) => {
     console.log('Query date:', date.toISOString());
 
     const contract = await Contract.findOne({
+      facilityId,
       coveredAssets: mongoose.Types.ObjectId.createFromHexString(assetId),
       status: 'active',
       $expr: {
@@ -102,6 +107,7 @@ export const getAssetContract = async (req, res) => {
     if (!contract) {
       console.log('No matching contract found for asset/date.');
       const fallback = await Contract.find({
+        facilityId,
         coveredAssets: assetId.toString(),
         status: 'active'
       }).select('startDate endDate name _id').lean();
@@ -253,8 +259,7 @@ export const getOneContract =  async (req, res) => {
 // POST - Create Contract
 export const createContract = async (req, res) => {
   try {
-    const tenantFilter = buildTenantFilter(req);
-    const { facilityId } = tenantFilter;
+    const facilityId = resolveAuthorizedFacilityId(req);
 
     const contractNumber = await generateContractNumber();
 
@@ -297,7 +302,7 @@ export const createContract = async (req, res) => {
       amendments: [],
 
       facilityId,
-      createdBy: req.user.userId,
+      createdBy: req.user.id,
 
       // 🔒 lifecycle: always draft on creation
       status: "draft",
@@ -328,7 +333,7 @@ export const submitContract = async (req, res) => {
 
     contract.status = "submitted";
     contract.submittedAt = new Date();
-    contract.submittedBy = req.user.userId;
+    contract.submittedBy = req.user.id;
 
     await contract.save();
     return res.json(contract);
@@ -351,7 +356,7 @@ export const approveContract = async (req, res) => {
 
     contract.status = "approved";
     contract.approvedAt = new Date();
-    contract.approvedBy = req.user.userId;
+    contract.approvedBy = req.user.id;
 
     await contract.save();
     return res.json(contract);
@@ -376,7 +381,7 @@ export const declineContract = async (req, res) => {
 
     contract.status = "declined";
     contract.declinedAt = new Date();
-    contract.declinedBy = req.user.userId;
+    contract.declinedBy = req.user.id;
     contract.declineReason = reason || "";
 
     await contract.save();
@@ -402,7 +407,7 @@ export const terminateContract = async (req, res) => {
 
     contract.status = "terminated";
     contract.terminatedAt = new Date();
-    contract.terminatedBy = req.user.userId;
+    contract.terminatedBy = req.user.id;
     contract.terminationReason = reason || "";
 
     await contract.save();
@@ -487,10 +492,10 @@ export const applyAmendment = async (req, res) => {
     amendment.amendmentNumber = `${contract.contractNumber}.${contract.amendmentSeq}`;
     amendment.status = "applied";
     amendment.appliedAt = new Date();
-    amendment.appliedBy = req.user.userId;
+    amendment.appliedBy = req.user.id;
 
     // ✅ service owns all mutation + numbering + status changes
-    //applyApprovedAmendmentToContract(contract, idx, req.user.userId);
+    //applyApprovedAmendmentToContract(contract, idx, req.user.id);
 
     await contract.save();
     return sendSuccess(res, contract);
@@ -530,7 +535,7 @@ export const createDraftAmendment = async (req, res) => {
     changeType,
     items,
     totalDelta: items.reduce((s, i) => s + i.deltaValue, 0),
-    createdBy: req.user.userId,
+    createdBy: req.user.id,
   });
 
   await contract.save();
@@ -565,7 +570,7 @@ export const submitAmendment = async (req, res) => {
 
   amendment.status = 'submitted';
   amendment.submittedAt = new Date();
-  amendment.submittedBy = req.user.userId;
+  amendment.submittedBy = req.user.id;
 
   await contract.save();
   res.json(contract);
@@ -594,7 +599,7 @@ export const approveAmendment = async (req, res) => {
 
   amendment.status = 'approved';
   amendment.approvedAt = new Date();
-  amendment.approvedBy = req.user.userId;
+  amendment.approvedBy = req.user.id;
 
   await contract.save();
   res.json(contract);
@@ -623,7 +628,7 @@ export const declineAmendment = async (req, res) => {
 
   amendment.status = 'declined';
   amendment.declinedAt = new Date();
-  amendment.declinedBy = req.user.userId;
+  amendment.declinedBy = req.user.id;
   amendment.declineReason = reason || '';
 
   await contract.save();
@@ -666,7 +671,7 @@ export const voidAmendment = async (req, res) => {
 
     amendment.status = "voided";
     amendment.voidedAt = new Date();
-    amendment.voidedBy = req.user.userId;
+    amendment.voidedBy = req.user.id;
 
     await contract.save();
     return res.json(contract);

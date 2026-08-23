@@ -2,7 +2,7 @@
 
 import express from "express";
 import { attachCoreClient } from "../middleware/forwardCoreHeaders.js";
-import { authenticateToken } from "../middleware/authMiddleware.js";
+import { authenticateToken, authorizeRoles } from "../middleware/authMiddleware.js";
 import { 
     getContractOverview,
     getAllContracts,
@@ -38,6 +38,7 @@ import { getContractValue } from "../controllers/contractValueController.js";
 import { getContractLifecycleIntelligence } from "../controllers/contractLifecycleController.js";
 
 const router = express.Router();
+const adminMutation = [authenticateToken, authorizeRoles("admin")];
 
 router.use(attachCoreClient); // automatically attach axios client
 
@@ -47,29 +48,29 @@ router.get('/active-for-asset/:assetId', authenticateToken, getAssetContract);
 router.get("/asset/:assetId/coverage", authenticateToken, getAssetCoverage);
 router.get('/', authenticateToken, getAllContracts);
 router.get('/:id', authenticateToken, getOneContract);
-router.post('/', authenticateToken, createContract);
-router.post('/:id/submit', authenticateToken, submitContract);
-router.post('/:id/approve', authenticateToken, approveContract);
-router.post('/:id/decline', authenticateToken, declineContract);
-router.post('/:id/terminate', authenticateToken, terminateContract);
-router.delete('/:id', authenticateToken, deleteContract);
+router.post('/', ...adminMutation, createContract);
+router.post('/:id/submit', ...adminMutation, submitContract);
+router.post('/:id/approve', ...adminMutation, approveContract);
+router.post('/:id/decline', ...adminMutation, declineContract);
+router.post('/:id/terminate', ...adminMutation, terminateContract);
+router.delete('/:id', ...adminMutation, deleteContract);
 
 // AMENDMENT ROUTES
-router.post('/:id/amendments/draft', authenticateToken, createDraftAmendment);
-router.post('/:id/amendments/:idx/submit', authenticateToken, submitAmendment);
-router.post('/:id/amendments/:idx/approve', authenticateToken, approveAmendment);
+router.post('/:id/amendments/draft', ...adminMutation, createDraftAmendment);
+router.post('/:id/amendments/:idx/submit', ...adminMutation, submitAmendment);
+router.post('/:id/amendments/:idx/approve', ...adminMutation, approveAmendment);
 router.get('/:id/amendments/:idx/preview', authenticateToken, previewApplyAmendment);
-router.post('/:id/amendments/:idx/apply', authenticateToken, applyAmendment);
-router.post('/:id/amendments/:idx/decline', authenticateToken, declineAmendment);
-router.post('/:id/amendments/:idx/void', authenticateToken, voidAmendment);
+router.post('/:id/amendments/:idx/apply', ...adminMutation, applyAmendment);
+router.post('/:id/amendments/:idx/decline', ...adminMutation, declineAmendment);
+router.post('/:id/amendments/:idx/void', ...adminMutation, voidAmendment);
 
 // VALUE ROUTES
 router.get('/:id/value', authenticateToken, getContractValue);
 
 // VENDOR ROUTES
-router.post('/:id/vendor-links', authenticateToken, addVendorLink);
-router.patch('/:id/vendor-links/:linkId', authenticateToken, updateVendorLink);
-router.post('/:id/vendor-links/:linkId/assets', authenticateToken, updateVendorLinkAssets);
+router.post('/:id/vendor-links', ...adminMutation, addVendorLink);
+router.patch('/:id/vendor-links/:linkId', ...adminMutation, updateVendorLink);
+router.post('/:id/vendor-links/:linkId/assets', ...adminMutation, updateVendorLinkAssets);
 router.get("/:id/vendor-links/:linkId/overview", authenticateToken, getVendorLinkOverview);
 router.get("/:id/profitability", authenticateToken, getContractProfitability);
 router.get('/:id/lifecycle-intelligence', authenticateToken, getContractLifecycleIntelligence);
