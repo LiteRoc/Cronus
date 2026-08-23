@@ -14,6 +14,11 @@ import { buildCoreLookup } from "../services/coreLookupService.js";
 import { makeCoreClient, withForwardedHeaders } from "../services/coreAPIClient.js";
 import { generateContractNumber } from "../services/contractNumberService.js";
 import { computeAmendmentImpact } from "../services/amendmentImpactService.js";
+import {
+  applyApprovedAmendmentToContract,
+  transitionAmendment,
+  validateAmendmentDraftInput,
+} from "../services/amendmentLifecycleService.js";
 import { calculateAnnualValueAsOf, proratedValueBetween } from "../services/contractValueService.js";
 import { fetchAssetsByIds } from "../services/coreAssetService.js";
 
@@ -477,25 +482,7 @@ export const applyAmendment = async (req, res) => {
       return res.status(400).json({ error: `Amendment must be approved to apply (current: ${amendment.status})` });
     }
 
-    // compute impact from clone
-    const plain = contract.toObject({ depopulate: true });
-    const impact = computeAmendmentImpact(plain, idx);
-
-    // write the impacted fields back onto the mongoose doc
-    contract.totalValue = Number(impact.nextContract.totalValue ?? 0);
-    contract.coveredAssets = Array.isArray(impact.nextContract.coveredAssets)
-      ? impact.nextContract.coveredAssets
-      : [];
-
-    // finally apply + finalize
-    contract.amendmentSeq = Number(contract.amendmentSeq ?? 0) + 1;
-    amendment.amendmentNumber = `${contract.contractNumber}.${contract.amendmentSeq}`;
-    amendment.status = "applied";
-    amendment.appliedAt = new Date();
-    amendment.appliedBy = req.user.id;
-
-    // ✅ service owns all mutation + numbering + status changes
-    //applyApprovedAmendmentToContract(contract, idx, req.user.id);
+    applyApprovedAmendmentToContract(contract, idx, req.user.id);
 
     await contract.save();
     return sendSuccess(res, contract);
@@ -507,43 +494,36 @@ export const applyAmendment = async (req, res) => {
 
 // POST - Create Draft Amendment
 export const createDraftAmendment = async (req, res) => {
-  const tenantFilter = buildTenantFilter(req);
-  const contract = await Contract.findOneAndUpdate(
-    { _id: req.params.id, ...tenantFilter },
-    { $inc: { amendmentSeq: 1 } },
-    { new: true }
-  );
+  try {
+    const draft = validateAmendmentDraftInput(req.body);
+    const tenantFilter = buildTenantFilter(req);
+    const contract = await Contract.findOne({ _id: req.params.id, ...tenantFilter });
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+    if (!["draft", "approved", "active"].includes(contract.status)) {
+      return res.status(400).json({ error: "Cannot add amendment in this contract state" });
+    }
 
-  if (!contract) return res.status(404).json({ error: "Contract not found" });
+    const nextSequence = Number(contract.amendmentSeq ?? 0) + 1;
+    const amendmentIndex = contract.amendments.length;
+    const amendmentNumber = `${contract.contractNumber}.${nextSequence}`;
+    contract.amendmentSeq = nextSequence;
+    contract.amendments.push({
+      ...draft,
+      amendmentNumber,
+      status: "draft",
+      createdAt: new Date(),
+      createdBy: req.user.id,
+    });
 
-  if (contract.status !== 'draft' && contract.status !== 'approved' && contract.status !== 'active') {
-    return res.status(400).json({ error: "Cannot add amendment in this contract state" });
+    await contract.save();
+    return res.status(201).json({
+      amendmentIndex,
+      amendmentNumber,
+      amendment: contract.amendments[amendmentIndex],
+    });
+  } catch (err) {
+    return res.status(400).json({ error: err.message || "Failed to create amendment" });
   }
-
-  const { date, description, changeType, items } = req.body;
-
-  if (!date) return res.status(400).json({ error: "date is required" });
-  if (!["add","remove","update"].includes(changeType)) return res.status(400).json({ error: "invalid changeType" });
-  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "items must be a non-empty array" });
-
-  const idx = contract.amendments.length - 1;
-
-  contract.amendments.push({
-    status: 'draft',
-    date,
-    description,
-    changeType,
-    items,
-    totalDelta: items.reduce((s, i) => s + i.deltaValue, 0),
-    createdBy: req.user.id,
-  });
-
-  await contract.save();
-  res.status(201).json({
-    amendmentIndex: idx,
-    amendmentNumber: contract.amendments[idx].amendmentNumber,
-    amendment: contract.amendments[idx],
-  });
 };
 
 // POST - Submit Amendment
@@ -568,9 +548,7 @@ export const submitAmendment = async (req, res) => {
   if (amendment.status !== 'draft')
     return res.status(400).json({ error: "Only draft amendments can be submitted" });
 
-  amendment.status = 'submitted';
-  amendment.submittedAt = new Date();
-  amendment.submittedBy = req.user.id;
+  transitionAmendment(contract, idx, "submitted", req.user.id);
 
   await contract.save();
   res.json(contract);
@@ -597,9 +575,7 @@ export const approveAmendment = async (req, res) => {
   if (amendment.status !== 'submitted')
     return res.status(400).json({ error: "Only submitted amendments can be approved" });
 
-  amendment.status = 'approved';
-  amendment.approvedAt = new Date();
-  amendment.approvedBy = req.user.id;
+  transitionAmendment(contract, idx, "approved", req.user.id);
 
   await contract.save();
   res.json(contract);
@@ -626,10 +602,7 @@ export const declineAmendment = async (req, res) => {
 
   const { reason } = req.body;
 
-  amendment.status = 'declined';
-  amendment.declinedAt = new Date();
-  amendment.declinedBy = req.user.id;
-  amendment.declineReason = reason || '';
+  transitionAmendment(contract, idx, "declined", req.user.id, { reason });
 
   await contract.save();
   res.json(contract);
@@ -669,9 +642,7 @@ export const voidAmendment = async (req, res) => {
       });
     }
 
-    amendment.status = "voided";
-    amendment.voidedAt = new Date();
-    amendment.voidedBy = req.user.id;
+    transitionAmendment(contract, idx, "voided", req.user.id);
 
     await contract.save();
     return res.json(contract);

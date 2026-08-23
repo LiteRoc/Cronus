@@ -1,82 +1,83 @@
 // src/services/amendmentLifecycleService.js
 import mongoose from "mongoose";
+import { AMENDMENT_TRANSITIONS, assertTransition } from "../models/Contract.js";
+import { computeAmendmentImpact } from "./amendmentImpactService.js";
 
-/**
- * Applies the business impact of an amendment to a contract in-memory:
- * - mutates coveredAssets + totalValue
- * - does NOT touch status/seq/numbering
- *
- * Works for preview and for real apply (real apply will call finalize after this).
- */
-export function applyAmendmentImpactToContract(contract, idx) {
-  const amendment = contract.amendments?.[idx];
-  if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
+const AUDIT_FIELDS = {
+  submitted: ["submittedAt", "submittedBy"],
+  approved: ["approvedAt", "approvedBy"],
+  applied: ["appliedAt", "appliedBy"],
+  declined: ["declinedAt", "declinedBy"],
+  voided: ["voidedAt", "voidedBy"],
+};
 
-  const changeType = amendment.changeType;
-  const items = amendment.items || [];
-  const totalDelta =
-    typeof amendment.totalDelta === "number"
-      ? amendment.totalDelta
-      : items.reduce((s, i) => s + (i.deltaValue || 0), 0);
-
-  // safety defaults
-  contract.totalValue = Number(contract.totalValue ?? 0);
-  contract.coveredAssets = Array.isArray(contract.coveredAssets) ? contract.coveredAssets : [];
-
-  const itemIds = items.map((i) => i.assetId.toString());
-  const covered = contract.coveredAssets;
-
-  if (changeType === "add") {
-    itemIds.forEach((id) => {
-      if (!covered.some((a) => a.toString() === id)) covered.push(id);
-    });
-    contract.totalValue += totalDelta;
-  } else if (changeType === "remove") {
-    contract.coveredAssets = covered.filter((a) => !itemIds.includes(a.toString()));
-    contract.totalValue += totalDelta; // should be negative
-  } else if (changeType === "update") {
-    contract.totalValue += totalDelta;
-  } else {
-    throw new Error(`Invalid changeType: ${changeType}`);
+function actorObjectId(actorId) {
+  if (!mongoose.Types.ObjectId.isValid(String(actorId))) {
+    throw new Error("A valid amendment audit actor is required");
   }
-
-  return { totalDelta, itemIds };
+  return mongoose.Types.ObjectId.createFromHexString(String(actorId));
 }
 
-/**
- * Finalizes an approved amendment apply:
- * - requires amendment.status === "approved"
- * - assigns seq + amendmentNumber
- * - sets status to applied + audit fields
- */
-export function finalizeApprovedAmendmentApply(contract, idx, actorId) {
-  const amendment = contract.amendments?.[idx];
-  if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
-  if (amendment.status !== "approved") {
-    throw new Error(`Amendment at idx=${idx} must be approved to apply (found ${amendment.status})`);
+export function validateAmendmentDraftInput(payload = {}) {
+  const { date, description, changeType, items } = payload;
+  const effectiveDate = new Date(date);
+
+  if (!date || Number.isNaN(effectiveDate.getTime())) {
+    throw new Error("A valid amendment date is required");
+  }
+  if (!["add", "remove", "update"].includes(changeType)) {
+    throw new Error("Invalid amendment changeType");
+  }
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error("Amendment items must be a non-empty array");
   }
 
-  contract.amendmentSeq = Number(contract.amendmentSeq ?? 0) + 1;
-  amendment.amendmentNumber = `${contract.contractNumber}.${contract.amendmentSeq}`;
+  const normalizedItems = items.map((item, index) => {
+    if (!mongoose.Types.ObjectId.isValid(String(item?.assetId))) {
+      throw new Error(`Invalid assetId for amendment item ${index}`);
+    }
+    if (typeof item.deltaValue !== "number" || !Number.isFinite(item.deltaValue)) {
+      throw new Error(`deltaValue must be numeric for amendment item ${index}`);
+    }
+    return { ...item, assetId: mongoose.Types.ObjectId.createFromHexString(String(item.assetId)) };
+  });
 
-  amendment.status = "applied";
-  amendment.appliedAt = new Date();
-  amendment.appliedBy = actorId
-    ? mongoose.Types.ObjectId.createFromHexString(actorId)
-    : undefined;
+  return {
+    date: effectiveDate,
+    description,
+    changeType,
+    items: normalizedItems,
+    totalDelta: normalizedItems.reduce((sum, item) => sum + item.deltaValue, 0),
+  };
 }
 
-/**
- * Your existing "apply approved" becomes a small orchestrator:
- */
+export function transitionAmendment(contract, idx, nextStatus, actorId, options = {}) {
+  const amendment = contract.amendments?.[idx];
+  if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
+  assertTransition(amendment.status, nextStatus, AMENDMENT_TRANSITIONS, "amendment status");
+
+  amendment.status = nextStatus;
+  const audit = AUDIT_FIELDS[nextStatus];
+  if (audit) {
+    amendment[audit[0]] = new Date();
+    amendment[audit[1]] = actorObjectId(actorId);
+  }
+  if (nextStatus === "declined") amendment.declineReason = options.reason || "";
+  return amendment;
+}
+
 export function applyApprovedAmendmentToContract(contract, idx, actorId) {
-  // require approved
   const amendment = contract.amendments?.[idx];
   if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
-  if (amendment.status !== "approved") {
-    throw new Error(`Amendment at idx=${idx} must be approved to apply (found ${amendment.status})`);
+  if (!amendment.amendmentNumber) {
+    throw new Error("Amendment must have a number before it can be applied");
   }
 
-  applyAmendmentImpactToContract(contract, idx);
-  finalizeApprovedAmendmentApply(contract, idx, actorId);
+  const impact = computeAmendmentImpact(contract.toObject({ depopulate: true }), idx);
+  contract.totalValue = Number(impact.nextContract.totalValue ?? 0);
+  contract.coveredAssets = Array.isArray(impact.nextContract.coveredAssets)
+    ? impact.nextContract.coveredAssets
+    : [];
+  transitionAmendment(contract, idx, "applied", actorId);
+  return impact;
 }

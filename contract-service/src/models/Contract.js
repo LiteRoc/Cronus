@@ -63,6 +63,20 @@ function assertTransition(current, next, transitions, label = 'status') {
   }
 }
 
+const AMENDMENT_BUSINESS_FIELDS = ["date", "description", "changeType", "items", "totalDelta"];
+
+function amendmentBusinessSnapshot(amendment) {
+  return Object.fromEntries(
+    AMENDMENT_BUSINESS_FIELDS.map((field) => [field, amendment?.[field] ?? null])
+  );
+}
+
+function comparable(value) {
+  return JSON.stringify(value, (_key, item) =>
+    item instanceof mongoose.Types.ObjectId ? item.toString() : item
+  );
+}
+
 /** -----------------------------
  * Sub-schemas
  * ------------------------------*/
@@ -212,6 +226,12 @@ contractSchema.index({ facilityId: 1, "amendments.items.assetId": 1 });
 // Track original contract status so we can validate transitions on save
 contractSchema.pre('init', function(doc) {
   this.$locals._originalStatus = doc.status;
+  this.$locals._originalAmendments = new Map(
+    (doc.amendments || []).map((amendment) => [String(amendment._id), {
+      status: amendment.status || "draft",
+      business: amendmentBusinessSnapshot(amendment),
+    }])
+  );
 });
 
 // Validate contract status transition on save
@@ -270,24 +290,32 @@ contractSchema.pre('save', function(next) {
   }
 });
 
-// Amendment edit lock + amendment status transitions validation
-contractSchema.pre('save', function(next) {
+// Amendment transition validation and business-field lock
+contractSchema.pre("save", function(next) {
   try {
-    // If amendments changed, validate per-amendment status transitions & lock edits after submission
-    if (this.isModified('amendments')) {
-      for (const a of this.amendments) {
-        // lock business fields after draft
-        const amendmentLocked = ['submitted', 'approved', 'applied', 'declined', 'voided', 'superseded'].includes(a.status);
-        if (amendmentLocked) {
-          // In subdocs, we can't easily diff old vs new without extra work,
-          // so enforce a strong rule: once not draft, do not allow changing items/changeType/totalDelta/description/date.
-          // (You’ll use explicit transition endpoints to change status instead.)
-          // This is enforced at the route/service layer ideally; this is the safety net.
+    if (this.isModified("amendments")) {
+      for (const amendment of this.amendments) {
+        const original = this.$locals._originalAmendments?.get(String(amendment._id));
+        if (!original) continue;
+
+        if (original.status !== amendment.status) {
+          assertTransition(
+            original.status,
+            amendment.status,
+            AMENDMENT_TRANSITIONS,
+            "amendment status"
+          );
         }
 
-        // status transition validation would happen in service layer;
-        // schema-level transition validation for subdocs is better handled in the service layer,
-        // but we keep the transition map here for reuse.
+        if (
+          original.status !== "draft" &&
+          comparable(original.business) !==
+            comparable(amendmentBusinessSnapshot(amendment.toObject()))
+        ) {
+          throw new Error(
+            `Amendment ${amendment.amendmentNumber || amendment._id} business fields are locked after submission`
+          );
+        }
       }
     }
 
@@ -295,6 +323,16 @@ contractSchema.pre('save', function(next) {
   } catch (err) {
     next(err);
   }
+});
+
+contractSchema.post("save", function(doc) {
+  doc.$locals._originalStatus = doc.status;
+  doc.$locals._originalAmendments = new Map(
+    (doc.amendments || []).map((amendment) => [String(amendment._id), {
+      status: amendment.status || "draft",
+      business: amendmentBusinessSnapshot(amendment.toObject()),
+    }])
+  );
 });
 
 export default mongoose.model('Contract', contractSchema);
