@@ -1,46 +1,77 @@
 # Open Threads
 
-This file records verified defects and clearly unresolved engineering work. A failed security test is runtime evidence for the behavior exercised by that test; risks inferred from source or compatibility analysis remain labeled as unresolved until investigated.
+This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Verified authentication/security defects
+## Next priority: core-service authentication hardening
 
-### Canonical role authorization and default-role behavior
+The isolated `coreAuthentication.security.test.js` suite has nine failures. Contract-service equivalents pass and are outside this next change.
 
-- Both services elevate a valid token with no role claim to `admin` in authentication middleware.
-- Core authorization still recognizes the legacy `tech` spelling where the canonical `technician` role is expected, and rejects `technician` in the tested technician gate.
-- Remediation must be scoped across token handling, authorization gates, and compatibility with existing callers and records. It must not silently normalize stored data.
+### Role authorization and normalization
+
+- A core-service admin-only route accepts a valid JWT with no role.
+- Tested `tech` and `technician` authorization behavior conflicts with the expected canonical role convention.
+- Before remediation, inspect core middleware, stored-role conventions, token producers/consumers, and callers. Do not silently normalize stored records.
 
 ### JWT issuer and audience validation
 
-- Runtime tests establish that core-service accepts otherwise valid tokens with missing or incorrect issuer or audience claims.
-- Runtime tests establish the same missing issuer/audience enforcement in contract-service.
-- Expected issuers, audiences, and compatibility with every token producer and consumer must be confirmed before remediation.
+- Core-service accepts otherwise valid tokens with missing or incorrect issuer claims.
+- Core-service accepts otherwise valid tokens with missing or incorrect audience claims.
+- Confirm compatibility with every current token producer and consumer before enabling enforcement.
 
 ### Sensitive authentication logging
 
-- Runtime testing confirms that core login logging emits the retrieved user object, including its stored password field/hash.
-- Authentication logs should also be reviewed for bearer tokens and unnecessary claims, but no broader defect should be claimed without evidence.
+- Runtime testing confirms core login/authentication logging emits the user password field/hash.
+- Remediation must remove sensitive logging without weakening diagnostic safety or logging tokens/claims unnecessarily.
 
-### Contract mutation authorization
+## Contract and data compatibility
 
-- Runtime tests establish that contract mutation routes do not effectively reject non-administrator roles before route processing.
-- Covered tests include contract deletion and representative approve, terminate, and amendment-application lifecycle mutations.
-- Remediation must preserve authentication, tenant/facility scoping, mutation audit expectations, and intended administrator behavior.
+### Wayne Healthcare financial discrepancy
 
-## Unresolved risks requiring investigation
+- `WHC-CAM-2024-001` has candidate baseline `$94,881.90`, ledger result `$383,524.75`, and stored `totalValue` `$383,524.74`.
+- No authoritative repository source explains the penny difference.
+- Do not repair until external commercial evidence resolves it; do not guess or round it away.
+
+### Historical `linkedWorkOrders`
+
+- `WorkOrder.contractId` is authoritative for active behavior.
+- `Contract.linkedWorkOrders` remains because local read-only inspection found 36 references on one historical Contract.
+- Removing it requires an explicit compatibility and migration decision.
+
+### Multi-replica lifecycle execution
+
+- Contract lifecycle operations are idempotent and same-process overlap is prevented.
+- `noOverlap` is not a distributed lock; multiple replicas could race. Current Compose does not declare replicas.
+- Do not add distributed infrastructure without explicit deployment evidence and authorization.
+
+### Unmounted Customer/Vendor modules
+
+- Contract-service Customer/Vendor implementations remain unmounted.
+- Core-service appears to own active Vendor/Customer behavior, but external compatibility and historical ownership are not sufficiently proven for deletion.
+
+## Other unresolved security/data risks
 
 ### Existing legacy `tech` records
 
-The repository previously used both `tech` and `technician`. Static inspection and tests establish an application-level inconsistency, but no operational database was queried. Whether legacy `tech` user records exist, how many exist, and which clients depend on that value remain unknown.
+Whether operational data contains legacy `tech` user records, and which callers depend on that value, remains unknown. Any assessment or normalization requires explicit database authorization.
 
 ### Possible existing plaintext-password records
 
-Runtime tests confirmed that the former registration path stored a plaintext password. The new model middleware protects ordinary future `save` operations, but existing data was not inspected or migrated. The presence and scope of plaintext operational records remain unknown and require an explicitly authorized assessment and remediation plan.
+The historical registration path could store plaintext passwords. Model middleware protects ordinary future `save` operations, but existing data was not inspected or migrated.
 
 ### `customerId` registration and tenant behavior
 
-Registration accepts and requires `customerId` for the `customer` role, while static inspection shows that `customerId` is not defined on the current `User` schema and is not added to the login token. Its persistence and effective tenant behavior therefore require investigation. Any correction is tenant-isolation-sensitive and may require schema, token, compatibility, and migration planning.
+Registration requires `customerId` for customers, while static inspection previously found no corresponding current `User` schema/token field. Persistence and tenant behavior require a separate tenant-sensitive investigation.
 
-### Password writes that bypass Mongoose save middleware
+### Password writes bypassing Mongoose save middleware
 
-The password hash invariant is enforced by `User` save middleware. Operations such as `updateOne`, `findOneAndUpdate`, `insertMany`, bulk writes, and direct collection writes may bypass save middleware. Known repository user-write paths must be reviewed before password-update features or imports rely on the invariant. The current administrator seed path hashes explicitly before `updateOne`; other operational or external paths have not been verified.
+The hashing invariant applies to ordinary `save`; update, bulk, import, or direct-collection paths may bypass it and require deliberate review.
+
+## Environment and dependency maintenance
+
+- System Node is `v18.19.1`; Contract verification requires Node `>=20.19.0` and succeeded under Node 22.
+- Core-service currently reports 27 dependency vulnerabilities. Do not run `npm audit fix` automatically.
+- Contract dependency-directory ownership has had root-ownership complications. Keep environment repair separate from product/security commits.
+
+## Future product direction
+
+CRM concepts have been discussed—accounts, contacts, interactions, opportunities, CAM/service opportunities, renewals, and strategic account management—but implementation is deferred until core-service authentication hardening is complete.
