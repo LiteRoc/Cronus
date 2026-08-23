@@ -1,81 +1,54 @@
-// src/services/amendmentImpactService.js
-
-const toStr = (v) => (v == null ? "" : v.toString());
-
-function normalizeContractShape(contract) {
-  return {
-    ...contract,
-    totalValue: Number(contract.totalValue ?? 0),
-    coveredAssets: Array.isArray(contract.coveredAssets) ? contract.coveredAssets.map(toStr) : [],
-    amendments: Array.isArray(contract.amendments) ? contract.amendments : [],
-  };
-}
+const toStr = (value) => (value == null ? "" : value.toString());
+const asNumber = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 /**
- * Pure impact engine:
- * - does NOT require approved (preview can run on draft/submitted/approved)
- * - does NOT change amendment status/seq/number
- * - returns a new "next" contract shape + diff
+ * Computes operational coverage impact without rewriting the Contract financial
+ * baseline. Amendment deltas are signed financial changes consumed by the value
+ * timeline when the amendment is applied.
  */
 export function computeAmendmentImpact(contractLike, idx) {
-  const base = normalizeContractShape(contractLike);
-  const amendment = base.amendments?.[idx];
+  const amendment = contractLike.amendments?.[idx];
   if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
 
   const changeType = amendment.changeType;
-  const items = amendment.items || [];
-  const itemIds = items.map((i) => toStr(i.assetId)).filter(Boolean);
-
-  const totalDelta =
-    typeof amendment.totalDelta === "number"
-      ? amendment.totalDelta
-      : items.reduce((s, i) => s + (i.deltaValue || 0), 0);
-
-  const beforeAssets = new Set(base.coveredAssets);
-  const beforeTotalValue = base.totalValue;
-
-  let nextAssets = [...base.coveredAssets];
-  let nextTotalValue = beforeTotalValue;
+  const items = amendment.items ?? [];
+  const itemIds = items.map((item) => toStr(item.assetId)).filter(Boolean);
+  const totalDelta = typeof amendment.totalDelta === "number" && Number.isFinite(amendment.totalDelta)
+    ? amendment.totalDelta
+    : items.reduce((sum, item) => sum + asNumber(item.deltaValue), 0);
+  const beforeAssets = new Set((contractLike.coveredAssets ?? []).map(toStr));
+  let nextAssets = [...beforeAssets];
 
   if (changeType === "add") {
-    for (const id of itemIds) {
-      if (!beforeAssets.has(id)) nextAssets.push(id);
-    }
-    nextTotalValue += totalDelta;
+    for (const id of itemIds) if (!beforeAssets.has(id)) nextAssets.push(id);
   } else if (changeType === "remove") {
-    const removeSet = new Set(itemIds);
-    nextAssets = nextAssets.filter((id) => !removeSet.has(id));
-    nextTotalValue += totalDelta; // should be negative
-  } else if (changeType === "update") {
-    nextTotalValue += totalDelta;
-  } else {
+    const removed = new Set(itemIds);
+    nextAssets = nextAssets.filter((id) => !removed.has(id));
+  } else if (changeType !== "update") {
     throw new Error(`Invalid changeType: ${changeType}`);
   }
 
   const afterAssets = new Set(nextAssets);
-
-  const addedAssetIds = [...afterAssets].filter((id) => !beforeAssets.has(id));
-  const removedAssetIds = [...beforeAssets].filter((id) => !afterAssets.has(id));
-
-  const nextContract = {
-    ...contractLike,
-    totalValue: nextTotalValue,
-    coveredAssets: nextAssets, // string ids (caller can rehydrate to ObjectIds if needed)
-  };
-
+  const baseValue = asNumber(contractLike.totalValue);
   return {
     idx,
     changeType,
     totalDelta,
-    nextContract,
+    nextContract: {
+      ...contractLike,
+      totalValue: baseValue,
+      amendments: (contractLike.amendments ?? []).map((amendment) => ({ ...amendment })),
+      coveredAssets: nextAssets,
+    },
     diff: {
-      addedAssetIds,
-      removedAssetIds,
+      addedAssetIds: [...afterAssets].filter((id) => !beforeAssets.has(id)),
+      removedAssetIds: [...beforeAssets].filter((id) => !afterAssets.has(id)),
       coveredAssetsCountBefore: beforeAssets.size,
       coveredAssetsCountAfter: afterAssets.size,
-      totalValueBefore: beforeTotalValue,
-      totalValueAfter: nextTotalValue,
-      totalValueDelta: nextTotalValue - beforeTotalValue,
+      totalValueBefore: baseValue,
+      totalValueAfter: baseValue,
+      totalValueDelta: 0,
+      annualValueDelta: totalDelta,
     },
   };
 }

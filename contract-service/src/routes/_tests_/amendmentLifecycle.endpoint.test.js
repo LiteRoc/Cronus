@@ -5,6 +5,7 @@ import request from "supertest";
 import { createIsolatedMongoHarness } from "../../security/_tests_/securityTestHarness.js";
 import Contract from "../../models/Contract.js";
 import Counter from "../../models/Counter.js";
+import { calculateAnnualValueAsOf } from "../../services/contractValueService.js";
 
 const JWT_SECRET = "cronus-amendment-suite-only-secret-with-adequate-length";
 const JWT_ISSUER = "cronus.api";
@@ -191,6 +192,8 @@ describe("amendment lifecycle", () => {
     expect(String(saved.amendments[0].appliedBy)).toBe(String(userId));
     expect(saved.amendmentSeq).toBe(1);
     expect(saved.amendments[0].amendmentNumber).toBe(`${contract.contractNumber}.1`);
+    expect(saved.totalValue).toBe(1000);
+    expect(calculateAnnualValueAsOf(saved, new Date("2026-06-01T00:00:00.000Z")).annualValueAsOf).toBe(1125);
 
     expect((await transition(contract, 0, "apply")).status).toBe(400);
   });

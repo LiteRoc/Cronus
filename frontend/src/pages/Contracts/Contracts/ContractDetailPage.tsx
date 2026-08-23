@@ -1050,7 +1050,7 @@ export default function ContractDetailPage() {
         error={vendorKpiError}
         data={vendorKpiData}
         assetCount={assets?.length ?? 0}
-        revenueYTD={(value?.annualValueAsOf ?? 0) * ytdFraction()}
+        revenueYTD={value?.proratedRangeValue ?? (value?.annualValueAsOf ?? 0) * ytdFraction()}
       />
 
       {/* -------------------- Contract Performance -------------------- */}
@@ -1082,7 +1082,7 @@ export default function ContractDetailPage() {
             const assetCount = assets?.length ?? 0;
             const annualRevenue = value.annualValueAsOf ?? 0;
             const frac = ytdFraction();
-            const revenueYTD = annualRevenue * frac;
+            const revenueYTD = value.proratedRangeValue ?? annualRevenue * frac;
 
             // NOTE: your overview parts cost is currently the only “hard” cost we have.
             // Treat it as YTD cost (label it that way). If it’s lifetime, we’ll adjust later.
@@ -1182,7 +1182,7 @@ export default function ContractDetailPage() {
             const assetCount = overview.assets?.length ?? 0;
             const annualRevenue = value.annualValueAsOf ?? 0;
             const frac = ytdFraction();
-            const revenueYTD = annualRevenue * frac;
+            const revenueYTD = value.proratedRangeValue ?? annualRevenue * frac;
             const ytdPerAsset = assetCount ? revenueYTD / assetCount : 0;
             return (
               <div className="overflow-x-auto">

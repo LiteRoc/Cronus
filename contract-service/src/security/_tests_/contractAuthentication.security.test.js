@@ -168,6 +168,7 @@ describe("contract tenant invariants and audit provenance", () => {
     const created = await Contract.findById(response.body.contract._id).lean();
     expect(String(created.facilityId)).toBe(String(facilityId));
     expect(String(created.createdBy)).toBe(String(userId));
+    expect(created.totalValue).toBe(contractPayload.totalValue);
     await request(app)
       .post("/contracts/" + created._id + "/submit")
       .set(bearer(token))

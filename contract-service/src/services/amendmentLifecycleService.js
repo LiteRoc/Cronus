@@ -75,7 +75,6 @@ export function applyApprovedAmendmentToContract(contract, idx, actorId) {
   }
 
   const impact = computeAmendmentImpact(contract.toObject({ depopulate: true }), idx);
-  contract.totalValue = Number(impact.nextContract.totalValue ?? 0);
   contract.coveredAssets = Array.isArray(impact.nextContract.coveredAssets)
     ? impact.nextContract.coveredAssets
     : [];

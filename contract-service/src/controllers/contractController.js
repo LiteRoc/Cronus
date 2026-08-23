@@ -19,7 +19,7 @@ import {
   transitionAmendment,
   validateAmendmentDraftInput,
 } from "../services/amendmentLifecycleService.js";
-import { calculateAnnualValueAsOf, proratedValueBetween } from "../services/contractValueService.js";
+import { calculateAnnualValueAsOf, proratedValueBetween, calculateCalendarYearRevenueAsOf } from "../services/contractValueService.js";
 import { fetchAssetsByIds } from "../services/coreAssetService.js";
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(String(id));
@@ -301,7 +301,7 @@ export const createContract = async (req, res) => {
       linkedCustomer: linkedCustomer || null,
       startDate: s,
       endDate: e,
-      totalValue: 0,
+      totalValue,
       coveredAssets: Array.isArray(coveredAssets) ? coveredAssets : [],
       amendmentSeq: 0,
       amendments: [],
@@ -737,6 +737,7 @@ export const previewApplyAmendment = async (req, res) => {
 
     // "After" plain contract (still no DB writes)
     const plainAfter = impact.nextContract;
+    plainAfter.amendments[idx] = { ...plainAfter.amendments[idx], status: "applied" };
 
     const effectiveDate = new Date(amendment.date);
     if (Number.isNaN(effectiveDate.getTime())) {
@@ -1081,8 +1082,9 @@ export const getContractProfitability = async (req, res) => {
       travelRate,
     });
 
-    // 4) Revenue (simple YTD proration of contract.totalValue)
-    const revenueYTD = prorateAnnualCost(contract.totalValue || 0, ytdStart, now, contractStart, contractEnd);
+    // 4) Calendar-year YTD revenue from the shared point-in-time value timeline.
+    const revenue = calculateCalendarYearRevenueAsOf(contract, now);
+    const revenueYTD = revenue.ytd;
 
     const netYTD =
       revenueYTD - vendorPayoutYTD - nonVendorAnalytics.performance.costToServeYTD;
@@ -1094,7 +1096,7 @@ export const getContractProfitability = async (req, res) => {
       data: {
         asOf: now.toISOString(),
         revenue: {
-          annual: Number((contract.totalValue || 0).toFixed(2)),
+          annual: Number(revenue.annual.toFixed(2)),
           ytd: Number(revenueYTD.toFixed(2)),
         },
         vendorPayout: {

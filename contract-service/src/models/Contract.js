@@ -123,7 +123,7 @@ const amendmentSchema = new Schema({
   changeType: { type: String, enum: ['add', 'remove', 'update'], required: true },
   items: { type: [amendmentItemSchema], default: [] },
   totalDelta: { type: Number, default: 0 },
-  setsBase: { type: Boolean, default: false },
+  setsBase: { type: Boolean, default: false }, // legacy metadata; value engine does not replace the base
   excludeFromFinancials: { type: Boolean, default: false }
 }, { _id: true });
 
@@ -203,7 +203,7 @@ const contractSchema = new Schema({
   
   // business fields
 
-  totalValue: { type: Number, required: true },
+  totalValue: { type: Number, required: true }, // immutable base annual value
   coveredAssets: [{ type: Schema.Types.ObjectId }],
   amendments: { type: [amendmentSchema], default: [] },
   amendmentSeq: { type: Number, default: 0 }, // for generating amendment IDs

@@ -34,7 +34,9 @@ export const getContractById = async (id: string) => {
 };
 
 export const getContractValue = async (contractId: string, asOf?: string) => {
-  const params = asOf ? { asOf } : undefined;
+  const params = asOf
+    ? { asOf, rangeStart: asOf.slice(0, 4) + "-01-01", rangeEnd: asOf }
+    : undefined;
   const { data } = await contractClient.get<ContractValueResponse>(
     `/contracts/${contractId}/value`,
     { params }
