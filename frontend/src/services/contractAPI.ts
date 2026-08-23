@@ -21,14 +21,11 @@ const toContractsArray = (payload: unknown): Contract[] => {
 };
 
 export const getContracts = async (): Promise<Contract[]> => {
-  //console.trace("⚠️ getContracts called");
   const { data } = await contractClient.get("/contracts");
   return toContractsArray(data);
 };
 
 export const getContractById = async (id: string) => {
-  //console.log("🧪 useContractById invoked with:", id);
-  //console.log("Contract API baseURL:", contractClient.defaults.baseURL);
   const { data } = await contractClient.get(`/contracts/${id}`);
   return data;
 };
@@ -41,8 +38,6 @@ export const getContractValue = async (contractId: string, asOf?: string) => {
     `/contracts/${contractId}/value`,
     { params }
   );
-  //console.log("Requesting contract:", contractId);
-  //console.log("Requesting contract asOf:", asOf);
   return data;
 }
 
@@ -54,25 +49,9 @@ export const createDraftAmendment = async (
     changeType: AmendmentChangeType,
     items: AmendmentItem[]
   }) => {
-    //console.log("Applying amendment to contract:", contractId, payload);
     const { data } = await contractClient.post(`/contracts/${contractId}/amendments/draft`, payload );
     return unwrap<any>(data); // expecting { amendmentIndex, amendment, contract } or similar
 }
-
-export const applyAmendmentByIndex = async (contractId: string, amendmentIndex: number) => {
-  const { data } = await contractClient.post(`/contracts/${contractId}/amendments/${amendmentIndex}/apply`);
-  return data;
-};
-
-export const updateContractAssets = async (contractId: string, assetIds: string[]) => {
-  const { data } = await contractClient.put(`/contracts/${contractId}/assets`, { assetIds });
-  return data;
-};
-
-export const updateContractVendor = async (contractId: string, vendorId: string) => {
-  const { data } = await contractClient.put(`/contracts/${contractId}/vendor`, { vendorId });
-  return data;
-};
 
 export const previewApplyAmendment = async (contractId: string, idx: number) => {
   const { data } = await contractClient.get(`/contracts/${contractId}/amendments/${idx}/preview`);

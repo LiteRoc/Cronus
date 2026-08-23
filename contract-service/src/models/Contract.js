@@ -1,5 +1,4 @@
 // src/models/Contract.js
-import e from 'express';
 import mongoose from 'mongoose';
 
 const { Schema } = mongoose;

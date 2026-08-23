@@ -760,25 +760,10 @@ export default function ContractDetailPage() {
           assets={facilityAssets}
           defaultDate={new Date().toISOString().slice(0, 10)}
           onSubmit={async (payload) => {
-            // 1) Create draft amendment
             const draftRes = await createDraftAmendment(contractId, payload);
             console.log("Draft amendment created:", draftRes);
             await mutate();
             showSuccess("Draft amendment created");
-
-            // 2) Optionally apply it immediately
-            /*const idx = 
-              draftRes?.amendmentIndex ?? 
-              draftRes.idx ??
-              (draftRes.contract?.amendments?.length
-                ? draftRes.contract.amendments.length - 1
-                : null);
-
-            if ( idx === null ) throw new Error("Unable to determine amendment index to apply.");
-
-            // 2) Apply it immediately (for now)
-            await applyAmendmentByIndex(contractId, idx);
-            await mutate();*/
           }}
         />
       </div>

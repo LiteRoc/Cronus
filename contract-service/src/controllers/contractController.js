@@ -423,45 +423,6 @@ export const terminateContract = async (req, res) => {
   }
 };
 
-// PUT - Update a existing Contract
-// Deprecated 
-/*export const updateContract = async (req, res) => {
-    try {
-    const updated = await Contract.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ error: 'Contract not found' });
-    res.status(200).json({ message: 'Contract updated', contract: updated });
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to update contract', details: err.message });
-  }
-};*/
-
-// PATCH - Add an Amendment to a contract
-// Deprecated 
-export const addAmendment = async (req, res) => {
-  return res.status(410).json({ error: "Deprecated endpoint. Use /amendments/draft + submit/approve/apply." });  
-  try {
-    const { date, description, changeType, assetId, financialChange } = req.body;
-    const contract = await Contract.findById(req.params.id);
-    if (!contract) return res.status(404).json({ error: 'Contract not found' });
-
-    contract.amendments.push({ date, description, changeType, assetId, financialChange });
-
-    // Optionally update coveredAssets and totalValue
-    if (changeType === 'add') {
-      contract.coveredAssets.push(assetId);
-      if (financialChange) contract.totalValue += financialChange;
-    }
-    if (changeType === 'remove') {
-      contract.coveredAssets = contract.coveredAssets.filter(id => id.toString() !== assetId);
-      if (financialChange) contract.totalValue -= financialChange;
-    }
-
-    await contract.save();
-    res.status(200).json({ message: 'Amendment added', contract });
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to add amendment', details: err.message });
-  }
-};
 
 // POST - Apply an Amendment to a contract
 export const applyAmendment = async (req, res) => {
@@ -541,9 +502,6 @@ export const submitAmendment = async (req, res) => {
       return res.status(400).json({ error: "Invalid amendment index" });
     }
   const amendment = contract?.amendments[idx];
-
-  //const amendment = contract?.amendments[req.params.idx];
-
   if (!amendment) return res.status(404).json({ error: "Amendment not found" });
   if (amendment.status !== 'draft')
     return res.status(400).json({ error: "Only draft amendments can be submitted" });
@@ -569,7 +527,6 @@ export const approveAmendment = async (req, res) => {
       return res.status(400).json({ error: "Invalid amendment index" });
     }
   const amendment = contract?.amendments[idx];
-  //const amendment = contract?.amendments[req.params.idx];
 
   if (!amendment) return res.status(404).json({ error: "Amendment not found" });
   if (amendment.status !== 'submitted')
@@ -585,8 +542,6 @@ export const approveAmendment = async (req, res) => {
 export const declineAmendment = async (req, res) => {
   const tenantFilter = buildTenantFilter(req);
   const contract = await Contract.findOne({ _id: req.params.id, ...tenantFilter });
-  //const contract = await Contract.findById(req.params.id);
-
   if (!contract) return res.status(404).json({ error: "Contract not found" });
 
   const idx = Number(req.params.idx);
@@ -594,7 +549,6 @@ export const declineAmendment = async (req, res) => {
       return res.status(400).json({ error: "Invalid amendment index" });
     }
   const amendment = contract?.amendments[idx];
-  //const amendment = contract?.amendments[req.params.idx];
 
   if (!amendment) return res.status(404).json({ error: "Amendment not found" });
   if (amendment.status !== 'submitted')
@@ -674,10 +628,8 @@ export const previewApplyAmendment = async (req, res) => {
     // Pure impact engine
     const impact = computeAmendmentImpact(plainBefore, idx);
 
-    // impact.diff should include addedAssetsIds/removeAssetIds
     const addedAssetIds = impact?.diff?.addedAssetIds ?? [];
     const removedAssetIds = impact?.diff?.removedAssetIds ?? [];
-    //const idsToLookup = [...new Set([...addedIds, ...removedIds])];
 
     const coreClient = makeCoreClient(req);
 
@@ -708,32 +660,6 @@ export const previewApplyAmendment = async (req, res) => {
     console.log("CORE_API_URL env is:", process.env.CORE_API_URL);
     console.log("coreClient baseURL is:", coreClient.defaults.baseURL);
 
-    /*let diffAssets = [];
-    if (idsToLookup.length > 0) {
-      const { data: assetData } = await coreClient.post("/assets/batch", {
-        assetIds: idsToLookup,
-      });
-      diffAssets = assetData?.assets ?? [];
-    }*/
-
-    //const lookup = new Map(diffAssets.map((a) => [String(a._id), a ]));
-
-    /*const toDesc = (a) => ({
-      _id: String(a._id),
-      manufacturer: a.manufacturer,
-      model: a.model,
-      serialNumber: a.serialNumber,
-    });*/
-
-    /*const addedAssets = addedIds
-      .map((id) => lookup.get(String(id)))
-      .filter(Boolean)
-      .map(toDesc);*/
-
-    /*const removedAssets = removedIds
-      .map((id) => lookup.get(String(id)))
-      .filter(Boolean)
-      .map(toDesc);*/
 
     // "After" plain contract (still no DB writes)
     const plainAfter = impact.nextContract;

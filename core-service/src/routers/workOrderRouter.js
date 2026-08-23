@@ -257,16 +257,6 @@ router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin'
       contractId: req.body.contractId,
     });
 
-    if (contractId) {
-      try {
-        await req.contract.post(`/contracts/${contractId}/workorders`, {
-          workOrderId: wo._id.toString(),
-        });
-      } catch (err) {
-      console.error('Error linking work order to contract:', err.message);
-      }
-    }
-
     res.status(201).json(wo);
   } catch (err) {
     console.error('Create WO error:', err);

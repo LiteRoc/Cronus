@@ -10,8 +10,6 @@ import {
     getAssetContract,
     getAssetCoverage,
     createContract,
-    //updateContract,
-    //addAmendment,
     applyAmendment,
     previewApplyAmendment,
     createDraftAmendment,
@@ -29,9 +27,6 @@ import {
     addVendorLink,
     getVendorLinkOverview,
     getContractProfitability,
-    //linkAssets,
-    //linkVendor,
-    //linkWorkOrder
 } from "../controllers/contractController.js";
 
 import { getContractValue } from "../controllers/contractValueController.js";
@@ -74,15 +69,5 @@ router.post('/:id/vendor-links/:linkId/assets', ...adminMutation, updateVendorLi
 router.get("/:id/vendor-links/:linkId/overview", authenticateToken, getVendorLinkOverview);
 router.get("/:id/profitability", authenticateToken, getContractProfitability);
 router.get('/:id/lifecycle-intelligence', authenticateToken, getContractLifecycleIntelligence);
-
-/*
-router.post('/', authenticateToken, createContract);
-router.put('/:id', authenticateToken, updateContract);
-router.patch('/:id/amendment', authenticateToken, addAmendment);
-router.post('/:id/amendments', authenticateToken, applyAmendment);
-
-router.post('/:id/workorders', authenticateToken, linkWorkOrder);
-router.put('/:id/assets', authenticateToken, linkAssets);
-router.put('/:id/vendor', authenticateToken, linkVendor);*/
 
 export default router;
