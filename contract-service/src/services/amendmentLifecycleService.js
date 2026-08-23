@@ -12,6 +12,7 @@ const AUDIT_FIELDS = {
 };
 
 function actorObjectId(actorId) {
+  if (actorId == null) return null;
   if (!mongoose.Types.ObjectId.isValid(String(actorId))) {
     throw new Error("A valid amendment audit actor is required");
   }

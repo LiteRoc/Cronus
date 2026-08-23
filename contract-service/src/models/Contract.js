@@ -267,6 +267,7 @@ contractSchema.pre('save', function(next) {
         'approvedAt','approvedBy',
         'declinedAt','declinedBy','declineReason',
         'terminatedAt','terminatedBy','terminationReason',
+        'expiredAt','expiredBy',
         'amendments',
         'coveredAssets',
         'linkedWorkOrders',
