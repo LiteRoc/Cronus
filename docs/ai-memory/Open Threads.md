@@ -2,26 +2,15 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Next priority: core-service authentication hardening
+## Completed baseline: core-service authentication hardening
 
-The isolated `coreAuthentication.security.test.js` suite has nine failures. Contract-service equivalents pass and are outside this next change.
+Core-service authentication hardening is complete. The authentication baseline improved from 22/31 passing tests before remediation to 31/31 afterward.
 
-### Role authorization and normalization
-
-- A core-service admin-only route accepts a valid JWT with no role.
-- Tested `tech` and `technician` authorization behavior conflicts with the expected canonical role convention.
-- Before remediation, inspect core middleware, stored-role conventions, token producers/consumers, and callers. Do not silently normalize stored records.
-
-### JWT issuer and audience validation
-
-- Core-service accepts otherwise valid tokens with missing or incorrect issuer claims.
-- Core-service accepts otherwise valid tokens with missing or incorrect audience claims.
-- Confirm compatibility with every current token producer and consumer before enabling enforcement.
-
-### Sensitive authentication logging
-
-- Runtime testing confirms core login/authentication logging emits the user password field/hash.
-- Remediation must remove sensitive logging without weakening diagnostic safety or logging tokens/claims unnecessarily.
+- Missing roles no longer default to administrator; issuer and audience are enforced.
+- Route declarations using legacy `tech` are canonicalized to `technician`, while tokens claiming `tech` are rejected.
+- Sensitive authentication/user/password-hash logging was removed, and `/auth/profile` uses the canonical hardened middleware.
+- Existing tokens lacking valid issuer/audience claims or claiming `tech` may require reauthentication.
+- Verification also passed the full contract-service suite (7/7 suites, 100/100 tests), the core-service suite (1/1 suite, 3/3 tests), syntax checks, and `git diff --check` under system Node 18 using isolated MongoMemoryServer databases. No real database was modified.
 
 ## Contract and data compatibility
 
@@ -68,10 +57,12 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## Environment and dependency maintenance
 
-- System Node is `v18.19.1`; Contract verification requires Node `>=20.19.0` and succeeded under Node 22.
-- Core-service currently reports 27 dependency vulnerabilities. Do not run `npm audit fix` automatically.
-- Contract dependency-directory ownership has had root-ownership complications. Keep environment repair separate from product/security commits.
+- Authentication verification ran under system Node 18; test tooling recommends Node `>=20.19`, and previous Cronus verification succeeded under Node 22. Runtime standardization remains future environment maintenance.
+- Dependency vulnerability remediation remains deferred. Do not run `npm audit fix` automatically.
+- Node runtime and dependency-directory ownership cleanup remain environment maintenance, separate from product/security commits.
 
 ## Future product direction
 
-CRM concepts have been discussed—accounts, contacts, interactions, opportunities, CAM/service opportunities, renewals, and strategic account management—but implementation is deferred until core-service authentication hardening is complete.
+CRM functionality is the leading candidate for the next major Cronus feature. The next development session should first perform an architecture/design assessment before editing code; it must not begin CRM implementation.
+
+The assessment should determine how existing facilities/customers, Contracts, assets, vendors, WorkOrders, lifecycle intelligence, and profitability/value intelligence can support contacts, customer interactions, opportunities, service/CAM opportunities, renewal opportunities and pipeline, follow-up tasks, and strategic account management. The intended result is CRM designed around Clinical Asset Management and Clinical Engineering workflows, not a generic Salesforce clone.

@@ -95,3 +95,35 @@ These areas should be remediated separately with narrow changes and targeted ver
 - Expected JWT issuers and audiences and compatibility with all token producers and consumers remain to be confirmed before claim enforcement changes.
 
 No operational database, external service, or scheduled job was used during this work. Git remains the authority for the exact patches and commit chronology.
+
+## 11. Core-service authentication hardening completion
+
+Core-service authentication hardening is complete. The completed behavior is:
+
+- Missing JWT roles no longer default to administrator.
+- JWT issuer and audience are enforced.
+- Legacy route declarations using `tech` are canonicalized to `technician`.
+- Tokens claiming the legacy `tech` role are rejected.
+- Sensitive authentication, user, and password-hash logging was removed.
+- `/auth/profile` uses the canonical hardened authentication middleware.
+
+This intentionally tightens token compatibility. Existing tokens without valid issuer/audience claims or claiming the legacy `tech` role may require users to authenticate again.
+
+## 12. Completion verification
+
+- Authentication baseline before this remediation: 22/31 passed.
+- Authentication suite after remediation: 31/31 passed.
+- Full contract-service suite: 7/7 suites and 100/100 tests passed.
+- Core-service suite: 1/1 suite and 3/3 tests passed.
+- Syntax checks and `git diff --check` passed.
+
+The completion verification ran under system Node 18 and used isolated MongoMemoryServer databases. No real database was modified. Test tooling recommends Node `>=20.19`; previous Cronus verification successfully used Node 22. Node runtime standardization and dependency ownership cleanup remain future environment-maintenance work.
+
+## 13. Deferred work and next product direction
+
+- Wayne Healthcare `WHC-CAM-2024-001` financial normalization remains blocked pending authoritative resolution of its `$0.01` discrepancy.
+- Dependency vulnerability remediation remains deferred and must not use `npm audit fix` automatically.
+- `Contract.linkedWorkOrders` remains retained for historical compatibility.
+- Unmounted Customer/Vendor ownership remains a future cleanup question.
+
+CRM functionality is now the leading candidate for the next major Cronus feature. The next development session should perform a CRM architecture/design assessment before editing code and must not begin implementation as part of that assessment. It should explore how facilities/customers, Contracts, assets, vendors, WorkOrders, lifecycle intelligence, and profitability/value intelligence can support contacts, customer interactions, opportunities, service/CAM opportunities, renewal opportunities and pipeline, follow-up tasks, and strategic account management. The goal is CRM tailored to Clinical Asset Management and Clinical Engineering workflows, not a generic Salesforce clone.

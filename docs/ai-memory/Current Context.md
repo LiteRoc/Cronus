@@ -11,17 +11,17 @@
 
 ## Current engineering priority
 
-The six-step Contract stabilization effort is complete and runtime-verified. The next task is **core-service authentication hardening**. Do not begin Contract or CRM work first.
+The six-step Contract stabilization effort and core-service authentication hardening are complete and runtime-verified. **CRM architecture/design assessment** is the leading candidate for the next major product-development session. Do not begin CRM implementation during the assessment.
 
 At the start of the next session:
 
 1. Read this file and [AGENTS.md](../../AGENTS.md).
 2. Confirm the working tree and checkpoint commit.
-3. Inspect core-service authentication middleware, role conventions, callers, and `contract-service/src/security/_tests_/coreAuthentication.security.test.js`.
-4. Establish the intended canonical role vocabulary before changing normalization.
-5. Run that failing suite as the baseline and produce a narrow implementation plan.
+3. Assess how existing facilities/customers, Contracts, assets, vendors, WorkOrders, lifecycle intelligence, and profitability/value intelligence can support contacts, customer interactions, opportunities, service/CAM opportunities, renewal opportunities and pipeline, follow-up tasks, and strategic account management.
+4. Define Clinical Asset Management and Clinical Engineering workflows, ownership boundaries, data relationships, authorization/tenant requirements, and integration points before editing code.
+5. Produce a focused architecture/design proposal rather than a generic Salesforce clone.
 
-Do not combine that work with Contract functionality, CRM, dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+Do not combine that assessment with CRM implementation, dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 
 ## Contract stabilization — complete
 
@@ -86,33 +86,32 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - `Contract.linkedWorkOrders` remains for compatibility: a local read-only check found 1 of 2 Contracts containing 36 historical references. Do not remove it without a deliberate data/migration decision.
 - Unmounted Customer/Vendor modules remain because external compatibility and historical ownership are not sufficiently proven.
 
-## Runtime verification
+## Core-service authentication hardening — complete
 
-Tests ran under Node 22 with locked dependencies and isolated loopback-only MongoMemoryServer databases:
+- Missing JWT roles no longer default to administrator.
+- JWT issuer and audience are enforced.
+- Legacy route declarations using `tech` are canonicalized to `technician`.
+- Tokens claiming the legacy `tech` role are rejected.
+- Sensitive authentication, user, and password-hash logging was removed.
+- `/auth/profile` now uses the canonical hardened authentication middleware.
+- Existing tokens without valid issuer/audience claims or using the legacy `tech` role may require users to authenticate again.
 
-- Contract-focused: 6/6 suites and 69/69 tests passed.
-- Full contract-service: 6/7 suites and 91/100 tests passed.
-- The only failure is the separate core authentication compatibility suite with nine failures. Contract security, analytics, amendments, lifecycle, and value all pass.
+### Verification
 
-## Next task: core-service authentication hardening
-
-The failing compatibility suite establishes these core-service issues:
-
-- Missing JWT role is accepted by an admin-only route.
-- `tech`/`technician` role handling disagrees with the tested repository convention.
-- Missing or incorrect JWT issuer is accepted.
-- Missing or incorrect JWT audience is accepted.
-- Authentication/user logging exposes the password field/hash.
-
-Contract-service may be a useful reference, but do not copy it without reviewing core-service architecture, token producers/consumers, and role compatibility.
+- Authentication baseline before remediation: 22/31 passed.
+- Authentication suite after remediation: 31/31 passed.
+- Full contract-service suite: 7/7 suites and 100/100 tests passed.
+- Core-service suite: 1/1 suite and 3/3 tests passed.
+- Syntax checks and `git diff --check` passed.
+- Tests used isolated MongoMemoryServer databases; no real database was modified.
 
 ## Environment and deferred product notes
 
-- System Node remains `v18.19.1`; successful verification used Node 22.
+- This verification ran under system Node 18. Test tooling recommends Node `>=20.19`; previous Cronus verification succeeded under Node 22. Runtime standardization remains future environment maintenance.
 - MongoDB 8.2.1 test binary cache: `/tmp/cronus-mongodb-cache` (temporary and not repository state).
-- Core-service dependency audit reported 27 vulnerabilities. Do not run `npm audit fix` automatically; remediation is separate.
-- `contract-service/node_modules` has had root-ownership complications; treat ownership cleanup as environment maintenance.
-- CRM direction remains future work: organizations/accounts, contacts, interactions, opportunities, CAM/service opportunities, renewals, and strategic account management. Start only after core authentication hardening.
+- Dependency vulnerability remediation remains deferred. Do not run `npm audit fix` automatically.
+- Node runtime and dependency ownership cleanup remain environment-maintenance work.
+- Wayne financial normalization, historical `Contract.linkedWorkOrders`, and unmounted Customer/Vendor ownership remain deferred as described above and in Open Threads.
 
 ## Repository context
 
