@@ -4,24 +4,41 @@
 
 ## Checkpoint
 
-- Commit: `f041bb6ab53093793f96a7f7ffde173ea30769e5`
-- Message: `chore(contract): remove superseded legacy code`
+- Commit: `6610a0d56c67bbe396ba757be5619b3fdd435275`
+- Message: `docs: record completion of core authentication hardening`
 - Gitea `main` and GitHub `main` were verified at this commit.
 - The working tree was clean at the checkpoint.
 
 ## Current engineering priority
 
-The six-step Contract stabilization effort and core-service authentication hardening are complete and runtime-verified. **CRM architecture/design assessment** is the leading candidate for the next major product-development session. Do not begin CRM implementation during the assessment.
+The CRM / Strategic Account Management architecture assessment is complete. Its recommendations are a **proposal for human review**, not accepted architecture and not authorization to implement.
 
 At the start of the next session:
 
-1. Read this file and [AGENTS.md](../../AGENTS.md).
+1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), and the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>).
 2. Confirm the working tree and checkpoint commit.
-3. Assess how existing facilities/customers, Contracts, assets, vendors, WorkOrders, lifecycle intelligence, and profitability/value intelligence can support contacts, customer interactions, opportunities, service/CAM opportunities, renewal opportunities and pipeline, follow-up tasks, and strategic account management.
-4. Define Clinical Asset Management and Clinical Engineering workflows, ownership boundaries, data relationships, authorization/tenant requirements, and integration points before editing code.
-5. Produce a focused architecture/design proposal rather than a generic Salesforce clone.
+3. Review and decide the open CRM architecture questions, beginning with authorization/commercial-data visibility, strict Facility context, Organization access, Vendor ownership/tenant behavior, opportunity economics, and signal thresholds.
+4. Accept, revise, or reject the proposed architecture before editing code.
+5. If implementation is authorized, begin with tenant and authorization contracts/tests rather than UI or automation.
 
-Do not combine that assessment with CRM implementation, dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+Do not begin CRM implementation merely because the assessment exists. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+
+## CRM / Strategic Account Management assessment — proposal for review
+
+The preferred proposal is:
+
+- Build CRM initially in `core-service`; do not create a CRM microservice yet.
+- Use existing `Organization` as the health-system grouping and `Facility` as the required operational CRM account context; do not add a separate Account entity in Phase 1.
+- Add focused Contact, Opportunity, Interaction, and FollowUp concepts with strict Facility scoping. The existing maintenance `Task` model is not a CRM follow-up task.
+- Keep contract-service authoritative for Contracts, amendments, value, profitability, vendor leakage, and Contract lifecycle intelligence.
+- Keep core-service authoritative for Facilities, Organizations, Users, Assets, WorkOrders, lifecycle metrics, replacement forecasting, operational Vendors, and proposed CRM records.
+- Compose strategic-account views through authenticated, per-request service APIs; do not copy Contract financial or lifecycle calculations into CRM.
+- Calculate explainable CRM signals dynamically first. Users may explicitly convert a signal into an Opportunity using a stable source key to prevent duplicates.
+- Treat Contract renewal as a generated signal that can create a renewal-type Opportunity; do not introduce a specialized Renewal aggregate in Phase 1.
+- Phase 1 should establish a Facility Strategic Account view, Contacts, Opportunities, Interactions, FollowUps, selected dynamic signals, and tenant/authorization tests.
+- Explicitly defer a dedicated CRM service, arbitrary organization hierarchies, email/calendar sync, external CRM integrations, event infrastructure, generic workflow automation, and AI-generated recommendations.
+
+This assessment was based on static source inspection only. No runtime verification was performed, and no proposal is accepted until reviewed. See Open Threads and the CRM journal for required decisions and repository risks.
 
 ## Contract stabilization — complete
 
@@ -118,4 +135,5 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [Open Threads](<Open Threads.md>)
 - [Lessons Learned](<Lessons Learned.md>)
 - [Authentication remediation journal](<../engineering-journal/2026-08-09 - Authentication Security Remediation.md>)
+- [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) — proposal for review, not an accepted decision.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

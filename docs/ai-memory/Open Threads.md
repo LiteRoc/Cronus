@@ -61,8 +61,36 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 - Dependency vulnerability remediation remains deferred. Do not run `npm audit fix` automatically.
 - Node runtime and dependency-directory ownership cleanup remain environment maintenance, separate from product/security commits.
 
-## Future product direction
+## CRM / Strategic Account Management decisions
 
-CRM functionality is the leading candidate for the next major Cronus feature. The next development session should first perform an architecture/design assessment before editing code; it must not begin CRM implementation.
+The architecture assessment is complete, but its recommendations remain a proposal for human review. Do not begin implementation until the following decisions are made:
 
-The assessment should determine how existing facilities/customers, Contracts, assets, vendors, WorkOrders, lifecycle intelligence, and profitability/value intelligence can support contacts, customer interactions, opportunities, service/CAM opportunities, renewal opportunities and pipeline, follow-up tasks, and strategic account management. The intended result is CRM designed around Clinical Asset Management and Clinical Engineering workflows, not a generic Salesforce clone.
+- Which roles may view or modify Contacts, Opportunities, Interactions, FollowUps, margins, vendor leakage, internal notes, and account risks?
+- Must all CRM reads and mutations require an explicitly selected Facility, including administrators?
+- How should Organization-wide access be represented when current JWT and tenant conventions are Facility-oriented?
+- Can a Contact belong to several Facilities within one Organization, and what is the Contact deduplication boundary?
+- What does Opportunity estimated value mean for recurring CAM/service revenue versus one-time capital or training opportunities?
+- Which opportunity stage transitions require audit history or elevated authorization?
+- What thresholds define approaching expiration, poor margin, high service cost, rising maintenance cost, and repeated failure?
+- What retention and audit requirements apply to commercially sensitive interactions and strategic notes?
+- How should won Opportunities hand off to Contract draft creation without bypassing Contract numbering, audit, tenant, financial, or lifecycle rules?
+
+### Proposed direction awaiting acceptance
+
+- CRM lives initially in `core-service`.
+- Existing Organization groups Facilities; Facility is the Phase 1 CRM account/workspace; no separate Account model yet.
+- New focused entities are Contact, Opportunity, Interaction, and FollowUp.
+- Contract-service remains authoritative for Contract financial and lifecycle semantics.
+- Strategic-account signals are dynamic read models first, with explicit idempotent conversion to Opportunities.
+- Renewal is initially a Contract-expiration signal plus renewal-type Opportunity, not a separate Renewal aggregate.
+- Phase 1 is a Facility Strategic Account view and core CRM workflow; integrations, event infrastructure, complex hierarchy, workflow automation, and AI recommendations are deferred.
+
+### Directly relevant repository risks requiring resolution
+
+- Static inspection found core Vendor routes with inconsistent authentication/tenant scoping, while the Vendor schema uses `tenantId` that current JWT context does not establish. Runtime verification is needed before CRM relies on Vendor relationships.
+- Organization has a schema and Facility reference but no active management workflow or established authorization policy.
+- Generic tenant filters can include global records. Proposed CRM entities require strict Facility filters without global-record behavior.
+- Unmounted contract-service Customer/Vendor modules must not be revived without an explicit ownership decision.
+- Facility-wide uncovered-equipment, rising-cost, and repeated-failure signals need efficient queries and agreed business definitions before they can be claimed as supported behavior.
+
+See [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for evidence, domain recommendations, MVP scope, and implementation sequence.
