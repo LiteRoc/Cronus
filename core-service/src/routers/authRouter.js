@@ -3,11 +3,14 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Facility = require('../models/Facility');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const authRouter = express.Router();
 
 // Secret for JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+const JWT_ISS = process.env.JWT_ISS || 'cronus.api';
+const JWT_AUD = process.env.JWT_AUD || 'cronus.app';
 
 // Register Route
 authRouter.post(
@@ -72,7 +75,6 @@ authRouter.post(
 
     try {
       const user = await User.findOne({ email }).populate('facilities', 'name');
-      console.log('Returned user:', user);
 
       if (user && user.facilities.length === 0 && user.facilityId) {
           user.facilities = [user.facilityId];
@@ -99,15 +101,13 @@ authRouter.post(
         facilities: user.facilities?.map(f => f._id.toString())
       };
 
-      console.log("JWT-bound facilities:", payload.facilities);
-
       const token = jwt.sign(
         payload,
         JWT_SECRET,
         {
           expiresIn: '12h',
-          issuer: 'cronus.api',         // optional but recommended
-          audience: 'cronus.app'        // optional but recommended
+          issuer: JWT_ISS,
+          audience: JWT_AUD
         }
       );
 
@@ -136,8 +136,6 @@ authRouter.post(
           })) || [],
         },
       });
-      console.log('Frontend-bound user:', user);
-
     } catch (error) {
       console.error('Error during login:', error);
       res.status(500).json({ error: 'Internal Server Error' });
@@ -155,20 +153,6 @@ authRouter.get('/profile', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
-
-// Middleware to Authenticate Token
-function authenticateToken(req, res, next) {
-    const token = req.header('Authorization')?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Access denied, token missing' });
-
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        res.status(403).json({ error: 'Invalid or expired token' });
-    }
-}
 
 // route to serve the login page
 authRouter.get('/login', (req, res) => {

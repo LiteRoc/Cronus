@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
-const JWT_ISS = process.env.JWT_ISS || 'aegisops.api';
-const JWT_AUD = process.env.JWT_AUD || 'aegisops.app';
+const JWT_ISS = process.env.JWT_ISS || 'cronus.api';
+const JWT_AUD = process.env.JWT_AUD || 'cronus.app';
 
 function getTokenFromRequest(req) {
   const authHeader = req.headers['authorization'] || req.header('Authorization');
@@ -22,10 +22,8 @@ function authenticateToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
-      // Uncomment if you added iss/aud when signing:
-      // issuer: JWT_ISS,
-      // audience: JWT_AUD,
-      // clockTolerance: 5 // seconds of skew if needed
+      issuer: JWT_ISS,
+      audience: JWT_AUD,
     });
 
     // Normalize into a consistent shape for the rest of the app
@@ -34,7 +32,7 @@ function authenticateToken(req, res, next) {
 
     req.user = {
       id: userId?.toString?.() || String(userId),
-      role: decoded.role || 'admin',
+      role: decoded.role || null,
       facilityId: decoded.facilityId,
       departmentId: decoded.departmentId || null,
       facilities: decoded.facilities || [],
@@ -44,11 +42,6 @@ function authenticateToken(req, res, next) {
       iat: decoded.iat,
       exp: decoded.exp,
     };
-
-    // Avoid logging tokens in production
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('req.user:', req.user);
-    }
 
     next();
   } catch (err) {
@@ -61,9 +54,13 @@ function authenticateToken(req, res, next) {
 
 // Simple role gate: authorizeRoles('admin'), authorizeRoles('admin', 'user')
 function authorizeRoles(...allowed) {
+  const canonicalAllowedRoles = allowed.map((role) => (
+    role === 'tech' ? 'technician' : role
+  ));
+
   return (req, res, next) => {
     const role = req.user?.role;
-    if (!role || !allowed.includes(role)) {
+    if (!role || !canonicalAllowedRoles.includes(role)) {
       return res.status(403).json({ error: 'Forbidden' });
       // need to be directed to another Biden page ... "You're not authorized" or be challenged to do push ups!
     }

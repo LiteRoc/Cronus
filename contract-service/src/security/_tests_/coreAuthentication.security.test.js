@@ -215,12 +215,13 @@ describe("core JWT validation", () => {
 
 describe("core authentication logging", () => {
   test("login and authenticated requests do not log passwords, hashes, or bearer tokens", async () => {
-    await User.create({
+    const storedUser = await User.create({
       username: "logging-user",
       email: "logging-user@example.test",
       password: PLAINTEXT_PASSWORD,
       role: "admin",
     });
+    const hash = storedUser.password;
 
     const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
