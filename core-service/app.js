@@ -47,6 +47,7 @@ const facilityRouter = require('./src/routers/facilityRouter');
 const departmentRouter = require('./src/routers/departmentRouter');
 const manufacturerRouter = require('./src/routers/manufacturerRouter');
 const contactRouter = require('./src/routers/contactRouter');
+const followUpRouter = require('./src/routers/followUpRouter');
 const { attachContractClient } = require('./src/middleware/forwardContractHeaders');
 
 // View Engine
@@ -97,6 +98,7 @@ app.use('/facilities', facilityRouter);
 app.use('/departments', departmentRouter);
 app.use('/manufacturers', manufacturerRouter);
 app.use('/contacts', contactRouter.contactJsonErrorHandler, contactRouter);
+app.use('/followups', followUpRouter.followUpJsonErrorHandler, followUpRouter);
 
 //scheduleMaintenanceJobs();
 

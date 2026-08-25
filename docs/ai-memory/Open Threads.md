@@ -63,7 +63,7 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## CRM / Strategic Account Management deferred work
 
-The Phase 1 architecture and policies are accepted, and the Phase 1A Contact backend and frontend vertical slice is complete and verified. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies or Phase 1A invariants.
+The Phase 1 architecture and policies are accepted. The Contact vertical slice and Facility-scoped FollowUp backend are complete and verified. FollowUp frontend work and the items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
 
 ### Vendor ownership and tenant behavior
 
@@ -79,6 +79,7 @@ The Phase 1 architecture and policies are accepted, and the Phase 1A Contact bac
 
 ### Deferred CRM workflows
 
+- FollowUp frontend implementation remains deferred; the verified backend endpoints and lifecycle semantics are authoritative for that future slice.
 - Contact duplicate detection produces warnings only. An audited Contact merge workflow is deferred.
 - Interactions retain creator/updater and timestamps, but a formal retention policy and retention workflow are deferred.
 - Automatic Opportunity-to-Contract draft handoff is deferred. A manually created Contract may later be linked without rewriting Opportunity history.
