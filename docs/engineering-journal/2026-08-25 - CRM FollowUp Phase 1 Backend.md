@@ -1,8 +1,8 @@
-# CRM FollowUp Phase 1 Backend
+# CRM FollowUp Phase 1
 
 ## Status
 
-Backend complete and verified on `feat/crm-followups`. Git remains authoritative for the exact patch and containing commit. Frontend work is not part of this slice.
+The end-to-end FollowUp vertical slice is complete and verified on `feat/crm-followups`. Git remains authoritative for the exact patch and containing commit.
 
 ## Context and decisions
 
@@ -32,6 +32,7 @@ An assignee must exist, have canonical `admin` or `technician` role, and be expl
 ## Endpoints
 
 - `GET /followups`
+- `GET /followups/assignees`
 - `GET /followups/:id`
 - `POST /followups`
 - `PATCH /followups/:id`
@@ -70,25 +71,49 @@ A FollowUp due exactly at the evaluation instant is not overdue. `status=open&ov
 
 Indexes align with the default Facility/due-date list and the status, assignee, and Contact filters. All are non-unique.
 
+## Frontend workflow
+
+The React frontend provides a standalone Facility-scoped Follow Ups page with list, detail, search, bounded filters, pagination, create, and open-only edit behavior. Admins and technicians may complete or cancel open records; only admins see archive controls. Completed and cancelled records are read-only, and no reopen control exists.
+
+The assignee picker uses only the narrow Facility-scoped `GET /followups/assignees` endpoint. The optional Contact picker uses the Facility-scoped Contact API and supports unlinking. Backend authorization and validation remain authoritative.
+
+Due dates are entered and displayed using a valid selected-Facility IANA timezone. Missing or invalid metadata falls back to the browser IANA timezone with an explicit local label; no default timezone is hardcoded. Values serialize as timezone-explicit instants, and ambiguous or nonexistent DST wall times fail safely.
+
+Facility changes synchronously clear lists, counts, detail, search, filters, pagination, forms, picker options, confirmation state, errors, loading/mutation state, and Contact prefill/query state. Facility-generation guards ignore stale successes and failures for list, detail, mutation, picker, and Contact-detail requests. Safe contextual messages handle 400, 401, 403, 404, and generic 500 responses without exposing backend internals.
+
+Contact detail includes a read-only Open FollowUps section using `contactId`, `status=open`, and `limit=5`, plus View All and Create FollowUp navigation. Lifecycle actions remain exclusively on the standalone page.
+
+## Phase 1 exclusions
+
+Phase 1 does not include reopen, restore, hard delete, recurrence, notifications, calendar/email integration, Contract linkage, Vendor linkage, Interaction linkage, Opportunity linkage, signals, or Organization-wide CRM browsing.
+
 ## Verification
 
-- FollowUp service tests: 20/20 passed.
-- FollowUp endpoint tests: 78/78 passed.
-- Total FollowUp tests: 98/98 passed.
-- Complete safe core-service suite: 157/157 passed.
-- Core authentication security: 31/31 passed.
-- Lifecycle regression: 11/11 passed.
+- FollowUp endpoint suite: 87/87 passed.
+- Assignee endpoint additions: 9/9 passed.
+- Complete safe core-service suite: 166/166 passed.
+- FollowUp frontend page/state: 45/45 passed.
+- FollowUp role/navigation: 7/7 passed.
+- FollowUp API headers: 8/8 passed.
+- Date/time: 5/5 passed.
+- Contact-detail integration: 6/6 passed.
+- FollowUp-focused frontend total: 71/71 passed.
+- Contact regression: 43/43 passed.
+- Total scoped frontend: 114/114 passed.
+- Baseline-compatible TypeScript no-emit passed.
+- Vite production build passed with the existing deferred bundle-size warning.
+- Frontend and core-service `npm ls --depth=0` passed.
 - JavaScript syntax checks passed.
-- `npm ls --depth=0` passed.
 - `git diff --check` passed.
 - New-file whitespace checks passed.
-- Focused Facility/tenant/security scan passed.
-- Final read-only diff review passed.
+- Facility/role/prohibited-coupling scan passed.
+- Dependency and lockfile comparison against `3ea60fad` found no drift.
+- Final integrated read-only review passed.
 
-Tests used the existing fail-closed, loopback-only MongoMemoryServer harness with runtime downloads disabled and did not import stateful `app.js`. No real database, container, scheduled job, or external service was touched.
+Tests used the fail-closed, loopback-only MongoMemoryServer harness with runtime downloads disabled and did not import stateful `app.js`. No real database, container, scheduled job, or external service was touched.
 
-System Node 18 continues to emit the known MongoMemoryServer engine warning. Runtime standardization remains deferred environment maintenance.
+System Node 18 continues to emit the known MongoMemoryServer engine warning, and the cached system binary emits a version warning. Runtime standardization remains deferred. Existing TypeScript/ESLint maintenance and Vite bundle-size work remain separate.
 
 ## Deferred work
 
-FollowUp frontend work remains unimplemented. Contract linkage remains deferred until contract-service provides a strict Facility-scoped validation boundary. Vendor ownership/scoping, Interaction, Opportunity, signals, recurrence, notifications, email/calendar integration, and generalized workflow automation remain outside this slice.
+Vendor ownership/scoping, granular CRM permissions, Organization-wide grants, Contact merge, retention workflow, advanced signals, and automatic Opportunity-to-Contract handoff remain deferred. Contract linkage awaits a strict Facility-scoped validation boundary. Interaction, Opportunity, signals, recurrence, notifications, email/calendar integration, and generalized workflow automation remain outside this slice.

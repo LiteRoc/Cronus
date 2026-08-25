@@ -6,6 +6,7 @@ import { useUser } from '../context/UserContext';
 import { useFacility } from '../context/FacilityContext';
 import { useSidebarLinks } from '../hooks/useSidebarLinks';
 import { canAccessContactUI } from '../pages/Contacts/ContactRoute';
+import { canAccessFollowUpUI } from "../pages/FollowUps/FollowUpRoute";
 
 const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -19,7 +20,8 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     return "viewer";
   })();
   const canAccessContacts = canAccessContactUI(user?.role);
-  const links = useSidebarLinks(normalizedRole, canAccessContacts);
+  const canAccessFollowUps = canAccessFollowUpUI(user?.role);
+  const links = useSidebarLinks(normalizedRole, canAccessContacts, canAccessFollowUps);
   const { selectedFacilityId, setSelectedFacilityId, availableFacilities } = useFacility();
   //console.log("availableFacilities:", availableFacilities);
 

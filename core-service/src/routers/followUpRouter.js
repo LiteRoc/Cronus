@@ -8,6 +8,7 @@ const {
   completeFollowUp,
   createFollowUp,
   getFollowUp,
+  listFollowUpAssignees,
   listFollowUps,
   updateFollowUp,
 } = require('../services/followUpService');
@@ -37,6 +38,15 @@ followUpRouter.use(authenticateToken, followUpRoles, requireCrmFacilityContext);
 followUpRouter.get('/', async (req, res) => {
   try {
     return res.json(await listFollowUps({ facilityId: req.crmFacilityId, query: req.query }));
+  } catch (error) {
+    return sendFollowUpError(res, error);
+  }
+});
+
+followUpRouter.get('/assignees', async (req, res) => {
+  try {
+    const items = await listFollowUpAssignees({ facilityId: req.crmFacilityId });
+    return res.json({ items });
   } catch (error) {
     return sendFollowUpError(res, error);
   }

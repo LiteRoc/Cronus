@@ -17,6 +17,7 @@ const context = vi.hoisted(() => ({
   includeOrganizationMetadata: true,
 }));
 
+vi.mock("./ContactFollowUps", () => ({ default: () => <div>Open Follow Ups</div> }));
 vi.mock("@/services/contactAPI", () => api);
 vi.mock("@/context/UserContext", () => ({
   useUser: () => ({ user: { _id: "user-1", role: context.role } }),

@@ -466,3 +466,43 @@ describe('FollowUp filters, bounds, and safe failures', () => {
     expect(JSON.stringify(response.body)).not.toContain('sensitive detail');
   });
 });
+
+describe('FollowUp Facility-scoped assignee picker', () => {
+  test.each([
+    ['admin', 200], ['technician', 200], ['customer', 403], ['viewer', 403],
+    ['tech', 403], ['unknown', 403], ['missing', 403],
+  ])('enforces canonical caller role %s', async (role, expected) => {
+    const claims = role === 'missing' ? { role: undefined, facilities: [facility._id] } : { role, facilities: [facility._id] };
+    await request(app).get('/followups/assignees').set({
+      Authorization: `Bearer ${tokenFor(claims)}`,
+      'x-facility-id': facility._id.toString(),
+    }).expect(expected);
+  });
+
+  test('requires explicit valid authorized Facility context', async () => {
+    const auth = `Bearer ${tokenFor({ role: 'technician', facilities: [facility._id] })}`;
+    await request(app).get('/followups/assignees').set('Authorization', auth).expect(400);
+    await request(app).get('/followups/assignees').set({ Authorization: auth, 'x-facility-id': 'bad' }).expect(400);
+    await request(app).get('/followups/assignees').set({
+      Authorization: auth, 'x-facility-id': otherFacility._id.toString(),
+    }).expect(403);
+  });
+
+  test('returns only minimal canonical Facility-authorized assignees without cross-Facility leakage', async () => {
+    const alternateAdmin = await insertUser({ role: 'admin', facilities: [], facilityId: facility._id });
+    const otherTechnician = await insertUser({ role: 'technician', facilities: [otherFacility._id] });
+    await insertUser({ role: 'customer', facilities: [facility._id] });
+    await insertUser({ role: 'viewer', facilities: [facility._id] });
+    await insertUser({ role: 'tech', facilities: [facility._id] });
+    const response = await request(app).get('/followups/assignees').set(headers()).expect(200);
+    const ids = response.body.items.map((item) => item._id);
+    expect(ids).toEqual(expect.arrayContaining([
+      adminAssignee._id.toString(), technicianAssignee._id.toString(), alternateAdmin._id.toString(),
+    ]));
+    expect(ids).not.toContain(otherTechnician._id.toString());
+    for (const item of response.body.items) {
+      expect(Object.keys(item).sort()).toEqual(['_id', 'name', 'role']);
+      expect(['admin', 'technician']).toContain(item.role);
+    }
+  });
+});

@@ -4,24 +4,24 @@
 
 ## Checkpoint
 
-- FollowUp backend branch base: `7a58e77e8ca774c8b55205a02f7eda0966ba4070`
-- Base message: `feat: add CRM contact interface`
+- FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
+- Checkpoint message: `feat: add CRM follow-up management`
 - Active implementation branch: `feat/crm-followups`.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
 
-CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 backend is complete and verified on `feat/crm-followups`; its frontend and the remaining CRM entities are not implemented.
+CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the remaining CRM entities are not implemented.
 
 At the start of the next session:
 
 1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
-4. Treat the complete Contact vertical slice and verified FollowUp backend Facility, tenant, authorization, lifecycle, and audit invariants as the implementation baseline for subsequent CRM work.
+4. Treat the complete Contact and FollowUp vertical slices, including their Facility, tenant, authorization, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
 5. Keep CRM implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
 
-Do not begin additional CRM implementation merely because Contact and the FollowUp backend are complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+Do not begin additional CRM implementation merely because Contact and FollowUp are complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 
 ## CRM Phase 1A Contact vertical slice — complete
 
@@ -44,20 +44,26 @@ Do not begin additional CRM implementation merely because Contact and the Follow
 
 See the [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) for implementation and verification detail.
 
-## CRM FollowUp Phase 1 backend — complete
+## CRM FollowUp Phase 1 vertical slice — complete
 
-- FollowUp is implemented in `core-service` as a single-Facility CRM record. Every operation requires an explicit valid `x-facility-id`; administrators cannot operate unscoped, technicians require selected-Facility authority, and no permissive tenant/global-record filter is used.
-- Canonical `admin` and `technician` roles may create, read, update open records, complete, and cancel. Archive is admin-only. Customer, viewer, legacy `tech`, missing, and unknown roles are denied.
-- `dueAt` and `assignedTo` are required. Assignees must be canonical admin/technician Users explicitly associated with the selected Facility. Optional Contact linkage accepts only non-archived Contacts associated with that Facility.
-- Status is `open`, `completed`, or `cancelled`. New records are open; only open records accept ordinary edits. Completed and cancelled are terminal, with no reopen, restore, or hard delete.
-- Lifecycle mutations load the scoped document, re-check its state, update lifecycle and audit fields together, and persist through validated `save()` with optimistic concurrency. FollowUp query-mutation APIs are intentionally blocked so query updates and bulk writes cannot bypass lifecycle/archive invariants.
-- `overdue` is derived and never persisted. `dueAt`, `dueFrom`, and `dueTo` require timezone-explicit ISO-8601 timestamps. Range bounds are inclusive; an item due exactly at the evaluation instant is not overdue. `overdue=true` means open and strictly past due; terminal-status combinations return 400.
-- Endpoints: `GET /followups`, `GET /followups/:id`, `POST /followups`, `PATCH /followups/:id`, `PATCH /followups/:id/complete`, `PATCH /followups/:id/cancel`, and `PATCH /followups/:id/archive`.
-- This slice includes no recurrence, notifications, frontend, Contract, Vendor, Interaction, Opportunity, or signal linkage.
-- Verification passed: FollowUp service 20/20, endpoint 78/78, total FollowUp 98/98, complete safe core-service 157/157, authentication security 31/31, and lifecycle regression 11/11. Syntax, dependency-tree, whitespace, tenant/security, and final diff reviews passed using the fail-closed loopback-only MongoMemoryServer harness.
-- System Node 18 continues to produce the accepted MongoMemoryServer engine warning; runtime standardization remains deferred.
+- FollowUp is implemented in `core-service` as a single-Facility CRM record. Every operation requires explicit `x-facility-id`; no permissive tenant filter or global CRM behavior is used.
+- Canonical `admin` and `technician` roles may create, read, update open records, complete, and cancel. Archive is admin-only; customer, viewer, legacy `tech`, missing, and unknown roles are denied.
+- `dueAt` and a Facility-authorized canonical admin/technician assignee are required. Optional Contact linkage accepts only non-archived Contacts associated with the selected Facility.
+- Status is `open`, `completed`, or `cancelled`. Only open records accept ordinary edits; terminal records may only be archived by an administrator. Overdue is derived and never persisted.
+- Lifecycle mutations load the scoped document, re-check state, update lifecycle/audit fields together, and use validated `save()` with optimistic concurrency. Schema protections and blocked query-mutation APIs prevent lifecycle/archive invariant bypass.
+- `dueAt`, `dueFrom`, and `dueTo` require timezone-explicit ISO timestamps. Range bounds are inclusive; due exactly now is not overdue, and terminal status with `overdue=true` returns 400.
+- Endpoints: `GET /followups`, `GET /followups/assignees`, `GET /followups/:id`, `POST /followups`, `PATCH /followups/:id`, `PATCH /followups/:id/complete`, `PATCH /followups/:id/cancel`, and `PATCH /followups/:id/archive`. The assignee endpoint returns only minimal display data for eligible Users in the selected Facility.
+- The frontend provides Facility-scoped list, detail, search, filters, pagination, create, open-only edit, complete/cancel, and admin-only archive. It uses only the narrow assignee endpoint and supports optional Facility-scoped Contact selection and unlinking.
+- Date entry/display use a valid Facility IANA timezone when available, otherwise the browser IANA timezone with an explicit local label. Ambiguous or nonexistent DST wall times fail safely.
+- Facility changes synchronously clear FollowUp data, filters, forms, picker choices, dialogs, errors, loading state, and Contact prefill/query state. Generation guards ignore stale successes and failures.
+- Contact detail includes a read-only five-item Open FollowUps section with View All and Create FollowUp navigation, but no duplicate lifecycle controls. Safe contextual error handling covers 400, 401, 403, 404, and generic 500 responses.
+- Phase 1 includes no reopen, restore, hard delete, recurrence, notifications, calendar/email integration, Contract, Vendor, Interaction, Opportunity, signal linkage, or Organization-wide CRM browsing.
+- Backend verification passed: FollowUp endpoint suite 87/87, including 9/9 assignee additions, and complete safe core-service suite 166/166.
+- Frontend verification passed: FollowUp page/state 45/45, role/navigation 7/7, API headers 8/8, date/time 5/5, Contact-detail integration 6/6, FollowUp-focused total 71/71, Contact regression 43/43, and total scoped frontend 114/114.
+- Baseline-compatible TypeScript no-emit, Vite production build, frontend/core-service `npm ls --depth=0`, JavaScript syntax, `git diff --check`, whitespace, Facility/role/prohibited-coupling, and dependency/lockfile checks passed. Comparison against `3ea60fad` found no dependency or lockfile drift.
+- The Node 18/MongoMemoryServer engine and system-binary warnings remain deferred environment issues.
 
-See the [CRM FollowUp Phase 1 backend journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) for implementation and verification detail.
+See the [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) for implementation and verification detail.
 
 ## CRM / Strategic Account Management — accepted Phase 1 architecture
 
@@ -174,5 +180,5 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) — assessment and proposal that informed the accepted Phase 1 decisions.
 - [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) — accepted and authoritative for Phase 1.
 - [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) — verified Contact vertical slice and tenant/security baseline.
-- [CRM FollowUp Phase 1 backend journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) — verified FollowUp backend, lifecycle integrity, and Facility-scoping baseline.
+- [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) — verified end-to-end FollowUp workflow, lifecycle integrity, and Facility-scoping baseline.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

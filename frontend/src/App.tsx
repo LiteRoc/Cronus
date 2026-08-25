@@ -23,6 +23,7 @@ import Assets from "@/pages/Contracts/Assets";
 import ContractsPage from "@/pages/Contracts/Contracts/ContractsPage";
 import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage";
 import ContactRoute from "@/pages/Contacts/ContactRoute";
+import FollowUpRoute from "@/pages/FollowUps/FollowUpRoute";
 
 function RootRedirect() {
   const { user } = useUser();
@@ -110,6 +111,16 @@ export default function App() {
             }
           />
           {/* 👇 Contracts area */}
+          <Route
+            path="/followups"
+            element={
+              <SidebarLayout>
+                <PrivateRoute>
+                  <FollowUpRoute />
+                </PrivateRoute>
+              </SidebarLayout>
+            }
+          />
           <Route
             path="/contacts"
             element={

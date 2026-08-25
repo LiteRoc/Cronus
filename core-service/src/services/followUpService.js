@@ -122,6 +122,19 @@ async function validateAssignee(assignedTo, facilityId) {
   return user._id;
 }
 
+async function listFollowUpAssignees({ facilityId }) {
+  const users = await User.find({
+    role: { $in: ['admin', 'technician'] },
+    $or: [{ facilityId }, { facilities: facilityId }],
+  }).select('_id username role').sort({ username: 1, _id: 1 }).lean();
+
+  return users.map((user) => ({
+    _id: user._id,
+    name: user.username,
+    role: user.role,
+  }));
+}
+
 async function validateContact(contactId, facilityId) {
   if (!contactId) return null;
   const contact = await Contact.findOne({ _id: contactId, facilityIds: facilityId, archivedAt: null })
@@ -306,6 +319,7 @@ module.exports = {
   completeFollowUp,
   createFollowUp,
   getFollowUp,
+  listFollowUpAssignees,
   listFollowUps,
   updateFollowUp,
   validateAssignee,
