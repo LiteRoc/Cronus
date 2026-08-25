@@ -63,7 +63,7 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## CRM / Strategic Account Management deferred work
 
-The Phase 1 architecture and policies are accepted, and Phase 1A Contact backend implementation in `core-service` is complete and verified. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies or Phase 1A invariants.
+The Phase 1 architecture and policies are accepted, and the Phase 1A Contact backend and frontend vertical slice is complete and verified. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies or Phase 1A invariants.
 
 ### Vendor ownership and tenant behavior
 
@@ -87,5 +87,11 @@ The Phase 1 architecture and policies are accepted, and Phase 1A Contact backend
 
 - Percentile/high-service-cost and trend signals are deferred until production history supports meaningful thresholds.
 - Facility-wide uncovered-equipment, rising-cost, repeated-failure, and aging-concentration signals require efficient queries and accepted business definitions before implementation.
+
+### Deferred frontend maintenance
+
+- The existing TypeScript `ignoreDeprecations: "6.0"` setting is incompatible with the installed TypeScript 5.6 compiler; Contact verification used the established command-line compatibility override. Do not mix that configuration repair into CRM feature work.
+- The existing ESLint configuration uses invalid `"ignore"` rule severity values and prevents the established lint command from starting. Repair remains separate maintenance.
+- The existing Vite large-bundle warning and Node engine warning remain deferred environment/build work.
 
 See the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for assessment evidence and the [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) for the accepted authoritative policy.

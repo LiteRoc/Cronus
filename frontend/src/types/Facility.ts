@@ -2,7 +2,8 @@
 
 export interface Facility {
     _id: string,
-    organizationalId: string,
+    organizationId?: string,
+    organizationalId?: string,
     name: string,
     code: string,
     phone: string,

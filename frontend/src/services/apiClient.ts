@@ -17,7 +17,7 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     // Only add facilityId if not hitting auth endpoints
-    if (facilityId && !config.url?.includes('/auth/')) {
+    if (facilityId && !config.url?.includes('/auth/') && !config.headers.has('x-facility-id')) {
       config.headers['x-facility-id'] = facilityId;
     }
     

@@ -22,6 +22,7 @@ import Dashboard from "@/pages/Contracts/Dashboard";
 import Assets from "@/pages/Contracts/Assets";
 import ContractsPage from "@/pages/Contracts/Contracts/ContractsPage";
 import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage";
+import ContactRoute from "@/pages/Contacts/ContactRoute";
 
 function RootRedirect() {
   const { user } = useUser();
@@ -109,6 +110,16 @@ export default function App() {
             }
           />
           {/* 👇 Contracts area */}
+          <Route
+            path="/contacts"
+            element={
+              <SidebarLayout>
+                <PrivateRoute>
+                  <ContactRoute />
+                </PrivateRoute>
+              </SidebarLayout>
+            }
+          />
           <Route
             path="/contracts"
             element={

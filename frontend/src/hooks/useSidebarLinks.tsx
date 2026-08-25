@@ -1,4 +1,4 @@
-import { FaTachometerAlt, FaBoxes, FaClipboardList, FaTools, FaUserShield, FaUbuntu, FaAtlas } from "react-icons/fa";
+import { FaTachometerAlt, FaBoxes, FaClipboardList, FaTools, FaUserShield, FaUbuntu, FaAtlas, FaAddressBook } from "react-icons/fa";
 import { ReactElement } from "react";
 
 interface SidebarLink {
@@ -7,7 +7,10 @@ interface SidebarLink {
   icon: ReactElement;
 }
 
-export const useSidebarLinks = (role: "admin" | "technician" | "customer" | "viewer"): SidebarLink[] => {
+export const useSidebarLinks = (
+  role: "admin" | "technician" | "customer" | "viewer",
+  canAccessContacts = false,
+): SidebarLink[] => {
 
   if (role === "customer") {
     return [
@@ -25,6 +28,10 @@ export const useSidebarLinks = (role: "admin" | "technician" | "customer" | "vie
     { to: "/templates", label: "Templates", icon: <FaUbuntu /> },
     { to: "/contracts", label: "Contracts", icon: <FaAtlas /> },
   ];
+
+  if (canAccessContacts) {
+    commonLinks.push({ to: "/contacts", label: "Contacts", icon: <FaAddressBook /> });
+  }
 
   const adminLinks: SidebarLink[] = [
     { to: "/admin", label: "Admin", icon: <FaUserShield /> },
