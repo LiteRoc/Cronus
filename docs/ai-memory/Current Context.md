@@ -4,28 +4,28 @@
 
 ## Checkpoint
 
-- Commit: `6610a0d56c67bbe396ba757be5619b3fdd435275`
-- Message: `docs: record completion of core authentication hardening`
-- Gitea `main` and GitHub `main` were verified at this commit.
-- The working tree was clean at the checkpoint.
+- Commit: `157956fe9ddcb17ef9a795ac0cfc23ee13f27b2b`
+- Message: `docs: record CRM architecture assessment`
+- Local `main` and the working tree were verified at this commit before the current documentation update.
+- Remote branch state was not reverified during this documentation update.
 
 ## Current engineering priority
 
-The CRM / Strategic Account Management architecture assessment is complete. Its recommendations are a **proposal for human review**, not accepted architecture and not authorization to implement.
+The CRM / Strategic Account Management Phase 1 architecture and policies are accepted. This documentation update does not authorize implementation; when implementation is explicitly authorized, it will begin with Contact in `core-service`.
 
 At the start of the next session:
 
-1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), and the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>).
+1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
-3. Review and decide the open CRM architecture questions, beginning with authorization/commercial-data visibility, strict Facility context, Organization access, Vendor ownership/tenant behavior, opportunity economics, and signal thresholds.
-4. Accept, revise, or reject the proposed architecture before editing code.
-5. If implementation is authorized, begin with tenant and authorization contracts/tests rather than UI or automation.
+3. Treat the accepted CRM policy document as authoritative for Phase 1.
+4. If implementation is authorized, begin with Contact in `core-service` and establish its Facility, tenant, and authorization invariants before broader CRM behavior.
+5. Keep Contact implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
 
 Do not begin CRM implementation merely because the assessment exists. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 
-## CRM / Strategic Account Management assessment — proposal for review
+## CRM / Strategic Account Management — accepted Phase 1 architecture
 
-The preferred proposal is:
+The accepted Phase 1 direction is:
 
 - Build CRM initially in `core-service`; do not create a CRM microservice yet.
 - Use existing `Organization` as the health-system grouping and `Facility` as the required operational CRM account context; do not add a separate Account entity in Phase 1.
@@ -38,7 +38,7 @@ The preferred proposal is:
 - Phase 1 should establish a Facility Strategic Account view, Contacts, Opportunities, Interactions, FollowUps, selected dynamic signals, and tenant/authorization tests.
 - Explicitly defer a dedicated CRM service, arbitrary organization hierarchies, email/calendar sync, external CRM integrations, event infrastructure, generic workflow automation, and AI-generated recommendations.
 
-This assessment was based on static source inspection only. No runtime verification was performed, and no proposal is accepted until reviewed. See Open Threads and the CRM journal for required decisions and repository risks.
+These Phase 1 architecture and policy decisions are accepted. The preceding architecture assessment was based on static source inspection; accepted policy does not convert unverified runtime assumptions into facts. See Open Threads for deferred work and unresolved technical prerequisites.
 
 ## Contract stabilization — complete
 
@@ -135,5 +135,6 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [Open Threads](<Open Threads.md>)
 - [Lessons Learned](<Lessons Learned.md>)
 - [Authentication remediation journal](<../engineering-journal/2026-08-09 - Authentication Security Remediation.md>)
-- [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) — proposal for review, not an accepted decision.
+- [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) — assessment and proposal that informed the accepted Phase 1 decisions.
+- [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) — accepted and authoritative for Phase 1.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

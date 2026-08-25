@@ -61,36 +61,31 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 - Dependency vulnerability remediation remains deferred. Do not run `npm audit fix` automatically.
 - Node runtime and dependency-directory ownership cleanup remain environment maintenance, separate from product/security commits.
 
-## CRM / Strategic Account Management decisions
+## CRM / Strategic Account Management deferred work
 
-The architecture assessment is complete, but its recommendations remain a proposal for human review. Do not begin implementation until the following decisions are made:
+The Phase 1 architecture and policies are accepted. When implementation is explicitly authorized, work begins with Contact in `core-service`. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies.
 
-- Which roles may view or modify Contacts, Opportunities, Interactions, FollowUps, margins, vendor leakage, internal notes, and account risks?
-- Must all CRM reads and mutations require an explicitly selected Facility, including administrators?
-- How should Organization-wide access be represented when current JWT and tenant conventions are Facility-oriented?
-- Can a Contact belong to several Facilities within one Organization, and what is the Contact deduplication boundary?
-- What does Opportunity estimated value mean for recurring CAM/service revenue versus one-time capital or training opportunities?
-- Which opportunity stage transitions require audit history or elevated authorization?
-- What thresholds define approaching expiration, poor margin, high service cost, rising maintenance cost, and repeated failure?
-- What retention and audit requirements apply to commercially sensitive interactions and strategic notes?
-- How should won Opportunities hand off to Contract draft creation without bypassing Contract numbering, audit, tenant, financial, or lifecycle rules?
+### Vendor ownership and tenant behavior
 
-### Proposed direction awaiting acceptance
+- Static inspection found inconsistent authentication and Facility/tenant scoping in active core-service Vendor routes. The active Vendor schema uses `tenantId`, but current JWT context does not establish that identifier, and unmounted contract-service Vendor code creates an unresolved ownership boundary.
+- Runtime verification and an explicit ownership/tenant policy are required before CRM depends on Vendor references.
+- This prerequisite does not block Contact implementation. Phase 1 CRM must avoid Vendor dependencies until it is resolved.
+- Do not revive unmounted Customer/Vendor implementations or add cross-service Vendor writes implicitly.
 
-- CRM lives initially in `core-service`.
-- Existing Organization groups Facilities; Facility is the Phase 1 CRM account/workspace; no separate Account model yet.
-- New focused entities are Contact, Opportunity, Interaction, and FollowUp.
-- Contract-service remains authoritative for Contract financial and lifecycle semantics.
-- Strategic-account signals are dynamic read models first, with explicit idempotent conversion to Opportunities.
-- Renewal is initially a Contract-expiration signal plus renewal-type Opportunity, not a separate Renewal aggregate.
-- Phase 1 is a Facility Strategic Account view and core CRM workflow; integrations, event infrastructure, complex hierarchy, workflow automation, and AI recommendations are deferred.
+### Deferred authorization and Organization capabilities
 
-### Directly relevant repository risks requiring resolution
+- Phase 1 uses canonical `admin`, `technician`, `customer`, and `viewer` roles. A granular CRM capability/role system is deferred until actual usage requires it.
+- Organization-wide views may aggregate only already-authorized Facilities. Separate Organization-wide authorization grants are deferred.
 
-- Static inspection found core Vendor routes with inconsistent authentication/tenant scoping, while the Vendor schema uses `tenantId` that current JWT context does not establish. Runtime verification is needed before CRM relies on Vendor relationships.
-- Organization has a schema and Facility reference but no active management workflow or established authorization policy.
-- Generic tenant filters can include global records. Proposed CRM entities require strict Facility filters without global-record behavior.
-- Unmounted contract-service Customer/Vendor modules must not be revived without an explicit ownership decision.
-- Facility-wide uncovered-equipment, rising-cost, and repeated-failure signals need efficient queries and agreed business definitions before they can be claimed as supported behavior.
+### Deferred CRM workflows
 
-See [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for evidence, domain recommendations, MVP scope, and implementation sequence.
+- Contact duplicate detection produces warnings only. An audited Contact merge workflow is deferred.
+- Interactions retain creator/updater and timestamps, but a formal retention policy and retention workflow are deferred.
+- Automatic Opportunity-to-Contract draft handoff is deferred. A manually created Contract may later be linked without rewriting Opportunity history.
+
+### Deferred signals
+
+- Percentile/high-service-cost and trend signals are deferred until production history supports meaningful thresholds.
+- Facility-wide uncovered-equipment, rising-cost, repeated-failure, and aging-concentration signals require efficient queries and accepted business definitions before implementation.
+
+See the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for assessment evidence and the [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) for the accepted authoritative policy.
