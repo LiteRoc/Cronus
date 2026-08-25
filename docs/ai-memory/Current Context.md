@@ -4,24 +4,39 @@
 
 ## Checkpoint
 
-- Commit: `157956fe9ddcb17ef9a795ac0cfc23ee13f27b2b`
-- Message: `docs: record CRM architecture assessment`
-- Local `main` and the working tree were verified at this commit before the current documentation update.
-- Remote branch state was not reverified during this documentation update.
+- Phase 1A branch base: `4d4d00ce27f55755930ef5e45701573250f20059`
+- Base message: `docs: accept CRM phase 1 architecture and policies`
+- Active implementation branch: `feat/crm-contacts`.
+- The Contact implementation and verification state below is recorded by the commit containing this file; use Git for its exact commit identifier and remote state.
 
 ## Current engineering priority
 
-The CRM / Strategic Account Management Phase 1 architecture and policies are accepted. This documentation update does not authorize implementation; when implementation is explicitly authorized, it will begin with Contact in `core-service`.
+CRM / Strategic Account Management Phase 1 architecture and policies are accepted. Phase 1A Contact backend implementation in `core-service` is complete and verified on `feat/crm-contacts`; frontend work and the remaining CRM entities are not implemented.
 
 At the start of the next session:
 
 1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
-4. If implementation is authorized, begin with Contact in `core-service` and establish its Facility, tenant, and authorization invariants before broader CRM behavior.
+4. Treat the Phase 1A Contact backend and its Facility, tenant, authorization, and duplicate-disclosure invariants as the implementation baseline for subsequent CRM work.
 5. Keep Contact implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
 
-Do not begin CRM implementation merely because the assessment exists. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+Do not begin additional CRM implementation merely because Phase 1A is complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+
+## CRM Phase 1A Contact backend — complete
+
+- Contact is implemented in `core-service` with strict, explicit `x-facility-id` context on every request; administrators cannot perform unscoped Contact operations.
+- Canonical `admin` and `technician` roles may create, read, and update Contacts within their Facility authority. Archive is admin-only. Customer, viewer, missing, legacy `tech`, and unknown roles are denied.
+- Contacts derive `organizationId` and immutable `primaryFacilityId` from the selected Facility. Same-Organization multi-Facility association is supported, with technician authorization required for newly associated Facilities.
+- Reads are scoped through `facilityIds`; updates and archive require primary-Facility context. Out-of-scope records return 404.
+- Duplicate warnings are advisory only. Visible matches may identify matching fields and Contacts; inaccessible same-Organization matches produce only a generic restricted warning with no identity, Facility, count, or matched-field disclosure. Cross-Organization matches produce no warning.
+- Endpoints: `GET /contacts`, `GET /contacts/:id`, `POST /contacts`, `PATCH /contacts/:id`, and `PATCH /contacts/:id/archive`.
+- Phase 1A does not implement hard delete, restore, merge, primary-Facility reassignment, Vendor coupling, Contract coupling, or frontend behavior.
+- Verification passed: Contact 56/56; complete safe core-service suite 59/59; core authentication security 31/31; lifecycle 3/3; syntax and whitespace checks; and a fail-closed loopback-only MongoMemoryServer harness with runtime downloads disabled.
+- Lockfile comparison against `4d4d00ce27f55755930ef5e45701573250f20059` found no version, resolution, or integrity drift in the 719 pre-existing package paths. Only the two test dependencies and their required transitive packages were added.
+- System Node 18 still produces the allowed `mongodb-memory-server` engine warning; runtime standardization remains deferred environment work.
+
+See the [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) for implementation and verification detail.
 
 ## CRM / Strategic Account Management — accepted Phase 1 architecture
 
@@ -137,4 +152,5 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [Authentication remediation journal](<../engineering-journal/2026-08-09 - Authentication Security Remediation.md>)
 - [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) — assessment and proposal that informed the accepted Phase 1 decisions.
 - [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) — accepted and authoritative for Phase 1.
+- [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) — verified Contact backend implementation and tenant/security baseline.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

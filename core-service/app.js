@@ -46,6 +46,7 @@ const vendorRouter = require('./src/routers/vendorRouter');
 const facilityRouter = require('./src/routers/facilityRouter');
 const departmentRouter = require('./src/routers/departmentRouter');
 const manufacturerRouter = require('./src/routers/manufacturerRouter');
+const contactRouter = require('./src/routers/contactRouter');
 const { attachContractClient } = require('./src/middleware/forwardContractHeaders');
 
 // View Engine
@@ -95,6 +96,7 @@ app.use('/vendors', vendorRouter);
 app.use('/facilities', facilityRouter);
 app.use('/departments', departmentRouter);
 app.use('/manufacturers', manufacturerRouter);
+app.use('/contacts', contactRouter.contactJsonErrorHandler, contactRouter);
 
 //scheduleMaintenanceJobs();
 
@@ -129,4 +131,3 @@ app.get('/dashboard', authenticateToken, (req, res) => {
     console.log('Users role:', req.user.role); // Debug log
     res.render('dashboard', { user: req.user, title: 'User Dashboard' }); // Pass user info to the dashboard page
 });
-

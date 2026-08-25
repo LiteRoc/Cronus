@@ -63,13 +63,13 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## CRM / Strategic Account Management deferred work
 
-The Phase 1 architecture and policies are accepted. When implementation is explicitly authorized, work begins with Contact in `core-service`. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies.
+The Phase 1 architecture and policies are accepted, and Phase 1A Contact backend implementation in `core-service` is complete and verified. The following items remain genuinely deferred or unresolved; they do not reopen the accepted Phase 1 policies or Phase 1A invariants.
 
 ### Vendor ownership and tenant behavior
 
 - Static inspection found inconsistent authentication and Facility/tenant scoping in active core-service Vendor routes. The active Vendor schema uses `tenantId`, but current JWT context does not establish that identifier, and unmounted contract-service Vendor code creates an unresolved ownership boundary.
 - Runtime verification and an explicit ownership/tenant policy are required before CRM depends on Vendor references.
-- This prerequisite does not block Contact implementation. Phase 1 CRM must avoid Vendor dependencies until it is resolved.
+- This prerequisite did not block Contact implementation. Future CRM work must avoid Vendor dependencies until it is resolved.
 - Do not revive unmounted Customer/Vendor implementations or add cross-service Vendor writes implicitly.
 
 ### Deferred authorization and Organization capabilities
