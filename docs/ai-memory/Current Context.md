@@ -4,24 +4,24 @@
 
 ## Checkpoint
 
-- FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
-- Checkpoint message: `feat: add CRM follow-up management`
-- Active implementation branch: `feat/crm-followups`.
-- The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
+- Interaction backend base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
+- Intended checkpoint message: `feat: add CRM interaction management`.
+- Active implementation branch: `feat/crm-interactions`.
+- The Contact, FollowUp, and Interaction implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
 
-CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the remaining CRM entities are not implemented.
+CRM / Strategic Account Management Phase 1 architecture and policies are accepted. Contact and FollowUp are complete and merged. The Facility-scoped Interaction Phase 1 backend, the third CRM vertical slice, is complete and verified on `feat/crm-interactions`; its frontend remains outstanding. Opportunity is not implemented.
 
 At the start of the next session:
 
 1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
-4. Treat the complete Contact and FollowUp vertical slices, including their Facility, tenant, authorization, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
+4. Treat the complete Contact and FollowUp vertical slices and the verified Interaction backend, including their Facility, tenant, authorization, visibility, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
 5. Keep CRM implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
 
-Do not begin additional CRM implementation merely because Contact and FollowUp are complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
+Do not begin additional CRM implementation merely because the Interaction backend is complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 
 ## CRM Phase 1A Contact vertical slice — complete
 
@@ -64,6 +64,24 @@ See the [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM 
 - The Node 18/MongoMemoryServer engine and system-binary warnings remain deferred environment issues.
 
 See the [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) for implementation and verification detail.
+
+## CRM Interaction Phase 1 backend — complete
+
+- Interaction is the third CRM vertical slice after Contact and FollowUp. Its backend is implemented in `core-service`; frontend work remains outstanding.
+- Every endpoint requires canonical `admin` or `technician` authorization and explicit valid `x-facility-id`. Individual-record queries include the selected Facility and `archivedAt: null`; no generic tenant filter or global-record behavior is used.
+- Types are `meeting`, `call`, `email`, `site_visit`, and `note`. Directions are `inbound`, `outbound`, and `internal`. `summary` is required and `body` is optional.
+- Visibility is `operational` or `restricted`. Admins may create, read, and update either. Technicians may create, read, and update operational records only.
+- Restricted records are filtered at the persistence-query level for technicians. They do not appear in lists, search results, counts, pagination totals, detail, or update behavior; direct lookup returns a non-disclosing 404. A technician requesting the restricted visibility filter receives an empty result.
+- Zero or multiple Contacts may be linked. IDs are deduplicated, and every Contact must be active, non-archived, and associated with the selected Facility. Missing or inaccessible Contacts share a non-disclosing validation response.
+- `occurredAt` and list date filters require timezone-explicit ISO-8601 timestamps. Interactions more than five minutes in the future are rejected; the tolerance covers clock skew, not scheduled activity.
+- Interactions remain editable. `createdBy` and `createdAt` are preserved, while `updatedBy` and `updatedAt` track edits. Formal revision history is deferred.
+- Archive is admin-only. There is no hard delete or restore. Mutations use validated document `save()`, optimistic concurrency, paired archive audit fields, and query-mutation protections.
+- Endpoints: `GET /interactions`, `GET /interactions/:id`, `POST /interactions`, `PATCH /interactions/:id`, and `PATCH /interactions/:id/archive`.
+- No Contract, Vendor, Asset, FollowUp, Opportunity, or signal linkage is included.
+- Verification passed: Interaction 54/54; complete safe core-service 220/220; authentication security 31/31; Contract lifecycle regression 11/11; JavaScript syntax, `npm ls --depth=0`, `git diff --check`, whitespace, Facility/visibility/security, and prohibited-coupling scans.
+- Tests used the fail-closed loopback-only MongoMemoryServer harness with runtime downloads disabled. The existing Node/MongoMemoryServer environment warning and experimental Jest VM-module warnings remain deferred.
+
+See the [CRM Interaction Phase 1 backend journal](<../engineering-journal/2026-08-26 - CRM Interaction Phase 1 Backend.md>) for implementation and verification detail.
 
 ## CRM / Strategic Account Management — accepted Phase 1 architecture
 
@@ -181,4 +199,5 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) — accepted and authoritative for Phase 1.
 - [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) — verified Contact vertical slice and tenant/security baseline.
 - [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) — verified end-to-end FollowUp workflow, lifecycle integrity, and Facility-scoping baseline.
+- [CRM Interaction Phase 1 backend journal](<../engineering-journal/2026-08-26 - CRM Interaction Phase 1 Backend.md>) — verified Interaction backend, restricted-visibility, audit, and Facility-scoping baseline.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

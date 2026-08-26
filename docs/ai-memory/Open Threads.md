@@ -63,7 +63,7 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## CRM / Strategic Account Management deferred work
 
-The Phase 1 architecture and policies are accepted. The Contact and Facility-scoped FollowUp vertical slices are complete and verified. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
+The Phase 1 architecture and policies are accepted. Contact and Facility-scoped FollowUp are complete and verified. The Facility-scoped Interaction backend, the third CRM vertical slice, is complete and verified; its frontend remains outstanding. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
 
 ### Vendor ownership and tenant behavior
 
@@ -80,7 +80,9 @@ The Phase 1 architecture and policies are accepted. The Contact and Facility-sco
 ### Deferred CRM workflows
 
 - Contact duplicate detection produces warnings only. An audited Contact merge workflow is deferred.
-- Interactions retain creator/updater and timestamps, but a formal retention policy and retention workflow are deferred.
+- Interactions retain creator/updater and timestamps and remain editable in Phase 1. Formal revision history, retention policy, and retention workflow are deferred.
+- Opportunity linkage is deferred until the Opportunity vertical slice establishes its strict Facility-scoped validation boundary.
+- Contract linkage is deferred until an authenticated, strict Facility-scoped cross-service validation boundary is accepted.
 - Automatic Opportunity-to-Contract draft handoff is deferred. A manually created Contract may later be linked without rewriting Opportunity history.
 
 ### Deferred signals
@@ -93,5 +95,6 @@ The Phase 1 architecture and policies are accepted. The Contact and Facility-sco
 - The existing TypeScript `ignoreDeprecations: "6.0"` setting is incompatible with the installed TypeScript 5.6 compiler; Contact verification used the established command-line compatibility override. Do not mix that configuration repair into CRM feature work.
 - The existing ESLint configuration uses invalid `"ignore"` rule severity values and prevents the established lint command from starting. Repair remains separate maintenance.
 - The existing Vite large-bundle warning and Node engine warning remain deferred environment/build work.
+- Core-service backend tests continue to use experimental Jest VM-module/specifier-resolution flags; this warning remains deferred environment work.
 
 See the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for assessment evidence and the [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) for the accepted authoritative policy.
