@@ -42,7 +42,8 @@ assetRouter.get('/distinct/models', authenticateToken, async (req, res) => {
 assetRouter.get('/', authenticateToken, async (req, res) => {
 
   const tenantFilter = buildTenantFilter(req);
-  const base = { ...tenantFilter, status: { $ne: 'Archived' }};
+  // Keep authorization separate from mutable operational/search filters.
+  const base = { $and: [tenantFilter], status: { $ne: 'Archived' } };
 
     const { search, manufacturer, model, status, page = 1, limit = 10, facilityId, departmentId, templateId, ctrlNumber, replacementRecommended, ageExceeded, highMaintenance, ccrAboveBenchmark } = req.query;
 
@@ -304,9 +305,12 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     }
 
     const duplicate = await Asset.findOne({
-      $or: [
-        { ctrlNumber: payload.ctrlNumber },
-        ...(payload.serialNumber ? [{ serialNumber: payload.serialNumber }] : []),
+      $and: [
+        buildTenantFilter(req),
+        { $or: [
+          { ctrlNumber: payload.ctrlNumber },
+          ...(payload.serialNumber ? [{ serialNumber: payload.serialNumber }] : []),
+        ] },
       ],
     });
 

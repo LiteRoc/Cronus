@@ -1,6 +1,6 @@
-# Gitea #3 — Facility query isolation reproduction
+# Gitea #3 — Facility query isolation reproduction and remediation
 
-## Scope and status
+## Original reproduction scope and status
 
 Reproduction only, completed against local `main` commit `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
 Branch: `fix/facility-query-isolation`; worktree: `/tmp/cronus-facility-query-isolation`.
@@ -19,7 +19,7 @@ The existing `src/test/mongoMemoryHarness.mjs` replaces configured `MONGO_URI` w
 
 Environment: Node 18.19.1; cached MongoDB binary 8.2.1. MongoMemoryServer warns that Node is below its recommended version; the final endpoint executions nevertheless completed. No dependencies or binaries were downloaded. Existing core/contract dependency directories were temporarily linked into this worktree; those symlinks were removed after verification.
 
-The default Jest configuration cannot load the existing mixed CommonJS/ESM router graph. A dedicated opt-in configuration transforms only four existing ESM helpers (forwardContractHeaders, lifecycleMaintenance, templateLifecycleBenchmarks, lifecycleBenchmark) using already-installed Babel tooling. It does not transform the tested routers or tenant/auth middleware and does not mock persistence, authentication, or queries. The CommonJS transform plugin resolves from the host's `/usr/share/nodejs`; this is a local tooling prerequisite, not a newly declared dependency. The reproduction filename deliberately falls outside the default baseline test match.
+At the original reproduction checkpoint, the default Jest configuration could not load the existing mixed CommonJS/ESM router graph. A dedicated opt-in configuration transforms only four existing ESM helpers (forwardContractHeaders, lifecycleMaintenance, templateLifecycleBenchmarks, lifecycleBenchmark) using already-installed Babel tooling. It does not transform the tested routers or tenant/auth middleware and does not mock persistence, authentication, or queries. The CommonJS transform plugin resolves from the host's `/usr/share/nodejs`; this is a local tooling prerequisite, not a newly declared dependency. The reproduction filename deliberately falls outside the default baseline test match.
 
 ## 1. Asset search — CONFIRMED BUG
 
@@ -92,7 +92,7 @@ Severity assessment: **P1 / moderate confidentiality impact** (identifier and ex
 
 Proposal only: compose duplicate candidates with the caller's authorized visibility and validated creation Facility. Return duplicate identifiers only for accessible records; retain legitimate same-Facility warnings. Do not redefine global uniqueness or broaden create permissions in this fix.
 
-## Verification results
+## Original reproduction verification results
 
 Final opt-in reproduction suite: **29 tests: 11 controls passed, 18 security assertions intentionally failed**.
 
@@ -124,7 +124,7 @@ From `core-service/`:
 env MONGOMS_SYSTEM_BINARY=/tmp/cronus-mongodb-cache/mongod-x64-debian-8.2.1 MONGOMS_VERSION=8.2.1 MONGOMS_RUNTIME_DOWNLOAD=false npm test -- --config jest.facility-reproduction.config.cjs --runInBand
 ```
 
-Expected exit status: 1, with exactly the security invariants red. To run only the 11 controls, append `-t BASELINE:`. Existing core baselines were run with the default configuration and explicit contact endpoint, follow-up endpoint, and lifecycle utility test paths. The authentication suite was run from `contract-service/` with `src/security/_tests_/coreAuthentication.security.test.js`, using the same MongoMemoryServer environment settings.
+At evidence checkpoint `5979d174051d1d883c853a63bc843e8c43b31541`, expected exit status: 1, with exactly the security invariants red. After the remediation below, the same command returns exit status 0 with all 29 cases passing. To run only the 11 controls, append `-t BASELINE:`. Existing core baselines were run with the default configuration and explicit contact endpoint, follow-up endpoint, and lifecycle utility test paths. The authentication suite was run from `contract-service/` with `src/security/_tests_/coreAuthentication.security.test.js`, using the same MongoMemoryServer environment settings.
 
 Transient detailed results are in `/tmp/cronus-facility-reproduction-results.json`, `/tmp/cronus-facility-core-baseline.json`, `/tmp/cronus-facility-auth-baseline.json`, and `/tmp/cronus-facility-failclosed.json`.
 
@@ -153,3 +153,103 @@ test/configuration/transform artifacts. The assertions remain unchanged.
 Runtime tests are not rerun during preservation; syntax, whitespace, and
 documentation-scope checks are performed without accessing databases,
 containers, dependencies, runtime services, or scheduled jobs.
+
+## Remediation checkpoint — September 15, 2026
+
+**Remediated and verified on `fix/facility-query-isolation`; not merged into
+main. Gitea #3 remains open pending merge.** The user authorized remediation
+after reviewing the preserved reproduction evidence, then authorized this
+documentation, commit, and push checkpoint. No production exploitation is
+claimed.
+
+### Branch baseline and unchanged evidence
+
+The branch starts from local main
+`3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`, followed by the reproduction
+evidence commit `5979d174051d1d883c853a63bc843e8c43b31541`.
+The original 11 passing controls / 18 intentionally failing security
+assertions and four P0/P1 findings above describe that original tested base.
+The reproduction test file, opt-in configuration, and test-only transform
+remain byte-identical to the evidence checkpoint. All 18 formerly failing
+assertions became green because production behavior changed; none were
+weakened, removed, inverted, skipped, or rewritten.
+
+### Four scoped fixes
+
+- **P0 — Asset search:** retain the existing tenant predicate in a separate
+  `$and` clause. Search and operational filters compose with it; list
+  retrieval, count/totals, and pagination use the same complete predicate.
+  Technician and applicable customer cases pass.
+- **P0 — Work Order search:** retain tenant authorization in `$and` while
+  applying `q` and operational filters. Ordinary and analytics retrieval
+  and counts share that boundary. Customer Work Order denial is preserved.
+- **P1 — Template lifecycle:** require a valid explicit `x-facility-id`
+  and authorize it through the existing operational tenant policy. Use
+  that selected Facility for the Asset population, lifecycle summary, and
+  tenant benchmark input. Missing/malformed selection returns 400;
+  unauthorized selection returns 403. Token/default absence no longer
+  removes scope. No Organization-wide aggregation was introduced.
+- **P1 — Asset duplicate warnings:** intersect duplicate candidates with
+  existing authorized visibility. Inaccessible duplicates cannot contribute
+  foreign identifiers to the tested warning response. Accessible local and
+  global duplicate warnings remain useful. Existing unique-tag conflicts
+  retain their 409 behavior; no merging or creation-policy redesign occurs.
+
+Existing generic/global-record and administrator list behavior remains
+preserved and covered by compatibility tests. The benchmark service's
+separate global facet is unchanged; its broader policy question is not
+resolved by this fix. No additional tenant-predicate overwrite was found
+in the immediately adjacent query construction reviewed for this issue.
+
+### Permanent regression integration
+
+`facilityQueryIsolation.test.mjs` imports the original 29-case evidence
+suite unchanged so it runs in normal core-service regression.
+`facilityIsolationCompatibility.test.mjs` adds 16 cases for global/admin
+visibility, customer pagination, filtered analytics, selected-Facility
+validation, and duplicate privacy. Together these provide **45/45**
+permanent Facility-isolation cases.
+
+The default Jest configuration now uses the existing narrowly scoped
+transform for four mixed-module helpers. No production router, authentication,
+or persistence behavior is mocked or transformed. The existing local Babel
+and system-plugin prerequisites still apply; no dependencies or lockfiles
+were changed.
+
+### Fresh checkpoint verification
+
+- Original opt-in reproduction suite: **29/29 passed** — all 11 original
+  controls and all 18 formerly failing security assertions.
+- Permanent Facility suites: **45/45 passed**.
+- Complete safe core-service suite on this branch: **211/211 passed,
+  7/7 suites**.
+- Core authentication security suite: **31/31 passed**.
+- JavaScript syntax checks, `npm ls --depth=0` in both services,
+  `git diff --check`, whitespace checks, and focused security/scope review
+  passed.
+
+The shared pre-Interaction core baseline has 166 tests. The historical
+Interaction branch count is 166 + 54 Interaction tests = 220. This branch
+has 166 + 45 Facility tests = 211. Thus the nine-test net difference reflects
+both the absent 54 Interaction tests and the added 45 Facility tests, not
+missing baseline coverage. No tests or implementation were changed to
+equalize branch counts, and Interaction was not imported or merged.
+
+Fail-closed synthetic persistence is preserved: configured and alternate
+database targets are rejected by the passing guard control; the earlier
+deliberate missing-binary probe failed at setup before connection. Downloads
+remain disabled and only the cached MongoDB binary is used. Fresh checks
+use isolated MongoMemoryServer databases and minimal router applications,
+without production startup imports. Existing dependency directories were
+temporarily linked for verification without installation.
+
+No real-data or deployed-runtime verification was performed. No real
+database, Docker, runtime service, scheduled job, or other Gitea issue was
+accessed. Existing experimental-module and duplicate-index warnings remain
+outside this fix. These results establish isolated behavior, not deployed
+verification or resolution in main.
+
+Fresh transient results: `/tmp/cronus-facility-checkpoint-reproduction.json`,
+`/tmp/cronus-facility-checkpoint-permanent.json`,
+`/tmp/cronus-facility-checkpoint-core.json`, and
+`/tmp/cronus-facility-checkpoint-auth.json`.

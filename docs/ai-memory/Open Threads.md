@@ -2,6 +2,25 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
+## Stabilization — Gitea #3 awaiting merge
+
+The four reproduced defects are remediated on `fix/facility-query-isolation`,
+based on main `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`:
+P0 Asset and Work Order search scope loss; P1 template lifecycle selected
+Facility scope and Asset duplicate-warning identifier disclosure.
+Verification: 29/29 original reproduction cases unchanged, 45/45 permanent
+Facility cases, 211/211 branch-safe core tests, and 31/31 authentication tests.
+
+This is isolated synthetic verification, not production exploitation or
+deployed-runtime verification. The fix is **not merged into main**; Gitea #3
+remains open pending merge. See the
+[September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>)
+for original evidence, remediation, and remaining compatibility limits.
+
+Other September assessment findings remain hypotheses unless separately
+reproduced. Interaction frontend and Opportunity remain paused. Preserve
+the separate Interaction backend branch; this checkpoint does not merge it.
+
 ## Completed baseline: core-service authentication hardening
 
 Core-service authentication hardening is complete. The authentication baseline improved from 22/31 passing tests before remediation to 31/31 afterward.

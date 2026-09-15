@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const EquipmentTemplate = require('../models/EquipmentTemplate');
 const Asset = require('../models/Asset');
+const { buildTenantFilter } = require('../middleware/tenantScope');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
 const { extractDIFromUDI, fetchDeviceFromGUDID, mapGUDIDToTemplatePayload, fetchClassificationByProductCode } = require('../helpers/templateHelpers');
 const { getTemplateMaintenanceBenchmarks } = require('../services/templateLifecycleBenchmarks');
@@ -469,6 +470,21 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const facilityId = String(req.headers['x-facility-id'] || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(facilityId)) {
+      return res.status(400).json({ error: 'A valid x-facility-id header is required' });
+    }
+
+    let tenantFilter;
+    try {
+      tenantFilter = buildTenantFilter(req);
+    } catch (error) {
+      if (error.message.startsWith('Forbidden:')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      throw error;
+    }
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid template ID format' });
     }
@@ -498,11 +514,10 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
       status: { $ne: 'Retired' },
     };
 
-    const facilityId = req.user?.facilityId;
-
-    if (facilityId && mongoose.Types.ObjectId.isValid(facilityId)) {
-      assetQuery.facilityId = new mongoose.Types.ObjectId(facilityId);
-    }
+    // This summary is Facility-specific; intentional global benchmark policy
+    // remains in the benchmark service's separate global facet.
+    assetQuery.$and = [tenantFilter];
+    assetQuery.facilityId = new mongoose.Types.ObjectId(facilityId);
 
     const assets = await Asset.find(assetQuery)
       .select(
@@ -560,10 +575,7 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
         : 0;
 
     const benchmarks = await getTemplateMaintenanceBenchmarks(id, {
-      facilityId:
-        facilityId && mongoose.Types.ObjectId.isValid(facilityId)
-          ? facilityId
-          : undefined,
+      facilityId,
     });
 
     return res.json({
