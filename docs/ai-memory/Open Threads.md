@@ -4,7 +4,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Completed code remediation — Gitea #3 merged into main
 
-Authoritative main `4771555ed50044bedaa464127a2fe68e6f32c769` includes
+The #3 main checkpoint `4771555ed50044bedaa464127a2fe68e6f32c769` includes
 fix `c89f22193e9eb3ca810af7087bb6392c15897ccc`. Four defects reproduced
 against `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4` are resolved:
 
@@ -19,7 +19,7 @@ and 18 formerly failing security assertions. Merged-main verification passed
 tests. Intended admin/global behavior remains preserved. These are isolated
 synthetic results, not production exploitation or deployed verification.
 See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea #3 is closed. Current main `a7ad89724722b999bb0b201ae894142eae82c8ea` also includes the verified #4 remediation.
+Gitea #3 is closed. Current main `1122219e401d272377bdb93daf98bb8fb5ec8554` includes verified #3/#4/#5 remediation.
 
 Stabilization remains the priority. Other September findings remain
 hypotheses/unresolved according to their recorded status. Gitea #2 tracks
@@ -36,7 +36,7 @@ regressions remain intact in isolated tests. Syntax, dependency consistency,
 whitespace, and focused visibility/scope checks passed. No real-data or
 deployed-runtime verification was performed. Interaction remains paused.
 
-Latest #4 compatibility verification (2026-09-15): main
+Earlier #4 compatibility verification (2026-09-15): main
 `a7ad89724722b999bb0b201ae894142eae82c8ea` is incorporated without history
 rewriting. Interaction 54/54, Vendor 90/90, Facility 45/45 and complete safe core
 355/355 (166 shared + 54 Interaction + 45 Facility + 90 Vendor) passed;
@@ -45,7 +45,34 @@ Restricted Interaction visibility, Contact validation, and #3/#4 protections
 remain intact. Syntax, dependency and whitespace checks passed. #3 and #4 code
 remediation is resolved on main; Gitea records the final #4 closure separately.
 Vendor creation remains disabled, tenantId normalization deferred, features paused,
-and #5 not started. No real-data or deployed-runtime verification occurred.
+at that checkpoint. No real-data or deployed-runtime verification occurred.
+
+## Gitea #5 — code merged and verified; Interaction compatibility passed
+
+- Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
+  fast-forward. #5 code remediation is resolved on main; the issue remains open
+  at this checkpoint pending the final Gitea comment/closure; Interaction compatibility has passed. Evidence checkpoint:
+  `72837f3c77f39fdba96055b03e8be8c93faa8165`.
+- Parent Work Order Facility scope, equipment role/reference checks, narrow
+  responses, protected ordinary PUT and safe Procedure/result errors are fixed on
+  merged main. Tests: original security 20/20 unchanged; permanent #5 295/295;
+  core 596/596; Facility 45/45; Vendor 90/90; auth 31/31; frontend equipment 5/5.
+- Frozen pre-policy expectations remain historical, not the normal green suite.
+- Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,
+  #9 procedure units and unmounted labor/travel PATCH helpers remain deferred.
+- #6 has not started. New feature development, Interaction frontend and Opportunity
+  remain paused. Do not merge Interaction into main.
+- See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
+
+Latest #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
+is incorporated without rewriting Interaction history. Interaction 54/54,
+Work Order security 295/295, Vendor 90/90, Facility 45/45 and complete safe core
+650/650 (166 shared + 54 Interaction + 45 Facility + 90 Vendor + 295 Work Order)
+passed. Authentication 31/31 and frontend equipment compatibility 5/5 passed;
+syntax, dependency and whitespace checks passed. Restricted Interaction visibility,
+Contact validation and #3/#4/#5 protections coexist. #7 costs and #9 units remain
+unchanged. No real-data/deployed-runtime verification occurred. #6 has not started;
+Interaction frontend and Opportunity remain paused. Gitea records final #5 closure.
 
 ## Completed baseline: core-service authentication hardening
 
@@ -113,7 +140,7 @@ The Phase 1 architecture and policies are accepted. Contact and Facility-scoped 
 ### Gitea #4 — code resolved on main; Vendor normalization deferred
 
 - Remediation `942233fa1974ee8ca5e090b625583f064e507a0f` is merged and verified
-  on main. The Interaction compatibility gate has passed; final closure is recorded in Gitea. Evidence checkpoint: `59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
+  on main. Gitea #4 is closed after the Interaction compatibility gate. Evidence checkpoint: `59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
 - Vendor is shared reference data, not Facility-owned CRM. Admin read/update/archive,
   technician restricted read, all other roles denied; no anonymous access. Creation
   is disabled pending ownership normalization. Notes/preferredVendor are admin-only.
@@ -129,7 +156,7 @@ The Phase 1 architecture and policies are accepted. Contact and Facility-scoped 
   Vendor suite is the ongoing regression authority. Full core 301/301 and relevant
   auth/history/analytics/frontend checks passed; no real-data/runtime verification.
 - See the [Vendor journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
-- Gitea #5 has not started. New features remain paused. Do not revive unmounted
+- New features remain paused. Do not revive unmounted
   Vendor modules or introduce implicit CRM Vendor dependencies.
 
 ### Deferred authorization and Organization capabilities
