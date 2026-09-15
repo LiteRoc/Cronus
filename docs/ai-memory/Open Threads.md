@@ -18,21 +18,22 @@ Evidence is isolated and synthetic, not production exploitation or
 deployed-runtime verification. See the
 [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
 Gitea #3 is closed following verified main merge and paused Interaction
-compatibility. The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`; current main is
-`a7ad89724722b999bb0b201ae894142eae82c8ea`, with #3 and #4 resolved/merged.
+compatibility. The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`; main now includes
+#5 fix `30e521113749b01987ffbbb10381ed80cf736d0f`, with #3/#4/#5 code resolved/merged.
 
 Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 The Interaction backend branch must not be merged into main.
 
-## Gitea #5 — verified remediation awaiting merge
+## Gitea #5 — code merged and verified; compatibility/closure checkpoint pending
 
-- `fix/workorder-subresource-ownership` contains verified remediation; #5 remains
-  open and is not resolved on main. Evidence checkpoint:
+- Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
+  fast-forward. #5 code remediation is resolved on main; the issue remains open
+  pending paused Interaction compatibility and final closure. Evidence checkpoint:
   `72837f3c77f39fdba96055b03e8be8c93faa8165`.
 - Parent Work Order Facility scope, equipment role/reference checks, narrow
   responses, protected ordinary PUT and safe Procedure/result errors are fixed on
-  this branch. Tests: original security 20/20 unchanged; permanent #5 295/295;
+  merged main. Tests: original security 20/20 unchanged; permanent #5 295/295;
   core 596/596; Facility 45/45; Vendor 90/90; auth 31/31; frontend equipment 5/5.
 - Frozen pre-policy expectations remain historical, not the normal green suite.
 - Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,

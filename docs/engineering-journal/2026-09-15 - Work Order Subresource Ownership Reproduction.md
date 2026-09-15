@@ -487,3 +487,32 @@ schema/unit, Part ownership, dependency/lockfile, Contract/Vendor/CRM implementa
 Interaction or Opportunity change is included. No real-data/deployed-runtime
 verification was performed. Authorized publication consists only of this fix-branch
 commit/push and a #5 checkpoint comment; no merge or issue closure.
+
+
+## Verified main merge — 2026-09-15
+
+Main advanced from `a7ad89724722b999bb0b201ae894142eae82c8ea` by clean fast-forward
+to fix `30e521113749b01987ffbbb10381ed80cf736d0f`. No squash, rebase, implementation
+conflict or history rewrite occurred. Earlier fix-branch-only status is historical.
+
+Fresh merged-main checks passed: permanent #5 295/295, original security 20/20
+unchanged, Facility 45/45, Vendor 90/90, complete safe core 596/596, authentication
+31/31 and frontend equipment compatibility 5/5. Baseline-compatible TypeScript,
+JavaScript syntax, npm dependency consistency, whitespace and security scope
+checks passed. The reused frontend dependency tree still reports extraneous
+warnings; no dependencies or lockfiles changed.
+
+The passing cases verify foreign-parent Parts read/add/update/removal denial;
+scoped equipment operations and same-Facility Asset validation without foreign
+identity disclosure; canonical mutation roles and acknowledgement-only responses;
+ordinary PUT allowlisting against nested, identity, actor, audit, deletion, cost,
+dotted-path and operator injection; safe Procedure/result ID errors and preserved
+foreign-parent denial. Costs (#7), units (#9) and Part/Procedure/Task ownership
+models remain unchanged. Fail-closed synthetic persistence was used throughout;
+no real-data or deployed-runtime verification was performed.
+
+This documentation-only checkpoint records #3/#4/#5 code remediation as merged
+and verified on main. #6 has not started; #7/#9 remain separate and new features
+remain paused. Gitea #5 final closure is pending the separately verified merge of
+main into paused Interaction. Interaction must not be merged into main. Publication
+and final issue status are recorded by Git refs and Gitea after those actions.

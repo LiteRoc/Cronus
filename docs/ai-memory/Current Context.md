@@ -6,7 +6,7 @@
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Current stabilization work: `fix/workorder-subresource-ownership`; #5 is remediated and verified, not merged. Main remains `a7ad89724722b999bb0b201ae894142eae82c8ea`, with #3/#4 resolved and merged.
+- Current stabilization branch: `main`; #3/#4/#5 code remediation is merged and verified. #5 fix: `30e521113749b01987ffbbb10381ed80cf736d0f`.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -46,13 +46,15 @@ Verification: 10/10 unchanged original security assertions, 90/90 permanent Vend
 reproduction is historical evidence, not the normal green suite. See the
 [Vendor reproduction/remediation journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
 
-**Gitea #5 — remediated and verified on the fix branch, not merged:** Parent
+**Gitea #5 — remediation merged and verified on main:** Parent
 Work Order scope now protects Parts/equipment operations; equipment Assets must
 be authorized in the same Facility. Canonical admin/technician roles, narrow
 acknowledgements, ordinary-PUT allowlisting and safe Procedure/result errors are
 verified. Original security assertions pass 20/20 unchanged; permanent #5 295/295,
 complete core 596/596 (including Facility 45/45 and Vendor 90/90), authentication
 31/31, frontend equipment tests 5/5 and baseline-compatible TypeScript pass.
+Merged-main verification reproduced these passing results. The fix was fast-forwarded
+without rewriting history; final issue closure awaits Interaction compatibility.
 The frozen evidence remains historical; the permanent suite governs regression.
 Part/Procedure/Task ownership was not invented. #7 costs, #9 units and unmounted
 labor/travel PATCH helpers remain deferred. #6 has not started; all new feature
