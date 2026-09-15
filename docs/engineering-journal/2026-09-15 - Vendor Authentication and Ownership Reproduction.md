@@ -429,3 +429,23 @@ Contract economics change, broader technician access, hard-delete API, unrelated
 CRM/Interaction/Opportunity change, or real-data/deployed-runtime verification is
 included. The frozen reproduction distinction and final accepted policy above
 remain authoritative; the permanent suite is the green ongoing regression gate.
+
+## Merged-main verification — 2026-09-15
+
+Main fast-forwarded from `4771555ed50044bedaa464127a2fe68e6f32c769` to
+Vendor fix `942233fa1974ee8ca5e090b625583f064e507a0f`, preserving the evidence
+and remediation commits. No conflicts or unexpected divergence occurred.
+
+Fresh merged-main verification passed: permanent Vendor 90/90; original unchanged
+security assertions 10/10; full safe core 301/301 including Facility 45/45;
+authentication 31/31; historical references 6/6; Contract/Vendor analytics 3/3;
+frontend Vendor 5/5; baseline-compatible TypeScript, syntax, dependency, whitespace
+and scope checks. Existing frontend extraneous dependency entries remain unchanged.
+All approved authentication, role, projection, creation-disabled, archive and
+historical-reference invariants remain green on main.
+
+This documentation-only checkpoint records #4 as code-resolved on main. Issue
+closure remains gated on compatibility with the separate paused Interaction
+branch; Interaction is not merged into main. Vendor creation stays disabled and
+tenantId/Organization normalization remains deferred. New features remain paused;
+#5 has not started. No real-data or deployed-runtime verification was performed.

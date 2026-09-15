@@ -6,7 +6,7 @@
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Current stabilization branch: `fix/vendor-auth-ownership`, based on main `4771555ed50044bedaa464127a2fe68e6f32c769`.
+- Current stabilization branch: `main`; Vendor fix `942233fa1974ee8ca5e090b625583f064e507a0f` is merged and verified.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -28,7 +28,7 @@ Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 Do not merge the separate Interaction backend branch into main.
 
-**Gitea #4 — remediated and verified on fix branch, not merged:** Vendor remains
+**Gitea #4 — remediation merged and verified on main:** Vendor remains
 shared master/reference data. Admin can read/update/archive; technician has
 restricted reads; customer/viewer/legacy/missing/unknown roles and anonymous
 callers are denied. Creation is temporarily disabled pending normalization.
@@ -42,7 +42,7 @@ Interaction frontend and Opportunity remain paused.
 
 Verification: 10/10 unchanged original security assertions, 90/90 permanent Vendor,
 301/301 safe core (including 45/45 Facility), 31/31 auth, 6/6 history, 3/3 analytics,
-5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. Frozen
+5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. Issue closure follows the separate Interaction compatibility gate. Frozen
 reproduction is historical evidence, not the normal green suite. See the
 [Vendor reproduction/remediation journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
 
@@ -54,7 +54,7 @@ At the start of the next session:
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
 4. Treat the complete Contact and FollowUp vertical slices, including their Facility, tenant, authorization, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
-5. Keep feature development paused. Vendor stabilization is verified on its fix branch, pending merge; long-term tenantId/Organization normalization remains deferred.
+5. Keep feature development paused. Vendor stabilization is merged and verified on main; long-term tenantId/Organization normalization remains deferred.
 
 Do not begin additional CRM implementation merely because Contact and FollowUp are complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 

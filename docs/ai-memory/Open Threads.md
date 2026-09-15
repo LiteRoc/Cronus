@@ -87,10 +87,10 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 The Phase 1 architecture and policies are accepted. The Contact and Facility-scoped FollowUp vertical slices are complete and verified. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
 
-### Gitea #4 — verified fix awaiting merge; Vendor normalization deferred
+### Gitea #4 — code resolved on main; Vendor normalization deferred
 
-- Remediation is verified on `fix/vendor-auth-ownership`, not merged into main;
-  #4 remains open pending merge. Evidence checkpoint: `59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
+- Remediation `942233fa1974ee8ca5e090b625583f064e507a0f` is merged and verified
+  on main. Issue closure follows the Interaction compatibility gate. Evidence checkpoint: `59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
 - Vendor is shared reference data, not Facility-owned CRM. Admin read/update/archive,
   technician restricted read, all other roles denied; no anonymous access. Creation
   is disabled pending ownership normalization. Notes/preferredVendor are admin-only.
