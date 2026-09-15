@@ -5,18 +5,54 @@
 ## Checkpoint
 
 - Interaction backend base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
-- Intended checkpoint message: `feat: add CRM interaction management`.
+- Preserved Interaction backend checkpoint: `ce535d39627f7a77f9e342fd9146e8ba361f5899`.
 - Paused Interaction backend branch: `feat/crm-interactions`.
-- Gitea #3 reproduction branch: `fix/facility-query-isolation`; worktree: `/tmp/cronus-facility-query-isolation`; tested local-main base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
+- Gitea #3 is merged into authoritative main `4771555ed50044bedaa464127a2fe68e6f32c769`; original reproduction branch: `fix/facility-query-isolation`.
 - The Contact, FollowUp, and Interaction implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
 
-**Stabilization is the current engineering priority (2026-09-15).** New feature development, including Interaction frontend and Opportunity, remains paused. Do not merge Interaction or update Gitea issue #2. The [September 14 Regression & Stabilization Plan](<../engineering-journal/2026-09-14 - Cronus Regression and Stabilization Plan.md>) records the original read-only assessment; its proposed order is not blanket implementation authorization.
+**Stabilization remains the current engineering priority (2026-09-15).**
+New feature development, including Interaction frontend and Opportunity,
+remains paused. Do not merge Interaction into main or update Gitea #2.
+The [September 14 assessment](<../engineering-journal/2026-09-14 - Cronus Regression and Stabilization Plan.md>)
+was read-only; other assessment findings remain hypotheses/unresolved
+according to their recorded status.
 
-Gitea #3 reproduction is complete on `fix/facility-query-isolation` in `/tmp/cronus-facility-query-isolation`, based on local main `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`. Isolated endpoint execution confirmed Asset search scope loss, Work Order search scope loss, template lifecycle scope errors, and Asset duplicate-warning identifier disclosure. The reproduction suite has 11 passing controls and 18 intentionally failing security assertions; 170 existing baseline tests passed. No remediation was implemented. Review the September 15 reproduction report before authorizing fixes. Other September assessment findings remain hypotheses unless separately verified.
+Gitea #3's four reproduced defects were remediated and merged into main.
+Authoritative main is `4771555ed50044bedaa464127a2fe68e6f32c769`, including
+fix commit `c89f22193e9eb3ca810af7087bb6392c15897ccc`. P0 Asset search and
+Work Order ordinary/analytics search now preserve Facility isolation.
+P1 template lifecycle honors authorized selected Facility context, and
+inaccessible Asset duplicates no longer disclose foreign identifiers.
+Intended admin/global behavior is preserved.
+
+The original tested base was `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
+The 11 passing controls and 18 initially failing security assertions remain
+preserved as evidence; all 29 now pass unchanged. Fresh merged-main checks
+passed 45/45 permanent Facility cases, 211/211 core tests, and 31/31
+authentication tests. This is isolated synthetic verification, not evidence
+of production exploitation or real-data/deployed-runtime verification.
+See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
+Gitea records the final issue closure separately from this code history.
+
+Interaction backend is implemented, reviewed, documented, committed and
+pushed at backend checkpoint `ce535d39627f7a77f9e342fd9146e8ba361f5899`;
+the pre-compatibility governance checkpoint is
+`898d05e98afead5644ce3d78164df0f9948f0473`. Gitea #2 remains its tracking
+issue. Interaction frontend has not begun. Accepted architecture,
+verification history, and deferred revision history/retention remain intact.
+Bringing main into this paused branch does not authorize further features.
 
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. Contact and FollowUp are complete and merged. The Facility-scoped Interaction Phase 1 backend, the third CRM vertical slice, is complete and verified on `feat/crm-interactions`; its frontend remains outstanding. Opportunity is not implemented.
+
+Compatibility verification after incorporating main (2026-09-15):
+Interaction 54/54, permanent Facility 45/45, combined safe core-service
+265/265 (166 shared + 54 Interaction + 45 Facility), and authentication
+31/31 passed. Restricted visibility, Contact validation, and all Facility
+regressions remain intact in isolated tests. Syntax, dependency consistency,
+whitespace, and focused visibility/scope checks passed. No real-data or
+deployed-runtime verification was performed. Interaction remains paused.
 
 Before continuing stabilization:
 

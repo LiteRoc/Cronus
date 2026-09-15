@@ -54,7 +54,8 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
       page = '1', limit = '20',
     } = req.query;
 
-    const query = { ...tf, status: { $ne: 'Archived' } };
+    // Search and operational filters must never replace tenant authorization.
+    const query = { $and: [tf], status: { $ne: 'Archived' } };
 
     // status filter
     if (status) query.status = status;

@@ -2,31 +2,39 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Active stabilization — Gitea #3
+## Completed code remediation — Gitea #3 merged into main
 
-New feature development, including Interaction frontend and Opportunity,
-is paused pending stabilization review and explicit authorization to resume.
+Authoritative main `4771555ed50044bedaa464127a2fe68e6f32c769` includes
+fix `c89f22193e9eb3ca810af7087bb6392c15897ccc`. Four defects reproduced
+against `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4` are resolved:
 
-Gitea #3 has four confirmed, unresolved defects reproduced against local
-main commit 3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4:
+- P0 Asset search: list/count/page queries preserve Facility visibility.
+- P0 Work Order search: ordinary and analytics queries preserve Facility visibility.
+- P1 Template lifecycle: authorized selected Facility controls summaries and tenant benchmarks.
+- P1 Asset duplicate warnings: inaccessible foreign identifiers are not disclosed.
 
-- P0: Asset search replaces Facility scope, exposing foreign records,
-  identifiers, counts, and pagination.
-- P0: Work Order search replaces Facility scope, including list/count/page
-  and analytics-mode exposure.
-- P1: Template lifecycle summaries and tenant benchmarks use default rather
-  than selected Facility context; an absent default can expose foreign
-  aggregate contributions.
-- P1: Asset duplicate warnings disclose an inaccessible foreign duplicateOf
-  identifier.
+All 29 original reproduction cases pass unchanged, including the 11 controls
+and 18 formerly failing security assertions. Merged-main verification passed
+45/45 permanent Facility cases, 211/211 core tests, and 31/31 authentication
+tests. Intended admin/global behavior remains preserved. These are isolated
+synthetic results, not production exploitation or deployed verification.
+See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
+Final issue closure is recorded in Gitea separately from this code history.
 
-Reproduction is complete; remediation is not implemented or authorized by
-the reproduction task. Eleven controls passed, eighteen security assertions
-intentionally failed, and 170 existing baseline tests passed.
+Stabilization remains the priority. Other September findings remain
+hypotheses/unresolved according to their recorded status. Gitea #2 tracks
+the implemented, reviewed, committed and pushed Interaction backend.
+Its frontend has not begun; Interaction frontend and Opportunity remain
+paused. Do not merge Interaction into main. Accepted Interaction architecture,
+verification history, and deferred revision history/retention remain intact.
 
-Evidence remains in the September 15 Facility Query Isolation Reproduction
-report and accompanying artifacts on fix/facility-query-isolation.
-Other September assessment findings remain hypotheses pending reproduction.
+Compatibility verification after incorporating main (2026-09-15):
+Interaction 54/54, permanent Facility 45/45, combined safe core-service
+265/265 (166 shared + 54 Interaction + 45 Facility), and authentication
+31/31 passed. Restricted visibility, Contact validation, and all Facility
+regressions remain intact in isolated tests. Syntax, dependency consistency,
+whitespace, and focused visibility/scope checks passed. No real-data or
+deployed-runtime verification was performed. Interaction remains paused.
 
 ## Completed baseline: core-service authentication hardening
 

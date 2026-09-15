@@ -1,12 +1,9 @@
+// Gitea #3 only: preserve executable handlers while bridging their mixed module graph.
 module.exports = {
-  testEnvironment: 'node',
-  testMatch: ['**/_tests_/**/*.test.mjs', '**/__tests__/**/*.test.mjs'],
-  // Operational routers bridge four existing ESM helpers into CommonJS.
+  ...require('./jest.config.cjs'),
+  testMatch: ['**/facilityQueryIsolation.reproduction.mjs'],
   transform: {
     '/src/(middleware/forwardContractHeaders|services/lifecycleMaintenance|services/templateLifecycleBenchmarks|utils/lifecycleBenchmark)\\.js$':
       '<rootDir>/src/test/facilityReproductionTransform.cjs',
-  },
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1.js',
   },
 };
