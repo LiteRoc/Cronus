@@ -28,6 +28,8 @@ const vendorSchema = new Schema({
     default: false
   },
   notes: String,
+  archivedAt: { type: Date, default: null },
+  archivedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   tenantId: { type: Schema.Types.ObjectId, required: true, index: true }, // organization Id
   notes: String
 }, { timestamps: true });

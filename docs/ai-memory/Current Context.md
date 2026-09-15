@@ -7,7 +7,7 @@
 - Interaction backend base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
 - Preserved Interaction backend checkpoint: `ce535d39627f7a77f9e342fd9146e8ba361f5899`.
 - Paused Interaction backend branch: `feat/crm-interactions`.
-- Gitea #3 is merged into authoritative main `4771555ed50044bedaa464127a2fe68e6f32c769`; original reproduction branch: `fix/facility-query-isolation`.
+- Authoritative main `a7ad89724722b999bb0b201ae894142eae82c8ea` includes verified #3 and #4 fixes; the Interaction branch remains separate and paused.
 - The Contact, FollowUp, and Interaction implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -20,7 +20,7 @@ was read-only; other assessment findings remain hypotheses/unresolved
 according to their recorded status.
 
 Gitea #3's four reproduced defects were remediated and merged into main.
-Authoritative main is `4771555ed50044bedaa464127a2fe68e6f32c769`, including
+The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`, including
 fix commit `c89f22193e9eb3ca810af7087bb6392c15897ccc`. P0 Asset search and
 Work Order ordinary/analytics search now preserve Facility isolation.
 P1 template lifecycle honors authorized selected Facility context, and
@@ -34,7 +34,25 @@ passed 45/45 permanent Facility cases, 211/211 core tests, and 31/31
 authentication tests. This is isolated synthetic verification, not evidence
 of production exploitation or real-data/deployed-runtime verification.
 See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea records the final issue closure separately from this code history.
+Gitea #3 is closed following verified main merge and Interaction compatibility.
+
+**Gitea #4 — remediation merged and verified on main:** Vendor remains
+shared master/reference data. Admin can read/update/archive; technician has
+restricted reads; customer/viewer/legacy/missing/unknown roles and anonymous
+callers are denied. Creation is temporarily disabled pending normalization.
+Existing tenantId is preserved, not an authorization boundary, not returned and
+not client-mutable. Notes/preferredVendor are admin-only. Soft archive preserves
+history, excludes normal list/detail, and permits ID/name-only historical lookup.
+Legacy missing-tenant records remain readable/archivable; ordinary invalid updates
+return controlled conflict without repair. Long-term tenantId/Organization
+normalization remains deferred. Gitea #5 has not started; new feature development,
+Interaction frontend and Opportunity remain paused.
+
+Verification: 10/10 unchanged original security assertions, 90/90 permanent Vendor,
+301/301 safe core (including 45/45 Facility), 31/31 auth, 6/6 history, 3/3 analytics,
+5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. The Interaction compatibility gate has passed; final issue closure is recorded in Gitea. Frozen
+reproduction is historical evidence, not the normal green suite. See the
+[Vendor reproduction/remediation journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
 
 Interaction backend is implemented, reviewed, documented, committed and
 pushed at backend checkpoint `ce535d39627f7a77f9e342fd9146e8ba361f5899`;
@@ -46,7 +64,7 @@ Bringing main into this paused branch does not authorize further features.
 
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. Contact and FollowUp are complete and merged. The Facility-scoped Interaction Phase 1 backend, the third CRM vertical slice, is complete and verified on `feat/crm-interactions`; its frontend remains outstanding. Opportunity is not implemented.
 
-Compatibility verification after incorporating main (2026-09-15):
+Earlier #3 compatibility verification (2026-09-15, before Vendor remediation):
 Interaction 54/54, permanent Facility 45/45, combined safe core-service
 265/265 (166 shared + 54 Interaction + 45 Facility), and authentication
 31/31 passed. Restricted visibility, Contact validation, and all Facility
@@ -54,14 +72,25 @@ regressions remain intact in isolated tests. Syntax, dependency consistency,
 whitespace, and focused visibility/scope checks passed. No real-data or
 deployed-runtime verification was performed. Interaction remains paused.
 
+Latest #4 compatibility verification (2026-09-15): main
+`a7ad89724722b999bb0b201ae894142eae82c8ea` is incorporated without history
+rewriting. Interaction 54/54, Vendor 90/90, Facility 45/45 and complete safe core
+355/355 (166 shared + 54 Interaction + 45 Facility + 90 Vendor) passed;
+authentication 31/31, historical Vendor references 6/6 and analytics 3/3 passed.
+Restricted Interaction visibility, Contact validation, and #3/#4 protections
+remain intact. Syntax, dependency and whitespace checks passed. #3 and #4 code
+remediation is resolved on main; Gitea records the final #4 closure separately.
+Vendor creation remains disabled, tenantId normalization deferred, features paused,
+and #5 not started. No real-data or deployed-runtime verification occurred.
+
 Before continuing stabilization:
 
 1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
 4. Treat the complete Contact and FollowUp vertical slices and the verified Interaction backend, including their Facility, tenant, authorization, visibility, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
-5. Keep CRM implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
-6. Review Open Threads and the Gitea #3 reproduction evidence; continue only within the next explicitly authorized stabilization task.
+5. Keep feature development paused. #4 is merged and verified on main; Vendor creation stays disabled and long-term tenantId/Organization normalization remains deferred.
+6. Review Open Threads and the #3/#4 evidence; continue only within the next explicitly authorized stabilization task.
 
 Do not begin additional CRM implementation merely because the Interaction backend is complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 

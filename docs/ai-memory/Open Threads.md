@@ -19,7 +19,7 @@ and 18 formerly failing security assertions. Merged-main verification passed
 tests. Intended admin/global behavior remains preserved. These are isolated
 synthetic results, not production exploitation or deployed verification.
 See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Final issue closure is recorded in Gitea separately from this code history.
+Gitea #3 is closed. Current main `a7ad89724722b999bb0b201ae894142eae82c8ea` also includes the verified #4 remediation.
 
 Stabilization remains the priority. Other September findings remain
 hypotheses/unresolved according to their recorded status. Gitea #2 tracks
@@ -28,13 +28,24 @@ Its frontend has not begun; Interaction frontend and Opportunity remain
 paused. Do not merge Interaction into main. Accepted Interaction architecture,
 verification history, and deferred revision history/retention remain intact.
 
-Compatibility verification after incorporating main (2026-09-15):
+Earlier #3 compatibility verification (2026-09-15, before Vendor remediation):
 Interaction 54/54, permanent Facility 45/45, combined safe core-service
 265/265 (166 shared + 54 Interaction + 45 Facility), and authentication
 31/31 passed. Restricted visibility, Contact validation, and all Facility
 regressions remain intact in isolated tests. Syntax, dependency consistency,
 whitespace, and focused visibility/scope checks passed. No real-data or
 deployed-runtime verification was performed. Interaction remains paused.
+
+Latest #4 compatibility verification (2026-09-15): main
+`a7ad89724722b999bb0b201ae894142eae82c8ea` is incorporated without history
+rewriting. Interaction 54/54, Vendor 90/90, Facility 45/45 and complete safe core
+355/355 (166 shared + 54 Interaction + 45 Facility + 90 Vendor) passed;
+authentication 31/31, historical Vendor references 6/6 and analytics 3/3 passed.
+Restricted Interaction visibility, Contact validation, and #3/#4 protections
+remain intact. Syntax, dependency and whitespace checks passed. #3 and #4 code
+remediation is resolved on main; Gitea records the final #4 closure separately.
+Vendor creation remains disabled, tenantId normalization deferred, features paused,
+and #5 not started. No real-data or deployed-runtime verification occurred.
 
 ## Completed baseline: core-service authentication hardening
 
@@ -99,12 +110,27 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 The Phase 1 architecture and policies are accepted. Contact and Facility-scoped FollowUp are complete and verified. The Facility-scoped Interaction backend, the third CRM vertical slice, is complete and verified; its frontend remains outstanding. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
 
-### Vendor ownership and tenant behavior
+### Gitea #4 — code resolved on main; Vendor normalization deferred
 
-- Static inspection found inconsistent authentication and Facility/tenant scoping in active core-service Vendor routes. The active Vendor schema uses `tenantId`, but current JWT context does not establish that identifier, and unmounted contract-service Vendor code creates an unresolved ownership boundary.
-- Runtime verification and an explicit ownership/tenant policy are required before CRM depends on Vendor references.
-- This prerequisite did not block Contact implementation. Future CRM work must avoid Vendor dependencies until it is resolved.
-- Do not revive unmounted Customer/Vendor implementations or add cross-service Vendor writes implicitly.
+- Remediation `942233fa1974ee8ca5e090b625583f064e507a0f` is merged and verified
+  on main. The Interaction compatibility gate has passed; final closure is recorded in Gitea. Evidence checkpoint: `59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
+- Vendor is shared reference data, not Facility-owned CRM. Admin read/update/archive,
+  technician restricted read, all other roles denied; no anonymous access. Creation
+  is disabled pending ownership normalization. Notes/preferredVendor are admin-only.
+- tenantId is retained unchanged, excluded from responses and client updates, and
+  not used for authorization. Its long-term Organization/ownership semantics remain
+  unresolved; no migration, reinterpretation or backfill occurred.
+- Soft archive replaces API hard delete. Archived records leave normal reads/lists;
+  ID/name-only history preserves references. Legacy missing-tenant records can be
+  read/archived, but ordinary invalid updates return conflict without silent repair.
+- Before: 60 observations/controls passed, ten security assertions failed. After:
+  all ten security assertions pass unchanged; 56 frozen historical expectations
+  fail because the accepted policy removed those behaviors. The 90-case permanent
+  Vendor suite is the ongoing regression authority. Full core 301/301 and relevant
+  auth/history/analytics/frontend checks passed; no real-data/runtime verification.
+- See the [Vendor journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
+- Gitea #5 has not started. New features remain paused. Do not revive unmounted
+  Vendor modules or introduce implicit CRM Vendor dependencies.
 
 ### Deferred authorization and Organization capabilities
 

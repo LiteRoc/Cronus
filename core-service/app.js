@@ -91,7 +91,7 @@ app.use('/suppliers', supplierRouter);
 app.use('/procedures', procedureRouter);
 app.use('/tasks', taskRouter);
 app.use('/dashboard', dashboardRouter);
-app.use('/vendors', vendorRouter);
+app.use('/vendors', vendorRouter.vendorJsonErrorHandler, vendorRouter);
 //app.use('/contracts', contractRouter);
 //app.use('/contract-analysis', contractAnalysisRouter);
 //app.use('/portal/', portalRouter);
