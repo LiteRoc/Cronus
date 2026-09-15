@@ -2,6 +2,32 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
+## Active stabilization — Gitea #3
+
+New feature development, including Interaction frontend and Opportunity,
+is paused pending stabilization review and explicit authorization to resume.
+
+Gitea #3 has four confirmed, unresolved defects reproduced against local
+main commit 3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4:
+
+- P0: Asset search replaces Facility scope, exposing foreign records,
+  identifiers, counts, and pagination.
+- P0: Work Order search replaces Facility scope, including list/count/page
+  and analytics-mode exposure.
+- P1: Template lifecycle summaries and tenant benchmarks use default rather
+  than selected Facility context; an absent default can expose foreign
+  aggregate contributions.
+- P1: Asset duplicate warnings disclose an inaccessible foreign duplicateOf
+  identifier.
+
+Reproduction is complete; remediation is not implemented or authorized by
+the reproduction task. Eleven controls passed, eighteen security assertions
+intentionally failed, and 170 existing baseline tests passed.
+
+Evidence remains in the September 15 Facility Query Isolation Reproduction
+report and accompanying artifacts on fix/facility-query-isolation.
+Other September assessment findings remain hypotheses pending reproduction.
+
 ## Completed baseline: core-service authentication hardening
 
 Core-service authentication hardening is complete. The authentication baseline improved from 22/31 passing tests before remediation to 31/31 afterward.

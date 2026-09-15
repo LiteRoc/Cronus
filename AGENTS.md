@@ -155,6 +155,61 @@ Before significant implementation:
 
 Do not perform unrelated cleanup. Do not silently modernize, refactor, rename, reorganize, normalize, or delete existing code. When an observation falls outside the requested scope, report it instead of fixing it. Prefer wording such as: "While reviewing this, I noticed..."
 
+## Routine Development Authorization
+
+An assigned Cronus development task authorizes the routine, non-destructive
+repository operations reasonably necessary to complete that task within its
+assigned worktree. A read-only, investigation-only, or reproduction-only task
+retains its stated limits.
+
+Within that scope, Codex may proceed without additional discretionary
+confirmation to:
+
+- Read and search files within the assigned worktree.
+- Create and edit source files within the assigned task scope.
+- Create and edit tests.
+- Run existing tests after verifying their targets and side effects.
+- Run builds, type checks, syntax checks, lint, and static checks after
+  verifying that they do not perform separately restricted operations.
+- Inspect Git status, diff, log, branches, and other repository metadata.
+- Use other normal, non-destructive repository operations reasonably
+  required by the assigned task.
+
+Task assignment supplies authorization for these routine operations despite
+general instructions elsewhere in this file requiring explicit instructions
+before repository changes. It does not expand the requested task scope,
+authorize discarding existing work, or override the restrictions below.
+
+Explicit authorization is still required for:
+
+- Accessing or mutating a real or non-test database.
+- Starting, stopping, or modifying Docker containers, runtime services,
+  scheduled jobs, or other runtime infrastructure.
+- Installing, removing, or upgrading dependencies.
+- Changing OS, networking, AppArmor, kernel, or other system configuration.
+- Accessing secrets or credentials beyond an explicitly authorized integration.
+- Destructive Git operations, history rewriting, or discarding user changes.
+- Commits, pushes, or merges unless the assigned task explicitly authorizes them.
+- External-system mutations unless explicitly authorized.
+- Operations outside the assigned worktree unless separately authorized.
+
+Existing explicit authorization remains valid within its stated scope;
+do not request the same authorization again for individual routine steps.
+
+Do not repeatedly ask permission for routine individual commands required
+to complete an already-authorized task. Continue until reaching a genuine
+approval boundary or the requested stopping point.
+
+This section governs task authorization, not technical execution permissions.
+It does not bypass Codex sandbox restrictions, approval rules, or managed
+security policy. If execution requires approval to leave the sandbox, use
+the required approval mechanism and explain that execution boundary without
+asking the user to reauthorize the underlying task.
+
+Use isolated synthetic persistence for database tests and verify that the
+test infrastructure fails closed rather than falling back to real services.
+A command's name alone does not establish that its side effects are routine.
+
 ## Secrets and Sensitive Data
 
 Never display, copy, summarize, expose, log, or commit secret values. This includes:

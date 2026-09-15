@@ -6,20 +6,26 @@
 
 - Interaction backend base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
 - Intended checkpoint message: `feat: add CRM interaction management`.
-- Active implementation branch: `feat/crm-interactions`.
+- Paused Interaction backend branch: `feat/crm-interactions`.
+- Gitea #3 reproduction branch: `fix/facility-query-isolation`; worktree: `/tmp/cronus-facility-query-isolation`; tested local-main base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
 - The Contact, FollowUp, and Interaction implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
 
+**Stabilization is the current engineering priority (2026-09-15).** New feature development, including Interaction frontend and Opportunity, remains paused. Do not merge Interaction or update Gitea issue #2. The [September 14 Regression & Stabilization Plan](<../engineering-journal/2026-09-14 - Cronus Regression and Stabilization Plan.md>) records the original read-only assessment; its proposed order is not blanket implementation authorization.
+
+Gitea #3 reproduction is complete on `fix/facility-query-isolation` in `/tmp/cronus-facility-query-isolation`, based on local main `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`. Isolated endpoint execution confirmed Asset search scope loss, Work Order search scope loss, template lifecycle scope errors, and Asset duplicate-warning identifier disclosure. The reproduction suite has 11 passing controls and 18 intentionally failing security assertions; 170 existing baseline tests passed. No remediation was implemented. Review the September 15 reproduction report before authorizing fixes. Other September assessment findings remain hypotheses unless separately verified.
+
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. Contact and FollowUp are complete and merged. The Facility-scoped Interaction Phase 1 backend, the third CRM vertical slice, is complete and verified on `feat/crm-interactions`; its frontend remains outstanding. Opportunity is not implemented.
 
-At the start of the next session:
+Before continuing stabilization:
 
 1. Read this file, [AGENTS.md](../../AGENTS.md), [Open Threads](<Open Threads.md>), the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>), and the [CRM policy decisions for review](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>).
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
 4. Treat the complete Contact and FollowUp vertical slices and the verified Interaction backend, including their Facility, tenant, authorization, visibility, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
 5. Keep CRM implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
+6. Review Open Threads and the Gitea #3 reproduction evidence; continue only within the next explicitly authorized stabilization task.
 
 Do not begin additional CRM implementation merely because the Interaction backend is complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 
