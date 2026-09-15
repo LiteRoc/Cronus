@@ -235,3 +235,255 @@ begun. After that checkpoint, inspect Part/Procedure/Task ownership, broad-updat
 fields, viewer/customer reads and active frontend nested-update dependencies
 read-only, and report any remaining human decision. Do not begin #6/#7/#9 or CRM
 feature work.
+
+
+## Remediation verification — 2026-09-15 (uncommitted)
+
+The user authorized remediation after evidence commit
+`72837f3c77f39fdba96055b03e8be8c93faa8165` and Gitea #5 evidence comment 52.
+This section supersedes earlier “remediation has not begun” statements as current
+working-branch status; those statements remain accurate historical checkpoints.
+**No remediation commit, push, merge or Gitea update/closure has been performed.**
+
+### Implementation and authorization
+
+The only production file changed is `core-service/src/routers/workOrderRouter.js`.
+No model, dependency, lockfile, cost calculation, unit mapping, Contract, Vendor,
+Interaction or other feature implementation was changed.
+
+- Parts read/add/update/remove now require an authorized parent before child
+  validation. The handlers repeat the scoped parent query. Document saves retain
+  their existing hooks and additionally constrain the actual write to the
+  authorized predicate, native parent ObjectId and loaded Facility. A tested
+  parent-Facility change between lookup and save rejects the write, including for
+  global admins. Missing/inaccessible parents return 404; malformed IDs return
+  safe 400-class errors.
+- Equipment add/remove now use the canonical admin/technician role gate and the
+  same parent authorization. Attachment validates Asset existence and composes
+  existing visibility with exact parent-Facility equality, including under global
+  admin context. Foreign and nonexistent Assets return the same generic 404.
+  No loaner, cross-Facility or newly invented reference-ownership exception exists.
+- Equipment addition returns only `{ message: 'Test equipment added' }`. Active
+  frontend actions discard the response and revalidate the Work Order; they do
+  not need the previous full nested WO response. Removal retains its acknowledgement
+  and idempotent behavior for an absent, well-formed equipment ID.
+- Whole-WO PUT accepts only `description`, `workOrderType`, `priority`, `status`,
+  `scheduledDate`, `dueDate`, `completionDate`. This preserves ordinary operational
+  scalar editing and the active completion request. `Archived` is rejected here;
+  the existing admin-only archive route remains the archival path. Unknown or
+  protected fields, arrays as request bodies, empty updates, dotted paths and
+  update operators return 400 before mutation. The server builds `$set` and stamps
+  canonical `updatedBy`. Existing schema validation remains enabled.
+- Protected general-update fields include all labor/travel/part/equipment/procedure
+  arrays and results; Facility/Asset/Contract/identity links; actor/audit/deletion
+  fields; costs, provenance and other non-allowlisted data. `vendorService` and
+  Contract economics were not redesigned; they are not ordinary-edit inputs, and
+  no active ordinary frontend caller sends them.
+- Dedicated procedure/result paths retain parent authorization and current unit
+  mapping. Procedure and Task IDs receive safe syntax/existence checks; malformed
+  result entries are rejected before writes. No Facility, membership/version or
+  inactive/retired policy was invented. Stack/Mongoose details are no longer
+  returned. Existing actor stamping and separate TaskResult persistence remain.
+- Labor/travel handlers and their mutation helper were not rewritten. Their shared
+  parent middleware now safely handles invalid/missing/disallowed selected-Facility
+  contexts instead of risking uncaught async rejection. The previously blocked
+  context-error cases are covered by permanent endpoint tests.
+
+Internal detail and parts reads now explicitly require admin or canonical
+technician. Earlier same-Facility customer/viewer/legacy/missing/unknown read
+successes were reproduced behavior, not an authoritative entitlement; the accepted
+policy instructed denial where no authoritative read policy exists. All internal
+subresource mutations deny these roles. Anonymous requests return 401 and
+invalid/expired tokens return 403. Admin/technician access remains subject to
+parent scope; no role was broadened. Generic parent visibility and unselected
+admin visibility retain the existing helper's behavior. Equipment attachment still
+requires an actual matching parent Facility.
+
+### Compatibility and deferred work
+
+- The active completion caller sends `status` and `completionDate`, both retained.
+  Other nested UI actions use dedicated endpoints. Their optimistic local state
+  updates are not broad PUT requests. No active nested broad-update dependency was
+  found. Existing client typing of the equipment-add result as Asset was already
+  inconsistent with the old WO response; active callers consume no response fields.
+- General PUT retains its existing `{ message, workOrder }` envelope. The frontend
+  service's broader WorkOrder typing/cache assumption is pre-existing and was not
+  redesigned in #5. The tested HTTP completion operation succeeds and persists the
+  requested fields; a deployed/browser workflow was not executed.
+- Part/Procedure/Task schemas and ownership semantics are unchanged. Part ownership
+  inconsistency and Procedure/Task ownership ambiguity remain deferred. Existing
+  nonmember but real Task references remain accepted; nonexistent Tasks are rejected.
+- Creator-only labor/travel restrictions were not introduced. Dedicated actor/time
+  stamping remains, while general nested replacement is blocked.
+- #7 stale query-update costs and #9 unit mapping are explicitly covered as unchanged
+  compatibility observations. They remain defects/debt for their own authorized
+  work. Unmounted labor/travel PATCH helpers remain workflow debt. None was fixed
+  or updated externally.
+
+### Frozen evidence interpretation
+
+Original reproduction: **323 passing controls/observations; 20 intentional security
+failures**. After remediation, using the identical test file: **290 pass / 53 fail
+/ 343 total**, with **20/20 original security assertions passing unchanged**.
+SHA-256 of the entire frozen test remains
+`c73a9b3fd7b75609237d71c45e2b6d0fadb0c684535428e72e305223558eade0`.
+
+The 53 failures are obsolete pre-policy expectations: 21 role-matrix cases,
+18 observations, 13 old error-status/detail expectations, and one control-labeled
+case. That one case (`authorized equipment add succeeds on own Work Order`) sends
+Facility B's Asset to Facility A's WO. Its parent is authorized, but its reference
+is prohibited by the accepted policy. It remains untouched. All other **89
+control-labeled cases pass**. Therefore it would be incorrect to claim every
+historical control remains valid under the new policy. No original security
+assertion conflicts with the accepted policy, and none was edited or skipped in
+the full frozen run.
+
+For a green security-only evidence run, use the original opt-in command with
+`--testNamePattern '^SECURITY:'`: 20 cases execute; 323 are excluded by the test-name
+selection. The full frozen suite remains historical evidence and deliberately
+returns exit 1. The permanent suite is the normal green regression contract.
+
+### Permanent coverage and final verification
+
+`core-service/src/routers/_tests_/workOrderSubresourceSecurity.test.mjs` adds
+**295 permanent tests**, discovered by the existing Jest configuration without
+new tooling or dependencies. Coverage includes direct role/auth matrices for the
+19 operations, same/foreign parent controls, Part mutations, equipment reference
+privacy and response shape, ordinary-update allowlisting and bypass attempts,
+procedure/result errors, safe context handling, save-time scope changes, generic
+visibility, shared references, and deferred cost/unit behavior.
+
+| Verification | Result |
+|---|---:|
+| Permanent #5 suite | 295/295 |
+| Complete safe core | 596/596 = existing 301 + new 295 |
+| Facility isolation (included in core) | 45/45 |
+| Vendor security (included in core) | 90/90 |
+| Other existing core (included in core) | 166/166 |
+| Core authentication security | 31/31 |
+| Original frozen security assertions | 20/20 unchanged |
+| Full frozen historical suite | 290 pass / 53 obsolete expectations fail |
+| JavaScript syntax | PASS |
+| `npm ls --depth=0` | PASS; no dependency changes |
+| Tracked and new-file whitespace checks | PASS |
+
+All database-backed verification uses the established fail-closed MongoMemoryServer
+harness, the explicitly selected cached MongoDB binary, and disabled downloads.
+A permanent test rejects both configured and unrelated loopback database targets.
+No real database fallback, application startup, deployed-runtime verification,
+Docker, scheduled job or external service call occurred. Existing Node experimental
+and duplicate-index warnings were not altered.
+
+Read-only final review confirmed the frozen evidence is byte-for-byte unchanged,
+production scope is limited to the router, and all permanent tests are green.
+Only router/test/report changes remain uncommitted. Temporary links to existing
+test dependencies were removed after verification; no packages were changed.
+Main and paused Interaction are not modified. **PASS for the accepted #5 policy**,
+with the explicitly documented historical-evidence failures and deferred concerns.
+Await human review before commit, push, merge or Gitea action.
+
+
+## Final commit-gate review — 2026-09-15 (uncommitted)
+
+**PASS. No commit, push, merge or Gitea mutation authorized at this gate.**
+
+### Caller and read-policy conclusions
+
+- Ordinary PUT caller tracing found `updateWorkOrder` -> `useWorkOrderForm` ->
+  `EditWorkOrderPage` completion, which sends only status/completionDate. Form
+  description/scheduling/status controls change local cache; they do not submit
+  extra protected fields. The seven-field allowlist remains unchanged. Assignment
+  and scheduling have dedicated PATCH handlers; no active ordinary-PUT caller was
+  found needing assignment, department or Contract attribution. Backend services
+  have no additional active ordinary-PUT caller. The legacy EJS form includes
+  assetId, but no active render/include route to that view was found. Its presence
+  is not grounds to broaden authorization or revive it.
+- The equipment API client incorrectly described addition as returning Asset and
+  removal as untyped data. Both now explicitly return `EquipmentAcknowledgement`
+  (`{ message: string }`). This is a narrow client/type correction in
+  `frontend/src/services/workOrderAPI.ts`; backend responses remain narrow. Active
+  `useWorkOrderActions` callers update local state then refetch. They do not consume
+  returned testEquipmentUsed, labor, travel or procedures. Five mock-only tests in
+  `frontend/src/services/workOrderEquipmentAPI.test.ts` verify request/response
+  compatibility, response types and both hooks' refetch behavior.
+- General GET `/workorders/:id` and dedicated internal reads are distinct routes.
+  The general response nevertheless contains internal labor/travel/procedure/parts
+  data. Prior same-Facility customer/viewer success did not establish a separate
+  approved entitlement to those fields. No authoritative narrower read workflow
+  was found. Viewer navigation includes Work Orders, and Contract/Asset views have
+  detail links; these links are not proof of approved internal authorization and
+  may now lead to denial for unsupported roles. No new read role was granted and
+  no customer-specific projection or workflow was invented. Secured behavior
+  follows the accepted #5 deny-by-default policy. Any future customer/viewer detail
+  workflow requires explicit read/projection policy, outside this commit gate.
+- Procedure/result malformed IDs return safe 400, missing references return 404;
+  valid authorized cases pass and foreign parents remain denied. No stack/Mongoose
+  details are returned. The production diff does not change WorkOrder cost hooks,
+  labor-rate snapshots, lifecycle totals, measurement-unit mapping or Task/Procedure
+  schemas. #7/#9 compatibility tests remain green; their defects are deferred.
+
+### Frozen evidence remains historical
+
+The original evidence file is byte-for-byte unchanged. Before remediation: 323
+observations/controls passed and 20 security assertions intentionally failed.
+After remediation: all 20 security assertions pass unchanged, and 89 originally
+control-labeled cases pass. The remaining originally control-labeled foreign-Asset
+attachment case is a **historical pre-policy observation**, not an authoritative
+expected-success control. Remaining full-suite failures describe behavior removed
+by the accepted policy. The permanent **295-test #5 suite is authoritative for
+ongoing regression**. No frozen assertion was changed to make the suite green.
+
+### Fresh verification
+
+- Original security assertions: 20/20 (security-only name selection; the other 323
+  frozen cases are not selected by that command, not edited or permanently skipped).
+- Complete safe core: 596/596, including permanent #5 295/295, Facility 45/45,
+  Vendor 90/90 and other existing core 166/166.
+- Authentication security: 31/31.
+- New frontend equipment API/hook tests: 5/5, mocked requests only.
+- Whole frontend TypeScript: PASS using
+  `tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0`, the established
+  baseline-compatible override; no tsconfig or dependencies changed.
+- JavaScript syntax, npm dependency consistency, diff/new-file whitespace and
+  security scope review: PASS.
+
+There are now two production files in the pending remediation: the Work Order
+router and the equipment client/type correction. Pending tests are the permanent
+backend suite and five frontend tests; this journal is the only documentation
+file changed. No real-data, deployed-runtime or browser end-to-end verification
+was performed. Existing ordinary-PUT response-envelope/cache debt is unchanged
+and not caused by the allowlist or equipment response correction.
+
+Dependency-check qualification: core and frontend `npm ls --depth=0` exited 0.
+The reused frontend dependency tree reports extraneous-package warnings; no
+installation, removal, dependency or lockfile edit was performed. Temporary
+dependency links were removed after verification. Final Git state contains only
+the two production files, two test files and this journal, all uncommitted.
+
+
+## Approved remediation publication checkpoint — 2026-09-15
+
+The user approved documentation, commit and push after the final commit-gate
+review. Earlier uncommitted/unpublished statements describe those earlier stages.
+The commit containing this section records the verified #5 implementation and
+compatibility changes on `fix/workorder-subresource-ownership`; it does not merge
+or resolve #5 on main. The issue remains open pending main integration.
+
+Fresh publication verification passed original security 20/20 unchanged, permanent
+#5 295/295, complete safe core 596/596 (Facility 45/45, Vendor 90/90 included),
+authentication 31/31, frontend equipment 5/5, baseline-compatible TypeScript,
+JavaScript syntax, dependency consistency and whitespace/security scope checks.
+The fail-closed harness and frozen evidence remain unchanged. No additional
+production changes were required after the final review. The existing historical
+interpretation remains: 89 control-labeled cases pass; the foreign-equipment former
+control is a pre-policy observation; the full frozen suite is not the normal green
+regression contract. The permanent 295-case suite is authoritative.
+
+Current Context and Open Threads now record #3/#4 as resolved/merged, #5 verified
+on its fix branch but not merged, #6 unstarted and new features paused. Costs (#7),
+units (#9), reference-ownership questions and unmounted labor/travel PATCH helpers
+remain deferred. No cost/lifecycle computation, labor-rate snapshot, Task/Procedure
+schema/unit, Part ownership, dependency/lockfile, Contract/Vendor/CRM implementation,
+Interaction or Opportunity change is included. No real-data/deployed-runtime
+verification was performed. Authorized publication consists only of this fix-branch
+commit/push and a #5 checkpoint comment; no merge or issue closure.

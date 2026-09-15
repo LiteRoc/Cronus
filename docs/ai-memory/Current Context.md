@@ -6,7 +6,7 @@
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Current stabilization branch: `main`; Vendor fix `942233fa1974ee8ca5e090b625583f064e507a0f` is merged and verified.
+- Current stabilization work: `fix/workorder-subresource-ownership`; #5 is remediated and verified, not merged. Main remains `a7ad89724722b999bb0b201ae894142eae82c8ea`, with #3/#4 resolved and merged.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -22,8 +22,8 @@ whitespace checks. This is isolated synthetic verification, not deployed
 runtime or real-data verification. See the
 [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
 Gitea #3 is closed after verified main merge and Interaction compatibility.
-Main checkpoint is `4771555ed50044bedaa464127a2fe68e6f32c769`; the paused
-Interaction branch is preserved at `98dff68aa52d4ff237fd50186481ce1da8a8b97d`.
+The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`; the current
+paused Interaction branch is preserved at `2c8776975c54f13bfeb580b9c96cd9fb3f4c4fa4`.
 Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 Do not merge the separate Interaction backend branch into main.
@@ -37,14 +37,26 @@ not client-mutable. Notes/preferredVendor are admin-only. Soft archive preserves
 history, excludes normal list/detail, and permits ID/name-only historical lookup.
 Legacy missing-tenant records remain readable/archivable; ordinary invalid updates
 return controlled conflict without repair. Long-term tenantId/Organization
-normalization remains deferred. Gitea #5 has not started; new feature development,
+normalization remains deferred. Gitea #4 is resolved/merged; new feature development,
 Interaction frontend and Opportunity remain paused.
 
 Verification: 10/10 unchanged original security assertions, 90/90 permanent Vendor,
 301/301 safe core (including 45/45 Facility), 31/31 auth, 6/6 history, 3/3 analytics,
-5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. Issue closure follows the separate Interaction compatibility gate. Frozen
+5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. Gitea #4 is closed after the separate Interaction compatibility gate. Frozen
 reproduction is historical evidence, not the normal green suite. See the
 [Vendor reproduction/remediation journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
+
+**Gitea #5 — remediated and verified on the fix branch, not merged:** Parent
+Work Order scope now protects Parts/equipment operations; equipment Assets must
+be authorized in the same Facility. Canonical admin/technician roles, narrow
+acknowledgements, ordinary-PUT allowlisting and safe Procedure/result errors are
+verified. Original security assertions pass 20/20 unchanged; permanent #5 295/295,
+complete core 596/596 (including Facility 45/45 and Vendor 90/90), authentication
+31/31, frontend equipment tests 5/5 and baseline-compatible TypeScript pass.
+The frozen evidence remains historical; the permanent suite governs regression.
+Part/Procedure/Task ownership was not invented. #7 costs, #9 units and unmounted
+labor/travel PATCH helpers remain deferred. #6 has not started; all new feature
+development remains paused. See the [#5 reproduction/remediation journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
 
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the Interaction backend is preserved on its separate paused branch, not merged into main.
 

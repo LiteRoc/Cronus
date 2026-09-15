@@ -1,7 +1,7 @@
 //src/services/workOrderAPI.ts
 
 import apiClient from "./apiClient";
-import { WorkOrder, WorkOrderCreatePayload, WorkOrderFilters, Procedure, TaskResult, Asset, TimeLog, TravelLog } from "@/types";
+import { WorkOrder, WorkOrderCreatePayload, WorkOrderFilters, Procedure, TaskResult, TimeLog, TravelLog } from "@/types";
 
 export async function fetchWorkOrders(
   facilityId: string | undefined,
@@ -179,19 +179,21 @@ export const updateProcedureOnWorkOrder = async (
 export const removeProcedure = async (workOrderId: string, procedureId: string) => 
   (apiClient.delete(`/workorders/${workOrderId}/procedure/${procedureId}`));
 
+export type EquipmentAcknowledgement = { message: string };
+
 export const addTestEquipToWorkOrder = async (
   workOrderId: string,
   equipmentId: string
-) => {
-  const { data } = await apiClient.post<Asset>(
+): Promise<EquipmentAcknowledgement> => {
+  const { data } = await apiClient.post<EquipmentAcknowledgement>(
     `/workorders/${workOrderId}/test-equipment`,
     { equipmentId }
   );
   return data;
 };
 
-export const removeTestEquipFromWorkOrder = async (workOrderId: string, testEquipId: string) => {
-  const { data } = await apiClient.delete(`/workorders/${workOrderId}/test-equipment/${testEquipId}`);
+export const removeTestEquipFromWorkOrder = async (workOrderId: string, testEquipId: string): Promise<EquipmentAcknowledgement> => {
+  const { data } = await apiClient.delete<EquipmentAcknowledgement>(`/workorders/${workOrderId}/test-equipment/${testEquipId}`);
   return data;
 }
 

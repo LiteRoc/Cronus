@@ -7,6 +7,7 @@ const WorkOrder = require('../models/WorkOrder');
 const Asset = require('../models/Asset');
 const Procedure = require('../models/Procedure');
 const TaskResult = require('../models/TaskResults');
+const Task = require('../models/Task');
 const Ticket = require('../models/Tickets');
 const Part = require('../models/Part');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
@@ -32,16 +33,54 @@ async function ensureTenantOwnsWorkOrder(req, res, next) {
     return res.status(400).json({ error: 'Invalid work order ID' });
   }
 
-  // Skip tenant restriction for admins
-  const filter = req.user.role === 'admin'
-    ? { _id: id }
-    : { _id: id, ...buildTenantFilter(req) };
-
-  const wo = await WorkOrder.findOne({ _id: id, ...buildTenantFilter(req) }).select('_id');
-  if (!wo) return res.status(404).json({ error: 'Work order not found' });
-
-  next();
+  // Validate context here so async middleware never leaks an uncaught rejection.
+  const selected = (req.headers['x-facility-id'] || '').toString().trim();
+  const active = selected || req.user.facilityId;
+  if ((selected || req.user.role !== 'admin') && !isObjectId(active)) {
+    return res.status(400).json({ error: 'Invalid Facility context' });
+  }
+  if (selected && req.user.role !== 'admin' &&
+      !(Array.isArray(req.user.facilities) ? req.user.facilities : []).some(f => String(f?._id || f) === selected)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const filter = { _id: id, ...buildTenantFilter(req) };
+    const wo = await WorkOrder.findOne(filter).select('_id facilityId');
+    if (!wo) return res.status(404).json({ error: 'Work order not found' });
+    req.workOrderFilter = filter;
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
 }
+
+function subresourceError(res, error) {
+  if (error.name === 'CastError' || error.name === 'ValidationError') {
+    return res.status(400).json({ error: 'Invalid work order input' });
+  }
+  if (error.name === 'VersionError') {
+    return res.status(409).json({ error: 'Work order changed; retry the request' });
+  }
+  if (error.name === 'DocumentNotFoundError') {
+    return res.status(404).json({ error: 'Work order not found' });
+  }
+  return res.status(500).json({ error: 'Internal Server Error' });
+}
+
+// Keep document-save hooks, but recheck authorization on the actual write too.
+function scopedSave(workOrder, req) {
+  workOrder.$where = {
+    ...req.workOrderFilter,
+    _id: workOrder._id,
+    facilityId: workOrder.facilityId || { $exists: false },
+  };
+  return workOrder.save();
+}
+
+const ordinaryEditFields = new Set([
+  'description', 'workOrderType', 'priority', 'status',
+  'scheduledDate', 'dueDate', 'completionDate',
+]);
 
 // ---------- List ----------
 router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
@@ -135,7 +174,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
 });
 
 // ---------- Get one ----------
-router.get('/:id', authenticateToken, ensureTenantOwnsWorkOrder, async (req, res) => {
+router.get('/:id', authenticateToken, authorizeRoles('admin', 'technician'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
     const wo = await WorkOrder.findById(req.params.id)
       .populate('assetId', 'ctrlNumber manufacturer model')
@@ -365,18 +404,24 @@ router.post('/from-ticket/:ticketId', authenticateToken, authorizeRoles('admin',
 // ---------- Update (internal only) ----------
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { timeLogs, travelLogs, ...rest } = req.body; // strip arrays
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        Object.keys(body).length === 0 ||
+        Object.keys(body).some(key => !ordinaryEditFields.has(key)) ||
+        body.status === 'Archived') {
+      return res.status(400).json({ error: 'Invalid ordinary work order update' });
+    }
+    const patch = Object.fromEntries(Object.entries(body));
 
     const updated = await WorkOrder.findOneAndUpdate(
       { _id: req.params.id, ...buildTenantFilter(req) },
-      { ...req.body, updatedBy: req.user.id },
+      { $set: { ...patch, updatedBy: req.user.id } },
       { new: true, runValidators: true }
     );
     if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Work order updated', workOrder: updated });
   } catch (err) {
-    console.error('Update WO error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return subresourceError(res, err);
   }
 });
 
@@ -493,7 +538,7 @@ router.delete(
 router.patch('/:id/procedure', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
     const { id } = req.params;
-    const { procedureId } = req.body;
+    const { procedureId } = req.body || {};
     if (!isObjectId(procedureId)) return res.status(400).json({ error: 'Invalid procedureId' });
 
     const proc = await Procedure.findById(procedureId).populate('tasks', 'description type unitOfMeasure');
@@ -542,7 +587,17 @@ router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, auth
     const { taskResults } = req.body || {};
     if (!Array.isArray(taskResults)) return res.status(400).json({ error: 'taskResults array required' });
 
-    console.log("Incoming taskResults:", taskResults);
+    if (!isObjectId(procedureId) || taskResults.some(tr =>
+      !tr || typeof tr !== 'object' || Array.isArray(tr) || !isObjectId(tr.taskId))) {
+      return res.status(400).json({ error: 'Invalid procedure or task ID' });
+    }
+    if (!await Procedure.exists({ _id: procedureId })) {
+      return res.status(404).json({ error: 'Procedure not found' });
+    }
+    const taskIds = [...new Set(taskResults.map(tr => String(tr.taskId)))];
+    if (await Task.countDocuments({ _id: { $in: taskIds } }) !== taskIds.length) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
 
     const normalizeType = (t) => {
       if (!t) return null;
@@ -585,8 +640,7 @@ router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, auth
 
     res.json({ message: 'Task results updated', workOrder: updated });
   } catch (err) {
-    console.error('Task results error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
+    return subresourceError(res, err);
   }
 });
 
@@ -647,9 +701,9 @@ router.delete('/:id/procedure/:procedureId',
 // =====================================================
 // GET /workorders/:id/parts
 // =====================================================
-router.get('/:id/parts', authenticateToken, async (req, res) => {
+router.get('/:id/parts', authenticateToken, authorizeRoles('admin', 'technician'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const workOrder = await WorkOrder.findById(req.params.id)
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter)
       .populate({
         path: 'partsUsed.partId',
         select: 'partNumber description price location supplierId manufacturerId',
@@ -664,23 +718,22 @@ router.get('/:id/parts', authenticateToken, async (req, res) => {
 
     res.json(workOrder.partsUsed || []);
   } catch (error) {
-    console.error('Error fetching parts for work order:', error);
-    res.status(500).json({ error: 'Failed to fetch parts' });
+    return subresourceError(res, error);
   }
 });
 
 // =====================================================
 // POST /workorders/:id/parts
 // =====================================================
-router.post('/:id/parts', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
-  const { partId, quantity, note } = req.body;
+router.post('/:id/parts', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  const { partId, quantity, note } = req.body || {};
 
   if (!mongoose.Types.ObjectId.isValid(partId)) {
     return res.status(400).json({ error: 'Invalid partId' });
   }
 
   try {
-    const workOrder = await WorkOrder.findById(req.params.id);
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
     if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
 
     // Optionally verify part exists
@@ -697,23 +750,23 @@ router.post('/:id/parts', authenticateToken, authorizeRoles('admin', 'tech'), as
     };
 
     workOrder.partsUsed.push(newUsage);
-    await workOrder.save();
+    await scopedSave(workOrder, req);
 
     res.status(201).json({ message: 'Part added successfully', part: newUsage });
   } catch (error) {
-    console.error('Error adding part to work order:', error);
-    res.status(500).json({ error: 'Failed to add part' });
+    return subresourceError(res, error);
   }
 });
 
 // =====================================================
 // PUT /workorders/:id/parts/:partId
 // =====================================================
-router.put('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
-  const { quantity, note } = req.body;
+router.put('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  const { quantity, note } = req.body || {};
+  if (!isObjectId(req.params.partId)) return res.status(400).json({ error: 'Invalid partId' });
 
   try {
-    const workOrder = await WorkOrder.findById(req.params.id);
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
     if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
 
     const partUsage = workOrder.partsUsed.find(
@@ -727,21 +780,21 @@ router.put('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tec
     partUsage.usedBy = req.user.id;
     partUsage.usedAt = new Date();
 
-    await workOrder.save();
+    await scopedSave(workOrder, req);
 
     res.json({ message: 'Part updated successfully', part: partUsage });
   } catch (error) {
-    console.error('Error updating part:', error);
-    res.status(500).json({ error: 'Failed to update part' });
+    return subresourceError(res, error);
   }
 });
 
 // =====================================================
 // DELETE /workorders/:id/parts/:partId
 // =====================================================
-router.delete('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+router.delete('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  if (!isObjectId(req.params.partId)) return res.status(400).json({ error: 'Invalid partId' });
   try {
-    const workOrder = await WorkOrder.findById(req.params.id);
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
     if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
 
     const beforeCount = workOrder.partsUsed.length;
@@ -753,23 +806,31 @@ router.delete('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', '
       return res.status(404).json({ error: 'Part not found on this work order' });
     }
 
-    await workOrder.save();
+    await scopedSave(workOrder, req);
 
     res.json({ message: 'Part removed successfully' });
   } catch (error) {
-    console.error('Error removing part from work order:', error);
-    res.status(500).json({ error: 'Failed to remove part' });
+    return subresourceError(res, error);
   }
 });
 
 // POST: add test equipment to work order
-router.post("/:id/test-equipment", authenticateToken, async (req, res) => {
+router.post("/:id/test-equipment", authenticateToken, authorizeRoles('admin', 'technician'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { equipmentId, note } = req.body;
+    const { equipmentId, note } = req.body || {};
     const userId = req.user.id;
+    if (!isObjectId(equipmentId)) return res.status(400).json({ error: 'Invalid equipment ID' });
 
-    const workOrder = await WorkOrder.findById(req.params.id);
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
     if (!workOrder) return res.status(404).json({ error: "Work order not found" });
+
+    // No cross-Facility equipment/loaner exception. Global admin scope does not
+    // permit an Asset from a different Facility than the authorized parent.
+    const equipment = workOrder.facilityId && await Asset.exists({
+      _id: equipmentId,
+      $and: [buildTenantFilter(req), { facilityId: workOrder.facilityId }],
+    });
+    if (!equipment) return res.status(404).json({ error: 'Equipment not found' });
 
     workOrder.testEquipmentUsed.push({
       equipmentId,
@@ -778,38 +839,32 @@ router.post("/:id/test-equipment", authenticateToken, async (req, res) => {
       note,
     });
 
-    await workOrder.save();
+    await scopedSave(workOrder, req);
 
-    // Populate for UI
-    const updated = await WorkOrder.findById(req.params.id)
-      .populate("testEquipmentUsed.equipmentId", "assetTag model manufacturer")
-      .populate("testEquipmentUsed.usedBy", "name")
-      .lean();
-
-    res.json(updated);
+    // Active callers revalidate the WO; do not return unrelated nested data.
+    res.json({ message: 'Test equipment added' });
   } catch (error) {
-    console.error("Error adding test equipment:", error);
-    res.status(500).json({ error: "Failed to add test equipment" });
+    return subresourceError(res, error);
   }
 });
 
 // DELETE: remove test equipment entry
-router.delete("/:id/test-equipment/:equipmentId", authenticateToken, async (req, res) => {
+router.delete("/:id/test-equipment/:equipmentId", authenticateToken, authorizeRoles('admin', 'technician'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { id, equipmentId } = req.params;
-    const workOrder = await WorkOrder.findById(id);
+    const { equipmentId } = req.params;
+    if (!isObjectId(equipmentId)) return res.status(400).json({ error: 'Invalid equipment ID' });
+    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
     if (!workOrder) return res.status(404).json({ error: "Work order not found" });
 
     workOrder.testEquipmentUsed = workOrder.testEquipmentUsed.filter(
       (te) => te.equipmentId.toString() !== equipmentId
     );
 
-    await workOrder.save();
+    await scopedSave(workOrder, req);
 
     res.json({ message: "Test equipment removed" });
   } catch (error) {
-    console.error("Error deleting test equipment:", error);
-    res.status(500).json({ error: "Failed to remove test equipment" });
+    return subresourceError(res, error);
   }
 });
 
