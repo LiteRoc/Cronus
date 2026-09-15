@@ -214,3 +214,218 @@ on open Gitea #4, and then read-only tenantId compatibility assessment. They do
 not authorize production remediation, migration, real-data inspection, CRM work,
 or starting another stabilization issue. Remaining compatibility and ambiguous
 field decisions must be reported before implementing the fix.
+
+## Authorized remediation — 2026-09-15
+
+Implemented locally after human policy approval; **not committed, pushed, merged,
+or deployed**. Evidence checkpoint remains
+`59b4056c358d0bb2d42e6238bf50ba1a74be7749`.
+
+### Final policy and implementation
+
+- Shared Vendor identity is retained. No Facility field or Facility/Organization
+  derivation was added. Existing tenantId remains in the schema and in persistence;
+  it is not an access boundary, a response field or a client-mutable field.
+- Every Vendor path requires verified authentication and canonical admin or
+  technician role. Customer/viewer/legacy tech/missing/unknown roles are denied.
+- Admin and technician can read active records. Output is an explicit projection:
+  `_id`, name, category, contactName, email, phone, address, website, services and
+  territories when present. Only admin additionally receives preferredVendor and
+  notes. Timestamps, tenantId, archive metadata and undeclared fields are excluded.
+- POST is disabled: authorized admin receives controlled 409 pending ownership
+  normalization. Other roles fail normal authentication/authorization; malformed
+  object shapes receive safe 400 after authorization. No identity is created.
+- PUT is admin-only and allows named business fields only. It accepts the existing
+  nested contactInfo input as well as the explicit flat contact fields, rejecting
+  ambiguous duplicate aliases. Protected fields, dotted paths, update operators,
+  type mismatches and invalid category values are rejected without mutation.
+- Whole-document validation checks legacy validity before a normal update. Missing
+  required tenantId returns controlled 409 without repair. New values are validated
+  and only the allowlisted patch is persisted under an active-record predicate.
+  This prevents a concurrent archive being undone by an ordinary update.
+- DELETE now performs admin-only soft archive, setting only archivedAt and
+  archivedBy from server time and canonical req.user.id. An invalid audit actor is
+  denied. Tenant and business fields remain intact. Legacy missing-tenant records
+  can be archived because only the archive fields are update-validated. No restore,
+  hard deletion or backfill is implemented. Repeated archive returns 404 without
+  overwriting provenance.
+- Normal list/detail always exclude archived records; query parameters cannot opt
+  back in. New `GET /vendors/:id/history` is explicitly role-protected and returns
+  only ID/name, including archived records, for historical display.
+- Contract coreLookup and overview enrichment use that history path. New VendorLink
+  validation still uses ordinary active detail, so an archived Vendor is not made
+  eligible for new linking by the historical lookup. Existing snapshots remain
+  authoritative; IDs and WorkOrder references survive archival.
+- JSON parsing errors are normalized at the Vendor mount without starting the app.
+  Malformed/encoded IDs and bad request bodies receive safe 400-class JSON;
+  unexpected errors receive a generic 500 without internal details.
+
+### Reproduction evidence versus current-policy regression tests
+
+The entire original reproduction file and its config remain byte-for-byte
+unchanged. No security assertion or creation assertion was adjusted, weakened,
+inverted, deleted or skipped in source. The original file deliberately combines
+security invariants with observations asserting the old vulnerable behavior.
+
+| Verification | Result |
+| --- | --- |
+| Original full reproduction before remediation | 60 passed observations/controls, 10 failed security assertions |
+| Frozen full reproduction after remediation | 14 passed, 56 failed historical expectations |
+| All ten original SECURITY assertions, within full run and separately selected | 10/10 passed unchanged |
+| Permanent Vendor security suite | 90/90 passed |
+| Complete safe core suite | 301/301 passed: 211 existing + 90 Vendor |
+| Facility suites within complete core | 45/45 passed |
+| Authentication security | 31/31 passed |
+| New isolated Contract/Vendor history compatibility | 6/6 passed |
+| Existing mocked Contract/Vendor analytics | 3/3 passed |
+| Both services npm ls --depth=0, JavaScript syntax, diff/whitespace, focused security review | Passed |
+
+The 56 red historical expectations are obsolete under the approved policy: they
+expect anonymous list/mutations, full tenant-bearing output, successful creation,
+reassignment/hard-delete, unavailable-tenant detail behavior and old error statuses.
+The 14 green cases include all ten security invariants. These historical failures
+are reported explicitly, not presented as a green 70-case suite. The separate
+`--testNamePattern '^SECURITY:'` run selects all ten security cases (Jest reports
+60 nonselected observations as skipped); the preceding full run executed all 70.
+The new normal-suite tests establish the final human-approved policy, including
+creation-disabled behavior, rather than changing historical observations to pass.
+
+### Compatibility and migration debt
+
+- Current Contract picker/name consumers use ID/name and retain their response
+  shape. Contact fields are now explicitly flat in responses; the existing
+  frontend Vendor type still describes nested contactInfo. No current inspected
+  Vendor contact-field rendering consumer was found, but external consumers and
+  future typed UI code must adopt the new projection. Nested contactInfo remains
+  accepted for valid admin updates only. Frontend code was not modified.
+- Customer/viewer Vendor API access is intentionally denied. Contract history can
+  continue using stored snapshots; live name lookup with those denied caller roles
+  does not acquire a privilege bypass. The new compatibility test confirms this.
+- Archive fields are additive. Existing records without them count as active; no
+  data migration is run. Existing invalid tenancy remains migration debt, and
+  creation stays disabled pending the separate ownership normalization decision.
+- Older deployed core versions ignore archive fields and retain the old unsafe
+  endpoints. Safe mixed-version/rollback operation is not established. Deploy
+  core history support before dependent Contract lookups; do not treat reverting
+  source to the vulnerable version as a safe archival rollback.
+- Tests use only guarded ephemeral MongoMemoryServer and synthetic records.
+  Historical compatibility uses real core Vendor routes with a controlled local
+  request adapter, real Contract lookup/overview services and empty synthetic
+  WorkOrder analytics. No external core service or real database was contacted.
+- No production data, runtime services, Docker, dependencies, scheduled jobs,
+  Interaction code or other Gitea issue was changed. Existing Node/index warnings
+  remain unrelated environment debt. Gitea #4 remains open with no remediation
+  comment yet, as requested.
+
+## Final commit-gate review — 2026-09-15
+
+**PASS; still uncommitted and unpushed.** No Gitea update or runtime operation.
+
+### Frontend/API compatibility correction
+
+The only active frontend Vendor consumer is ContractDetailPage's useVendors
+picker/name rendering. It reads `_id` and name. No active component reads Vendor
+contactInfo, calls useVendorById, or calls Vendor create/update/delete helpers.
+The “Add Vendor Link” UI adds a Contract relationship, not a master Vendor.
+Therefore no existing contact display/form loses values due to flattening.
+
+The old Vendor type incorrectly required nested contactInfo and notes, creating
+a misleading contract for future consumers. This gate corrects that stale type:
+ID/name are required; category, contactName, email, phone, address, website,
+services and territories are optional; notes/preferredVendor are optional and
+explicitly admin-only. Tenant/audit fields are absent. Technician responses have
+only the shared fields; admin responses may additionally have notes/preferredVendor.
+This supersedes the earlier unresolved frontend-type caveat.
+
+The client now uses a mutable-fields-only VendorUpdate type, unwraps the update
+response's vendor member, targets the authoritative plural POST endpoint and
+preserves its explanatory 409 rejection. DELETE's existing helper is documented
+as soft archival. No create UI exists to need additional UX handling. No backend
+field was re-exposed and no Vendor frontend redesign was performed.
+
+Five new frontend client/type tests passed, covering flat data, update unwrapping,
+409 propagation, archive response and excluded protected/obsolete type keys.
+The whole frontend application passed TypeScript no-emit with the established
+`--ignoreDeprecations 5.0` override; the existing config itself was not changed.
+
+### Historical endpoint, archive and scope conclusions
+
+The historical endpoint is the smallest reviewed compatible path: requiring an
+active Vendor would break archived reference names; expanding ordinary detail
+would undermine active-only semantics. A separate ID/name-only response permits
+historical display without management/contact/tenant disclosure. Authentication
+and canonical admin/technician role checks apply to it. The existing role matrix
+and exact-key tests cover denied callers and archived records. Contract uses it
+only in reference/name enrichment; new VendorLink validation retains active detail.
+No customer/viewer service bypass was introduced.
+
+DELETE archives in place; repeated archive returns stable 404 and preserves the
+original archivedAt/archivedBy. Active list/detail/update exclude archived records,
+history remains available and no restore exists. No active frontend workflow
+expects physical deletion. The singular `/vendor` creation route is not mounted;
+the corrected client reaches plural POST and its controlled policy response.
+
+Read-only scope review found no tenantId derivation, migration, backfill, response
+exposure or mutation; no Contract economics changes, technician mutation rights,
+new hard delete, dependency/lockfile changes or unrelated implementation changes.
+No real data or runtime was accessed. The two archive schema fields remain the
+only schema addition; existing ownership values and semantics are untouched.
+
+### How to run and interpret evidence in the future
+
+The full frozen suite intentionally remains a historical characterization:
+60 controls/observations passed and ten security assertions failed at the evidence
+checkpoint; after remediation all ten security assertions pass unchanged and
+56 historical expectations fail because the accepted policy removed their behavior
+(14 total pass). The new **90-case permanent Vendor suite** is the ongoing approved
+behavior contract; do not rewrite the frozen file to get 70/70 green.
+
+From core-service, with installed dependencies and the cached MongoDB binary:
+
+```sh
+export MONGOMS_SYSTEM_BINARY=/tmp/cronus-mongodb-cache/mongod-x64-debian-8.2.1
+export MONGOMS_VERSION=8.2.1
+export MONGOMS_RUNTIME_DOWNLOAD=false
+# Historical characterization: expected exit 1, 14 pass / 56 obsolete expectations fail.
+npm test -- --config jest.vendor-reproduction.config.cjs --runInBand --silent
+# Security gate: expected exit 0, all ten original security assertions pass.
+# Jest lists the 60 nonselected observations as skipped; no source test is skipped.
+npm test -- --config jest.vendor-reproduction.config.cjs --runInBand --silent --testNamePattern '^SECURITY:'
+# Ongoing current-policy regression: expected exit 0, 90/90.
+npm test -- --runInBand --runTestsByPath src/routers/_tests_/vendorSecurity.test.mjs
+```
+
+Fresh gate verification: 10/10 original security assertions, 90/90 permanent Vendor,
+301/301 full safe core (including 45/45 Facility), 31/31 authentication, 6/6 historical
+compatibility, 3/3 Contract/Vendor analytics, 5/5 frontend Vendor tests. Syntax,
+TypeScript no-emit, diff whitespace and focused security review passed. npm ls
+--depth=0 exited successfully in all three packages; the reused frontend dependency
+tree reports existing extraneous entries, which were not installed/removed or
+repaired here. Temporary dependency symlinks are removed after checks.
+
+## Remediation publication checkpoint — 2026-09-15
+
+The final reviewed implementation is approved for documentation, commit and push
+on `fix/vendor-auth-ownership`, **not for merge or issue closure**. Earlier
+uncommitted-state notes describe prior checkpoints. Gitea #4 remains open pending
+merge to main; Gitea #3 is resolved/merged. New features remain paused, Gitea #5
+has not started, and long-term Vendor tenantId/Organization normalization remains
+deferred. Current Context and Open Threads now reflect these distinctions.
+
+Fresh verification before this commit passed: original security assertions 10/10
+unchanged; permanent Vendor 90/90; full safe core 301/301 (211 existing + 90 Vendor),
+including Facility 45/45; authentication 31/31; historical-reference compatibility
+6/6; Contract/Vendor analytics 3/3; frontend Vendor 5/5; whole-application TypeScript
+no-emit with the baseline-compatible deprecation override; syntax and whitespace.
+All npm ls checks exited zero. Core/contract report no dependency problems; the
+reused frontend tree reports 490 existing extraneous entries and no other problems.
+No dependencies or lockfiles were changed.
+
+Final scope remains Vendor model/router/mount; two Contract historical-name lookup
+changes; Vendor frontend type/client alignment; focused security/history/client
+tests; and stabilization documentation. The original reproduction file/config
+remain unchanged. No Vendor ownership reinterpretation, tenantId backfill,
+Contract economics change, broader technician access, hard-delete API, unrelated
+CRM/Interaction/Opportunity change, or real-data/deployed-runtime verification is
+included. The frozen reproduction distinction and final accepted policy above
+remain authoritative; the permanent suite is the green ongoing regression gate.

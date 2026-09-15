@@ -416,7 +416,7 @@ export const getContractOverviewService = async ({
   await Promise.all(
     vendorIds.map(async (vid) => {
       try {
-        const { data: v } = await coreClient.get(`/vendors/${vid}`);
+        const { data: v } = await coreClient.get(`/vendors/${vid}/history`);
         vendorNameById.set(vid, v?.name ?? "");
       } catch (e) {
         vendorNameById.set(vid, "");

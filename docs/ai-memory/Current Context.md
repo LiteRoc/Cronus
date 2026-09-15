@@ -6,7 +6,7 @@
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Active implementation branch: `feat/crm-followups`.
+- Current stabilization branch: `fix/vendor-auth-ownership`, based on main `4771555ed50044bedaa464127a2fe68e6f32c769`.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -21,13 +21,32 @@ Fresh merged-main verification passed 45/45 permanent Facility cases
 whitespace checks. This is isolated synthetic verification, not deployed
 runtime or real-data verification. See the
 [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Issue closure and paused Interaction-branch compatibility are subsequent
-workflow steps; do not infer their completion from the main merge.
+Gitea #3 is closed after verified main merge and Interaction compatibility.
+Main checkpoint is `4771555ed50044bedaa464127a2fe68e6f32c769`; the paused
+Interaction branch is preserved at `98dff68aa52d4ff237fd50186481ce1da8a8b97d`.
 Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 Do not merge the separate Interaction backend branch into main.
 
-CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the remaining CRM entities are not implemented.
+**Gitea #4 — remediated and verified on fix branch, not merged:** Vendor remains
+shared master/reference data. Admin can read/update/archive; technician has
+restricted reads; customer/viewer/legacy/missing/unknown roles and anonymous
+callers are denied. Creation is temporarily disabled pending normalization.
+Existing tenantId is preserved, not an authorization boundary, not returned and
+not client-mutable. Notes/preferredVendor are admin-only. Soft archive preserves
+history, excludes normal list/detail, and permits ID/name-only historical lookup.
+Legacy missing-tenant records remain readable/archivable; ordinary invalid updates
+return controlled conflict without repair. Long-term tenantId/Organization
+normalization remains deferred. Gitea #5 has not started; new feature development,
+Interaction frontend and Opportunity remain paused.
+
+Verification: 10/10 unchanged original security assertions, 90/90 permanent Vendor,
+301/301 safe core (including 45/45 Facility), 31/31 auth, 6/6 history, 3/3 analytics,
+5/5 frontend Vendor tests, and baseline-compatible TypeScript passed. Frozen
+reproduction is historical evidence, not the normal green suite. See the
+[Vendor reproduction/remediation journal](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>).
+
+CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the Interaction backend is preserved on its separate paused branch, not merged into main.
 
 At the start of the next session:
 
@@ -35,7 +54,7 @@ At the start of the next session:
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
 4. Treat the complete Contact and FollowUp vertical slices, including their Facility, tenant, authorization, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
-5. Keep CRM implementation independent of Vendor references; Vendor ownership and scoping remain unresolved and require runtime verification.
+5. Keep feature development paused. Vendor stabilization is verified on its fix branch, pending merge; long-term tenantId/Organization normalization remains deferred.
 
 Do not begin additional CRM implementation merely because Contact and FollowUp are complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 

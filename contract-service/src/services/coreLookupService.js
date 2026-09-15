@@ -19,7 +19,7 @@ export const buildCoreLookup = (coreClient) => {
         type === "customer"
           ? `/customers/${id}`
           : type === "vendor"
-          ? `/vendors/${id}`
+          ? `/vendors/${id}/history`
           : null;
 
       if (!path) return null;
