@@ -2,24 +2,27 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Stabilization — Gitea #3 awaiting merge
+## Completed code remediation — Gitea #3 merged into main
 
-The four reproduced defects are remediated on `fix/facility-query-isolation`,
-based on main `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`:
+The four reproduced defects are resolved on main at
+`c89f22193e9eb3ca810af7087bb6392c15897ccc`:
 P0 Asset and Work Order search scope loss; P1 template lifecycle selected
 Facility scope and Asset duplicate-warning identifier disclosure.
-Verification: 29/29 original reproduction cases unchanged, 45/45 permanent
-Facility cases, 211/211 branch-safe core tests, and 31/31 authentication tests.
 
-This is isolated synthetic verification, not production exploitation or
-deployed-runtime verification. The fix is **not merged into main**; Gitea #3
-remains open pending merge. See the
-[September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>)
-for original evidence, remediation, and remaining compatibility limits.
+Fresh merged-main verification passed 45/45 permanent Facility cases
+(including all 29 unchanged original reproduction cases), 211/211 core
+tests, and 31/31 authentication tests. Original controls and formerly
+failing assertions remain green; intended admin/global behavior is preserved.
 
-Other September assessment findings remain hypotheses unless separately
-reproduced. Interaction frontend and Opportunity remain paused. Preserve
-the separate Interaction backend branch; this checkpoint does not merge it.
+Evidence is isolated and synthetic, not production exploitation or
+deployed-runtime verification. See the
+[September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
+Issue closure and compatibility with the paused Interaction branch are
+separate workflow steps not established by these results.
+
+Other September findings remain hypotheses/unresolved according to their
+recorded status. Interaction frontend and Opportunity remain paused.
+The Interaction backend branch must not be merged into main.
 
 ## Completed baseline: core-service authentication hardening
 

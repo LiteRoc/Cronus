@@ -1,5 +1,8 @@
 # Gitea #3 — Facility query isolation reproduction and remediation
 
+Current code status: **resolved and merged into main**; see the final merge
+verification section below. Earlier sections preserve their historical status.
+
 ## Original reproduction scope and status
 
 Reproduction only, completed against local `main` commit `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
@@ -253,3 +256,38 @@ Fresh transient results: `/tmp/cronus-facility-checkpoint-reproduction.json`,
 `/tmp/cronus-facility-checkpoint-permanent.json`,
 `/tmp/cronus-facility-checkpoint-core.json`, and
 `/tmp/cronus-facility-checkpoint-auth.json`.
+
+## Main merge verification — September 15, 2026
+
+The user authorized the main merge after the fix checkpoint passed review.
+Local main and both remote main refs initially matched
+`3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`; both remote fix refs matched
+`c89f22193e9eb3ca810af7087bb6392c15897ccc`. The approved fix scope contained
+no dependency/lockfile changes or Interaction implementation.
+
+Main was updated from both remotes without rewriting history, then
+fast-forwarded to `c89f22193e9eb3ca810af7087bb6392c15897ccc` and pushed to
+Gitea and GitHub. Local and both remote main hashes were verified equal.
+
+Fresh verification on merged main passed:
+
+- Permanent Facility isolation: **45/45**, including **29/29** unchanged
+  original reproduction cases (11 controls plus 18 security assertions).
+- Complete safe core-service suite: **211/211**, **7/7 suites**.
+- Core authentication security: **31/31**.
+- JavaScript syntax/static scope review, `npm ls --depth=0` in both services,
+  and `git diff --check`.
+
+Asset search list/count/page and Work Order ordinary/analytics queries
+preserve Facility visibility. Template lifecycle honors authorized selected
+Facility context. Inaccessible duplicate warnings do not disclose foreign
+Asset IDs in the covered cases. Intended admin/global behavior remains
+covered and unchanged.
+
+These four code defects are resolved in main. Verification used fail-closed
+synthetic MongoMemoryServer persistence only; no real database, deployed
+runtime, Docker, scheduled job, or dependency change was involved.
+Temporary links to existing dependencies were removed after checks.
+The paused Interaction branch is not included in main; its compatibility
+and Gitea issue closure are subsequent steps and are not claimed complete
+by this merge record. No other stabilization issue is marked resolved.

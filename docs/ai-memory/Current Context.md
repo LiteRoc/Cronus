@@ -11,18 +11,21 @@
 
 ## Current engineering priority
 
-**Branch-specific stabilization checkpoint (2026-09-15):** Gitea #3 is
-remediated and verified on `fix/facility-query-isolation`, based on main
-`3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`; it is **not merged or resolved
-in main**. Asset/Work Order search (P0), template lifecycle selected-Facility
-scope and duplicate-warning identifier disclosure (P1) are covered by 29/29
-unchanged reproduction cases and 45/45 permanent Facility tests. Complete
-branch-safe core tests pass 211/211; authentication passes 31/31. See the
-[September 15 reproduction/remediation report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea #3 remains open pending merge. Other September findings remain
-hypotheses unless separately reproduced. New feature development, including
-Interaction frontend and Opportunity, remains paused; preserve the separate
-Interaction backend branch without merging it.
+**Stabilization checkpoint — merged main (2026-09-15):** Gitea #3's four
+reproduced code defects are resolved on main by fast-forward to
+`c89f22193e9eb3ca810af7087bb6392c15897ccc` from
+`3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`. Both remotes received the fix.
+Fresh merged-main verification passed 45/45 permanent Facility cases
+(including all 29 unchanged reproduction cases), 211/211 core tests, and
+31/31 authentication tests, plus syntax, dependency consistency, and
+whitespace checks. This is isolated synthetic verification, not deployed
+runtime or real-data verification. See the
+[September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
+Issue closure and paused Interaction-branch compatibility are subsequent
+workflow steps; do not infer their completion from the main merge.
+Other September findings remain hypotheses/unresolved according to their
+recorded status. Interaction frontend and Opportunity remain paused.
+Do not merge the separate Interaction backend branch into main.
 
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the remaining CRM entities are not implemented.
 
