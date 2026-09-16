@@ -165,7 +165,7 @@ WorkOrderSchema.pre('save', async function (next) {
   const c = await Counter.findOneAndUpdate(
     { _id: counterId },
     { $inc: { seq: 1 } },
-    { new: true, upsert: true }
+    { new: true, upsert: true, session: this.$session() }
   );
   this.workOrderNumber = c.seq;
   next();

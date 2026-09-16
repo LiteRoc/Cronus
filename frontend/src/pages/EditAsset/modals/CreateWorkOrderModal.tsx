@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import Modal from "../../../components/Modal";
 import { Asset, WorkOrderCreatePayload } from "@/types";
-import { useUser } from "../../../context/UserContext";
 
 interface CreateWorkOrderModalProps {
   asset: Asset | null;
@@ -16,8 +15,6 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   onClose,
   onCreate,
 }) => {
-  const { user } = useUser(); // Access the logged-in user's information
-  const userId = (user as any)?._id || (user as any)?.id || "";
 
   if (!asset) return null; // require an asset
 
@@ -28,7 +25,6 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
     priority: "normal",
     asset,                      // keep the object locally for UI
     assetId: asset._id,         // ✅ satisfy LocalState (create payload needs this)
-    assignedTo: userId || undefined, // store a string id (not a user object)
   });
 
   /*const [newWorkOrder, setNewWorkOrder] = useState<Partial<WorkOrder & { asset: Asset | null }>>({
@@ -47,7 +43,7 @@ const CreateWorkOrderModal: React.FC<CreateWorkOrderModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!form.asset || !form.assignedTo) {
+    if (!form.asset) {
       alert("An asset must be associated with the work order.");
       return;
     }

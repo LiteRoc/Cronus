@@ -115,7 +115,16 @@ export const fetchProcdures = async (): Promise<Procedure[]> => {
 
 // Update Asset with Duplicate detection
 export async function updateAsset(id: string, payload: Partial<Asset>): Promise<WithDuplicate<Asset>> {
-  const { data } = await apiClient.put(`/assets/${id}`, payload);
+  const editable = ["templateId", "ctrlNumber", "departmentId", "locationNote", "notes", "manufacturer", "model", "description", "serialNumber", "parentAsset", "relationToParent", "maintenanceSchedule", "attributes", "revisionNumber", "status", "purchaseDate", "purchaseCost", "budgetValue", "contractValue", "manufacturerRecommendedPMFrequency", "equipmentClass", "classificationName", "regulationNumber", "panel", "prescriptionRequired", "otc", "submissionNumber", "manufacturerDUNS", "gmdnDefinition", "riskLevel", "isHIPAARelevant", "isAlarmed", "isSecuritySensitive", "isAEMExcluded", "documents", "images"] as const;
+  const changes: Record<string, unknown> = {};
+  for (const key of editable) if (Object.prototype.hasOwnProperty.call(payload, key)) changes[key] = payload[key];
+  if (changes.templateId && typeof changes.templateId === 'object') changes.templateId = (changes.templateId as { _id: string })._id;
+  if (payload.maintenanceSchedule) {
+    const schedule = { ...payload.maintenanceSchedule };
+    if (schedule.procedure && typeof schedule.procedure === 'object') schedule.procedure = (schedule.procedure as { _id: string })._id;
+    changes.maintenanceSchedule = schedule;
+  }
+  const { data } = await apiClient.put(`/assets/${id}`, changes);
   return data;
 }
 

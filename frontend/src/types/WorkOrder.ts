@@ -38,6 +38,7 @@ export interface WorkOrderCreatePayload {
   workOrderType?: 'Corrective Maintenance' | 'Planned Maintenance';
   priority?: 'low'|'normal'|'high'|'urgent';
   assignedTo?: string; // <- userId string
+  requestedBy?: string | null; // Business requester, distinct from creator/assignee
 };
 
 export type WorkOrderFilters = {

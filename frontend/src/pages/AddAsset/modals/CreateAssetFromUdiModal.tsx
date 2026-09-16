@@ -26,11 +26,15 @@ const CreateAssetFromUdiModal: React.FC<Props> = ({ isOpen, onClose, onAssetCrea
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
+    setDepartmentId("");
+    setDepartments([]);
     if (isOpen && selectedFacilityId) {
       getDepartmentsByFacility()
-        .then(setDepartments)
-        .catch((err) => console.error("Error fetching departments:", err));
+        .then(rows => { if (active) setDepartments(rows); })
+        .catch(() => { if (active) setDepartments([]); });
     }
+    return () => { active = false; };
   }, [isOpen, selectedFacilityId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

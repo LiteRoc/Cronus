@@ -1,11 +1,12 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { webcrypto } from 'node:crypto';
+import { MongoMemoryServer, MongoMemoryReplSet } from 'mongodb-memory-server';
 
 const FORBIDDEN_CONFIGURED_URI = 'mongodb://configured-database-access-is-forbidden.invalid/blocked';
 
 process.env.MONGOMS_RUNTIME_DOWNLOAD = 'false';
 
 function assertMemoryServerUri(candidate, approvedBaseUri) {
-  if (typeof candidate !== 'string' || !candidate.startsWith(approvedBaseUri)) {
+  if (typeof candidate !== 'string' || !candidate.startsWith(approvedBaseUri.split('?')[0])) {
     throw new Error('Tests refused a MongoDB URI not issued by MongoMemoryServer');
   }
 
@@ -27,26 +28,38 @@ function guardedMongoose(mongooseClient, approvedBaseUri) {
   };
 }
 
-export async function createIsolatedMongoHarness(mongooseClient) {
+export async function createIsolatedMongoHarness(mongooseClient, { replicaSet = false } = {}) {
   process.env.MONGO_URI = FORBIDDEN_CONFIGURED_URI;
 
-  const server = await MongoMemoryServer.create({
-    instance: { dbName: 'cronus_core_contact_test_bootstrap' },
-  });
+  // The installed replica-set driver's crypto API is not global in Node 18 Jest.
+  if (replicaSet && !globalThis.crypto) globalThis.crypto = webcrypto;
+
+  const server = replicaSet
+    ? await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger', ip: '127.0.0.1' } })
+    : await MongoMemoryServer.create({ instance: { dbName: 'cronus_core_contact_test_bootstrap' } });
   const baseUri = server.getUri();
   assertMemoryServerUri(baseUri, baseUri);
 
   const restoreGuard = guardedMongoose(mongooseClient, baseUri);
   const testUri = server.getUri('cronus_core_contact_test');
-  assertMemoryServerUri(testUri, baseUri);
-  await mongooseClient.connect(testUri);
+  try {
+    assertMemoryServerUri(testUri, baseUri);
+    await mongooseClient.connect(testUri);
+  } catch (error) {
+    await mongooseClient.disconnect();
+    restoreGuard();
+    await server.stop();
+    throw error;
+  }
 
   return {
     async stop() {
-      await mongooseClient.connection.dropDatabase();
-      await mongooseClient.disconnect();
-      restoreGuard();
-      await server.stop();
+      try {
+        await mongooseClient.connection.dropDatabase();
+      } finally {
+        try { await mongooseClient.disconnect(); }
+        finally { restoreGuard(); await server.stop(); }
+      }
     },
   };
 }

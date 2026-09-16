@@ -6,7 +6,7 @@
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Current stabilization branch: `main`; #3/#4/#5 code remediation is merged and verified. #5 fix: `30e521113749b01987ffbbb10381ed80cf736d0f`.
+- Current stabilization branch: `fix/asset-workorder-ownership`; #6 is remediated and verified here, not yet merged. #3/#4/#5 are resolved on main. #5 fix: `30e521113749b01987ffbbb10381ed80cf736d0f`.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -54,11 +54,26 @@ verified. Original security assertions pass 20/20 unchanged; permanent #5 295/29
 complete core 596/596 (including Facility 45/45 and Vendor 90/90), authentication
 31/31, frontend equipment tests 5/5 and baseline-compatible TypeScript pass.
 Merged-main verification reproduced these passing results. The fix was fast-forwarded
-without rewriting history; final issue closure awaits Interaction compatibility.
+without rewriting history; #5 is resolved.
 The frozen evidence remains historical; the permanent suite governs regression.
 Part/Procedure/Task ownership was not invented. #7 costs, #9 units and unmounted
-labor/travel PATCH helpers remain deferred. #6 has not started; all new feature
+labor/travel PATCH helpers remain deferred. #7 has not started; all new feature
 development remains paused. See the [#5 reproduction/remediation journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
+
+**Gitea #6 — remediated and verified on fix branch, not merged:** Asset and
+Work Order creation/reference ownership, immutable ordinary Asset Facility,
+related-Work-Order privacy, archive authorization, UDI/DI creation and `/admin`
+unmounting are verified. Ticket promotion requires Approved → Converted and a
+same-Facility Asset; Work Order, Ticket backlink and counter commit atomically.
+Transaction-capable MongoDB is required. Declared local Compose MongoDB is
+standalone; actual deployed transaction capability remains unverified. Deployment
+normalization and an explicit audited Asset transfer workflow are deferred.
+Permanent #6: 215/215; safe core: 811/811; Facility/Vendor/subresource: 45/90/295;
+auth: 31/31; frontend compatibility: 21/21; application TypeScript passes.
+Frozen evidence is historical; all 11 retained security-labelled exceptions were
+reviewed and none is an unresolved security defect. #7 has not started. Interaction
+frontend and Opportunity remain paused; Vendor ownership normalization and other
+P1/deferred work remain unresolved. See the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
 
 CRM / Strategic Account Management Phase 1 architecture and policies are accepted. The Phase 1A Contact vertical slice is complete and merged. The Facility-scoped FollowUp Phase 1 vertical slice is complete and verified on `feat/crm-followups`; the Interaction backend is preserved on its separate paused branch, not merged into main.
 

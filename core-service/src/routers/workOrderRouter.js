@@ -1,3 +1,4 @@
+const ownership = require('../services/operationalOwnership');
 //src/routers/workOrderRouter.js
 
 const express = require('express');
@@ -22,11 +23,6 @@ const isObjectId = (id) => mongoose.isValidObjectId(id);
 const CONTRACT = process.env.CONTRACT_SERVICE_URL || 'http://contract-servcie:5001';
 
 // ---------- Helpers ----------
-async function deriveFacilityIdFromAsset(assetId) {
-  const asset = await Asset.findById(assetId).select('facilityId');
-  return asset?.facilityId || null;
-}
-
 async function ensureTenantOwnsWorkOrder(req, res, next) {
   const { id } = req.params;
   if (!isObjectId(id)) {
@@ -246,62 +242,46 @@ router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
 );
 
 // ---------- Create (internal only) ----------
+const createFields = ['assetId','facilityId','departmentId','assignedTo','description','workOrderType',
+  'priority','status','requestDate','scheduledDate','dueDate','completionDate','requestedBy','vendorService'];
+const protectedCreateFields = ['_id','ticketId','createdFrom','createdBy','updatedBy','createdAt','updatedAt',
+  'deletedAt','deletedBy','workOrderNumber','timeLogs','travelLogs','partsUsed','testEquipmentUsed','procedures','costs'];
 router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
-    const assetId = req.assetId || req.body.assetId;
-    //console.log('AssetId is:', assetId);
-    if (!assetId || !isObjectId(assetId)) return res.status(400).json({ error: 'Valid assetId is required' });
-
-    // derive facilityId from asset (prevents cross-tenant WO creation)
-    const facilityId = await deriveFacilityIdFromAsset(assetId);
-    //console.log('FacilityId is:', facilityId);
-    if (!facilityId) return res.status(400).json({ error: 'Asset has no facilityId' });
-
-    // 🔧 Coerce assignedTo to an ObjectId string no matter what the client sent
-    let assignedTo = req.body.assignedTo;
-    if (assignedTo && typeof assignedTo === 'object') assignedTo = assignedTo._id;
-    if (!assignedTo) assignedTo = req.user.id; // default to creator (admin/tech)
-
-    const requestDate = req.body.requestDate || new Date();
-
+    ownership.object(req.body);
+    if (protectedCreateFields.some(key => Object.hasOwn(req.body, key))) ownership.fail(400, 'Protected creation field');
+    const facilityId = await ownership.selectedFacility(req);
+    ownership.agreeFacility(req.body, facilityId);
+    const input = ownership.pick(req.body, createFields);
+    const asset = await ownership.reference(Asset, input.assetId, { facilityId });
+    if (Object.hasOwn(input, 'departmentId')) input.departmentId = await ownership.department(input.departmentId, facilityId);
+    input.assignedTo = input.assignedTo
+      ? await ownership.assignee(input.assignedTo?._id || input.assignedTo, facilityId)
+      : await ownership.defaultAssignee(req.user.id, facilityId);
+    const normalize = value => {
+      if (value == null || value === '') return undefined;
+      if (typeof value !== 'string') ownership.fail(400, 'Invalid status or priority');
+      return value.toLowerCase();
+    };
+    const statuses = { open: 'Open', 'in progress': 'In Progress', completed: 'Completed', requested: 'Requested' };
+    const priorities = { low: 'Low', normal: 'Normal', high: 'High', critical: 'Critical' };
+    const status = normalize(input.status), priority = normalize(input.priority);
+    if ((status && !statuses[status]) || (priority && !priorities[priority])) ownership.fail(400, 'Invalid status or priority');
+    const requestDate = input.requestDate || new Date();
+    if (!Number.isFinite(new Date(requestDate).getTime())) ownership.fail(400, 'Invalid request date');
+    if (input.vendorService != null) input.vendorService = ownership.pick(input.vendorService,
+      ['vendorId','vendorName','vendorWorkOrderNumber','laborHours','travelHours','laborCost','travelCost','partsCost',
+       'shippingCost','totalCost','invoiceNumber','poNumber','sourceDocument'], true);
     let contractId = null;
     try {
-      const contractResponse = await req.contract.get(
-        `/contracts/active-for-asset/${assetId}`,
-        { params: {date: requestDate } } 
-      );
-      contractId = contractResponse.data?.contractId || null;
-    } catch (err) {
-        console.warn('No matching contract found or contract service unavailable:', err.message);
-    }
-
-    //console.log('Create WO → assignedTo:', assignedTo);
-    const normalize = (s) => s ? (s[0].toUpperCase() + s.slice(1).toLowerCase()) : s;
-
-    if (contractId && mongoose.isValidObjectId(contractId)) {
-      req.body.contractId = mongoose.Types.ObjectId.createFromHexString(contractId);
-    } else {
-      req.body.contractId = null;
-    }
-
-    const wo = await WorkOrder.create({
-      ...req.body,
-      assignedTo,
-      assetId,
-      facilityId,
-      status: normalize(req.body.status) || 'Open',
-      priority: normalize(req.body.priority) || 'Normal',
-      requestDate: req.body.requestDate || new Date(),
-      createdBy: req.user.id ?? null,
-      updatedBy: req.user.id ?? null,
-      contractId: req.body.contractId,
-    });
-
+      const response = await req.contract.get(`/contracts/active-for-asset/${asset._id}`, { params: { date: requestDate } });
+      if (typeof response.data?.contractId === 'string' && /^[a-f\d]{24}$/i.test(response.data.contractId)) contractId = response.data.contractId;
+    } catch (_) { /* Existing unavailable/no-contract behavior remains null. */ }
+    const wo = await WorkOrder.create({ ...input, assetId: asset._id, facilityId, assignedTo: input.assignedTo,
+      status: statuses[status] || 'Open', priority: priorities[priority] || 'Normal', requestDate,
+      contractId, createdFrom: 'manual', createdBy: req.user.id, updatedBy: req.user.id });
     res.status(201).json(wo);
-  } catch (err) {
-    console.error('Create WO error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+  } catch (error) { return ownership.respond(res, error); }
 });
 
 // 🔒 Keep auth so only real customers hit the legacy route
@@ -351,55 +331,46 @@ router.post('/request', authenticateToken, authorizeRoles('customer'), (req, res
   }
 );
 
-// Promote a Ticket into a Work Order
-router.post('/from-ticket/:ticketId', authenticateToken, authorizeRoles('admin', 'tech'), // customers should NOT create WOs directly
-  async (req, res) => {
-    try {
-    const { ticketId } = req.params;
-
-    const facilityId = req.headers['x-facility-id'];
-    const ticket = await Ticket.findOne({ ticketId, ...buildTenantFilter(req) });
-
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
-      if (ticket.status === 'converted' && ticket.relatedWorkOrderId) {
-        const existing = await WorkOrder.findById(ticket.relatedWorkOrderId);
-        return res.status(200).json({ workOrder: existing, message: 'Ticket already converted' });
-      }
-
-      // Map ticket → work order
-    const woPayload = {
-      facilityId,
-      departmentId: ticket.departmentId,
-      assetId: ticket.assetId ?? undefined,
-      description: ticket.description || ticket.subject,
-      workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
-      status: 'Open',
-      requestDate: new Date(),
-      dueDate: undefined,
-      scheduledDate: undefined,
-      createdFrom: 'ticket',
-      ticketId: ticket._id,
-      createdBy: req.user._id,
-      requestedBy: ticket.requestedBy || null,
-    };
-
-      const workOrder = await WorkOrder.create({...woPayload });
-      const createdWO = workOrder[0];
-
-      // keep a backlink for convenience (optional but useful)
-      ticket.workOrderId = createdWO._id;
-      ticket.status = 'converted';
-      await ticket.save();
-
-      return res.status(201).json({ message: 'Work order created from ticket', workOrder: createdWO, workOrder, ticket });
-    } catch (err) {
-      await session.abortTransaction();
-      session.endSession();
-      console.error('from-ticket error', err);
-      return res.status(500).json({ error: 'CreateFromTicketFailed' });
-    }
-  }
-);
+// Promote an Approved Ticket and establish its backlink atomically.
+router.post('/from-ticket/:ticketId', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+  let session;
+  try {
+    ownership.id(req.params.ticketId);
+    const body = ownership.pick(req.body || {}, ['assetId', 'facilityId'], true);
+    const facilityId = await ownership.selectedFacility(req);
+    ownership.agreeFacility(body, facilityId);
+    session = await mongoose.startSession();
+    let created;
+    await session.withTransaction(async () => {
+      await ownership.selectedFacility(req, session);
+      const ticket = await Ticket.findOne({ _id: req.params.ticketId, facilityId, deletedAt: null, status: { $ne: 'Closed' } }).session(session);
+      if (!ticket) ownership.fail(404, 'Ticket not found');
+      if (ticket.workOrderId) ownership.fail(409, 'Ticket already has a Work Order');
+      if (ticket.status !== 'Approved') ownership.fail(409, 'Ticket is not approved for promotion');
+      if (!ticket.assetId) ownership.fail(400, 'Ticket requires an Asset');
+      if (Object.hasOwn(body, 'assetId') && String(body.assetId) !== String(ticket.assetId)) ownership.fail(400, 'Conflicting Asset');
+      const asset = await ownership.reference(Asset, String(ticket.assetId), { facilityId }, session);
+      const departmentId = ticket.departmentId
+        ? await ownership.department(String(ticket.departmentId), facilityId, session) : undefined;
+      [created] = await WorkOrder.create([{
+        assetId: asset._id, facilityId, departmentId,
+        description: ticket.description || ticket.subject,
+        workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
+        priority: ticket.priority || 'Normal', status: 'Open', requestDate: new Date(),
+        createdFrom: 'ticket', ticketId: ticket._id, requestedBy: ticket.requestedBy,
+        createdBy: req.user.id, updatedBy: req.user.id,
+      }], { session });
+      ticket.status = 'Converted';
+      ticket.workOrderId = created._id;
+      ticket.updatedBy = req.user.id;
+      await ticket.save({ session });
+    });
+    res.status(201).json({ message: 'Work order created from ticket', workOrder: created });
+  } catch (error) {
+    if (error.code === 20 || error.code === 303) return res.status(503).json({ error: 'Ticket promotion unavailable' });
+    return ownership.respond(res, error);
+  } finally { if (session) await session.endSession(); }
+});
 
 // ---------- Update (internal only) ----------
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
@@ -414,7 +385,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTen
     const patch = Object.fromEntries(Object.entries(body));
 
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
+      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
       { $set: { ...patch, updatedBy: req.user.id } },
       { new: true, runValidators: true }
     );
@@ -429,17 +400,20 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTen
 router.patch('/:id/assign', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
     const { assignedTo } = req.body || {};
-    if (!assignedTo || !isObjectId(assignedTo)) return res.status(400).json({ error: 'Valid assignedTo is required' });
+    const parent = await WorkOrder.findOne(req.workOrderFilter).select('facilityId deletedAt');
+    if (!parent || parent.deletedAt) ownership.fail(404, 'Work order not found');
+    await ownership.assignee(assignedTo, parent.facilityId);
 
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
+      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
       { assignedTo, updatedBy: req.user.id },
       { new: true }
     ).populate('assignedTo', 'username role');
+    if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Assigned', workOrder: updated });
   } catch (err) {
     console.error('Assign WO error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return ownership.respond(res, err);
   }
 });
 
@@ -447,16 +421,17 @@ router.patch('/:id/assign', authenticateToken, authorizeRoles('admin', 'tech'), 
 router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
     const { status } = req.body || {};
-    if (!status) return res.status(400).json({ error: 'status is required' });
+    if (!['Open','In Progress','Completed','Requested'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
     const patch = { status, updatedBy: req.user.id };
     if (status === 'Completed') patch.completionDate = new Date();
 
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
+      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
       patch,
       { new: true }
     );
+    if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Status updated', workOrder: updated });
   } catch (err) {
     console.error('Status WO error:', err);
@@ -469,10 +444,11 @@ router.patch('/:id/schedule', authenticateToken, authorizeRoles('admin', 'tech')
   try {
     const { scheduledDate, dueDate } = req.body || {};
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
+      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
       { ...(scheduledDate ? { scheduledDate } : {}), ...(dueDate ? { dueDate } : {}), updatedBy: req.user.id },
       { new: true }
     );
+    if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Schedule updated', workOrder: updated });
   } catch (err) {
     console.error('Schedule WO error:', err);
@@ -648,7 +624,7 @@ router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, auth
 router.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
     const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
+      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
       { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Archived', updatedBy: req.user.id } },
       { new: true }
     );

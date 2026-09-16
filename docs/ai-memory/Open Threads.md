@@ -25,11 +25,10 @@ Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 The Interaction backend branch must not be merged into main.
 
-## Gitea #5 — code merged and verified; compatibility/closure checkpoint pending
+## Gitea #5 — resolved and merged
 
 - Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
-  fast-forward. #5 code remediation is resolved on main; the issue remains open
-  pending paused Interaction compatibility and final closure. Evidence checkpoint:
+  fast-forward. #5 is resolved on main. Evidence checkpoint:
   `72837f3c77f39fdba96055b03e8be8c93faa8165`.
 - Parent Work Order Facility scope, equipment role/reference checks, narrow
   responses, protected ordinary PUT and safe Procedure/result errors are fixed on
@@ -38,9 +37,28 @@ The Interaction backend branch must not be merged into main.
 - Frozen pre-policy expectations remain historical, not the normal green suite.
 - Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,
   #9 procedure units and unmounted labor/travel PATCH helpers remain deferred.
-- #6 has not started. New feature development, Interaction frontend and Opportunity
+- #7 has not started. New feature development, Interaction frontend and Opportunity
   remain paused. Do not merge Interaction into main.
 - See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
+
+## Gitea #6 — verified fix branch; merge pending
+
+- `fix/asset-workorder-ownership` contains verified remediation; #6 remains open
+  pending merge to main. It is not resolved on main yet.
+- Asset/Work Order ownership, Department/assignee references, protected fields,
+  related Work Order privacy, archive roles, UDI/DI creation and `/admin` routing
+  are covered by 215 permanent #6 cases; safe core 811/811, auth 31/31 and frontend
+  compatibility 21/21 pass. #3/#4/#5 dedicated suites remain green.
+- Ticket Approved → Converted promotion is transactional, including Work Order,
+  Ticket backlink and Counter. Transaction-capable MongoDB is required; declared
+  local Compose MongoDB is standalone. Actual deployed capability is unverified;
+  deployment normalization is separate work. No nontransactional fallback exists.
+- Asset transfers require a future explicit audited workflow. Vendor tenantId /
+  Organization normalization remains deferred. Other P1/deferred findings retain
+  their existing unresolved status; #7 has not started.
+- Interaction frontend and Opportunity remain paused.
+- Frozen evidence remains historical; all 11 retained security-labelled exceptions
+  were reviewed, with no remaining security defect. See the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
 
 ## Completed baseline: core-service authentication hardening
 

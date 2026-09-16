@@ -34,14 +34,9 @@ const AssetFormFields: React.FC<Props> = ({ asset, isReadOnly, handleChange, upd
       {/* 🏥 Location */}
       <FormCard title="Location & Status">
         <Select
-          label="Facility"
+          label="Facility (transfers unavailable)"
           value={asset?.facilityId || ""}
-          disabled={isReadOnly}
-          onChange={(e) => {
-            const newFacilityId = e.target.value;
-            updateField("facilityId", newFacilityId);
-            updateField("departmentId", ""); // reset department when facility changes
-          }}
+          disabled
         >
           <option value="">Select Facility</option>
           {availableFacilities.map((fac) => (

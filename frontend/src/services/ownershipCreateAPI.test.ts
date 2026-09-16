@@ -1,0 +1,14 @@
+import { beforeEach, afterEach, expect, test } from 'vitest';
+import type { AxiosAdapter } from 'axios';
+import apiClient from './apiClient';
+import { addAsset, createAsset } from './assetAPI';
+import { createAssetFromUDI } from './templateAPI';
+import { addWorkOrder } from './workOrderAPI';
+const original=apiClient.defaults.adapter;
+let calls:{url?:string;facility:unknown;body:unknown}[];
+beforeEach(()=>{calls=[];localStorage.setItem('selectedFacilityId','synthetic-facility');apiClient.defaults.adapter=(async config=>{calls.push({url:config.url,facility:config.headers.get('x-facility-id'),body:JSON.parse(config.data)});return {data:{_id:'synthetic'},status:201,statusText:'Created',headers:{},config};}) satisfies AxiosAdapter;});
+afterEach(()=>{apiClient.defaults.adapter=original;localStorage.removeItem('selectedFacilityId');});
+test('ordinary Asset creation carries selected Facility header',async()=>{await addAsset({ctrlNumber:'A'});expect(calls[0]).toEqual({url:'/assets',facility:'synthetic-facility',body:{ctrlNumber:'A'}});});
+test('equipment Asset creation carries selected Facility header',async()=>{await createAsset({ctrlNumber:'A'});expect(calls[0].facility).toBe('synthetic-facility');});
+test('UDI creation carries selected Facility header',async()=>{await createAssetFromUDI({di:'synthetic',createAsset:true,asset:{ctrlNumber:'A'}});expect(calls[0].facility).toBe('synthetic-facility');});
+test('Work Order creation preserves requester without injecting provenance or assignment',async()=>{await addWorkOrder({assetId:'asset-a',description:'Work',requestedBy:'requester'});expect(calls[0]).toEqual({url:'/workorders',facility:'synthetic-facility',body:{assetId:'asset-a',description:'Work',requestedBy:'requester'}});});

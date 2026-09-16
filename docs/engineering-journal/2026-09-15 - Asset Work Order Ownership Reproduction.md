@@ -378,3 +378,272 @@ Preserved evidence: 318 total cases, 269 passing controls/observations (includin
 Do not invent semantics for createdFrom, requestedBy or related provenance. Inspect current active writers/readers before deciding client mutability. After this checkpoint, inspect Ticket schema/Facility ownership, create/read/update authorization, Ticket-to-WO paths, safe ticketId validation, and alternate mounted ownership mutation paths. Report any additional human decisions required.
 
 This records policy; it does not authorize remediation, real-data access, #7 work, or closing Gitea #6. The evidence checkpoint is intended for both configured remotes and an evidence-only comment on #6, which remains open.
+
+## Ticket/provenance policy and alternate creation extension — 2026-09-15
+
+Status: **Reproduction/policy extension only; no remediation. Uncommitted extension.**
+
+Preserved evidence/policy checkpoint: `92bd36b99bd84753e4980894f0b7491592aa34e4`, based on main `1122219e401d272377bdb93daf98bb8fb5ec8554`. The original 318-case file remains byte-for-byte unchanged (SHA-256 recorded above). The findings and ambiguities above remain the historical record; accepted policies below supersede the corresponding questions. No Gitea update accompanies this extension.
+
+### Accepted Ticket/provenance policy
+
+- Ticket must have the same authoritative Facility as selected/authorized WO Facility. Resolve by ID plus authorized Facility; missing, foreign, inaccessible and archived Tickets fail without disclosure.
+- Promotion requires a Ticket Asset: it must exist, be authorized in that Facility, become the WO Asset and agree with any other input. Asset-less promotion and substitution are unsupported in this stabilization slice.
+- Existing `ticket.workOrderId` means stable conflict; repeat promotion must not create another WO.
+- `createdBy` is the authenticated actor, server-controlled. `createdFrom` is server-controlled: ordinary API/manual creation uses `manual`; Ticket promotion uses `ticket`; controlled import scripts retain existing explicit import/API provenance. Ordinary clients cannot choose createdFrom.
+- `requestedBy` is business requester information distinct from the creator. Promotion copies it from Ticket. Ordinary creation may accept it with existing schema validation; do not impose assignee-role rules.
+- `ticketId` is server-controlled. Ordinary POST cannot establish arbitrary Ticket links; promotion establishes them.
+- No production Ticket/promotion/provenance behavior was changed or newly exercised by this policy extension. The original Ticket success-path testability limitation remains.
+
+### Ticket status recommendation — one decision remains
+
+Actual enum in `src/models/Tickets.js`: **Open, Needs Info, Approved, Converted, Rejected, Closed**.
+
+The narrowest existing candidate for initial promotion is **Approved only**. Exclude Needs Info, Converted, Rejected and Closed. However, the only explicit approval transition in `ticketRouter.js` is customer approval of **consumable** Tickets from Open/Needs Info. The unmounted conversion handler merely excludes Converted, which is not a reliable eligibility policy; the mounted broken promotion handler has no trustworthy eligibility rule. There is no authoritative service-Ticket approval transition in the current mounted application.
+
+**Remaining human decision:** approve `Approved` as the sole initial-promotion status (including service Tickets, so Open service Tickets cannot promote), or explicitly permit Open service Tickets as an exception. Recommendation: Approved only, provided that withholding Open service promotion is intentional. Do not implement that choice silently or invent a new status. All other Ticket/provenance decisions above are resolved.
+
+### Harness extension and isolation
+
+New opt-in file: `core-service/src/routers/_tests_/assetOwnershipAlternateCreation.reproduction.mjs`. Existing opt-in Jest config now includes it alongside the unchanged original suite. It remains outside the normal core regression suite.
+
+- Minimal Express mounts actual Asset, Template, admin and Work Order routers. Application startup, cron and real database config are not imported.
+- UDI uses actual parsing/mapping/provider helper code with an Axios adapter that returns synthetic GUDID and classification data. Unexpected URLs throw; no native HTTP adapter fallback exists. No external GUDID/openFDA call occurred.
+- `/admin`'s JSON dependency is mocked with five fully synthetic rows, preserving the inspected seed structure. Only original file count and field/type structure were inspected, not copied operational values.
+- Native `MongoClient.connect` is intercepted before invoking the handler. Only the harness forbidden-config sentinel is accepted; the wrapper supplies the already-connected ephemeral MongoMemoryServer client. Other connection requests throw. The actual `db('Cronus')` and `collection('workOrders')` calls are preserved, not renamed.
+- The default Mongoose connection is safely reconnected using the same issued ephemeral server URI with database name `Cronus`. Thus both the real Work Order model/API and admin native writes use the **same isolated database**, avoiding a false negative caused by comparing different databases.
+- Cleanup drops/stops the ephemeral database. The wrapper's close is recorded without prematurely closing the shared test client. Database-target guard tests reject configured/arbitrary targets.
+
+### UDI/DI route findings
+
+Actual endpoint: **POST /templates/from-di-or-udi**, mounted by app.js and used by `CreateAssetFromUdiModal` / `createAssetFromUDI`.
+
+| Behavior | Runtime result | Classification |
+|---|---|---|
+| Authorized A, valid UDI, same-Facility Department | 201, A Asset created | NOT REPRODUCED: legitimate creation remains functional |
+| Body Facility B under A-only context | 201, B Asset persisted | **CONFIRMED BUG — P0** |
+| Foreign Department or parent Asset | 201, foreign binding persisted | **CONFIRMED BUG — P0** |
+| Missing/malformed/foreign/nonexistent selected context with body A | 201; context ignored | **CONFIRMED BUG — P1**, authorization-context enforcement; foreign placement above is P0 |
+| Nonexistent body Facility or Department | 201 with dangling reference | **CONFIRMED BUG — P1** |
+| Missing body Facility despite valid selected A | 400; context is not used to derive ownership | **CONFIRMED BUG — P2** relative to accepted derivation policy |
+| Malformed body Facility | 400 including raw schema/cast details | **CONFIRMED BUG — P2** |
+| Canonical actor | createdBy/updatedBy null due to req.user._id versus canonical req.user.id | **CONFIRMED BUG — P1** |
+| Client audit/timestamp/deletion/metrics/workOrders/duplicateOf input | Ignored by explicit Asset payload construction in tested fields | NOT REPRODUCED: direct spoofing of those fields |
+| admin/technician | 201 for valid own input | Passing role controls |
+| customer/viewer/legacy tech/missing/unknown | 403 before provider access | NOT REPRODUCED: role bypass |
+| anonymous | 401 before provider access | NOT REPRODUCED: anonymous access |
+| invalid/expired authentication | 403 before provider access | NOT REPRODUCED: authentication bypass |
+| DI-only, createAsset=true, valid selected Facility | 500 after Template upsert; error exposes undefined-property access | **CONFIRMED BUG — P2** |
+
+Root cause of ownership defects: `templatesRouter.js` copies `assetInput.facilityId`, departmentId and parentAsset directly into `assetPayload`; no authorized selected-Facility or referenced-record lookup establishes permission. Asset model save validation/cycle checking is not ownership authorization.
+
+DI-only root cause: `extractDIFromUDI('')` returns no `pi`; the Asset branch dereferences `pi.serialNumber` and other PI members. The valid UDI matrix provides parsed PI and reaches the actual ownership behavior. DI-only Template creation (`createAsset=false`) succeeds; DI-only Asset creation does not. No production helper was patched to bypass this failure.
+
+#### Duplicate privacy and shared Template semantics
+
+- Foreign serial duplicate does **not** expose a foreign Asset ID or duplicateOf; same-Facility serial also has no Asset duplicate advisory on this route.
+- Global ctrlNumber collision yields 409 without foreign Asset ID.
+- `duplicateOf` in this route is a **shared Template** duplicate identifier, not an Asset identifier. A separate synthetic test proves the returned ID belongs to the shared Template.
+- Template-only creation works without Asset Facility context; Template has no Facility owner and is readable from B. This is preserved shared-reference behavior, not a tenant-isolation vulnerability.
+- Template upsert precedes Asset validation: failed Asset creation leaves the Template upsert persisted. This is a partial-success/workflow observation. Whether to make the combined operation atomic is not silently decided here.
+
+### Mounted GET /admin findings
+
+**Runtime collection equivalence result: operational Work Order insertion was NOT REPRODUCED.**
+
+Within the same ephemeral `Cronus` database:
+
+- Actual Mongoose WorkOrder model namespace: **Cronus.workorders**.
+- Actual admin native insertion namespace: **Cronus.workOrders**.
+- Native collection listing confirms both distinct collections coexist.
+- Admin insertion creates five rows in `workOrders`; `WorkOrder.countDocuments()` stays zero.
+- Normal mounted GET `/workorders/:id` returns 404 for a native inserted ID, and GET `/workorders` does not return its synthetic description, including for an admin with global scope.
+
+This result does not depend on different database names or guessing MongoDB case behavior. No configured real-database topology or contents were inspected.
+
+| Behavior | Result / classification |
+|---|---|
+| Anonymous request | 200; five native rows inserted — **CONFIRMED BUG — P1**, unauthenticated native seed-write surface |
+| Invalid/expired token, customer/viewer/legacy/missing/unknown/technician | Same 200 insertion; route has no auth/role middleware — **CONFIRMED BUG — P1** |
+| Operational WO creation/disclosure | **NOT REPRODUCED**; separate collection, absent from normal WO API |
+| Facility/audit/reference validation | Native insert bypasses Mongoose and route scope. Synthetic seed rows have no Facility or audit; assetId remains a string. WorkOrder schema validation would reject missing Facility |
+| Repeated invocation in same loaded process | First inserts five; second returns generic 500 with no new records. Driver added `_id` to the cached seed objects, causing repeat duplicate-key failure — **P2 workflow observation** |
+| Fresh equivalent synthetic seed objects | Inserts another five (ten total). Models process/module reload semantics only; no process/service restart was performed |
+
+Severity rationale: this is confirmed unauthenticated database mutation, but the demonstrated payload/target is a fixed legacy seed collection, not an arbitrary body-controlled write or the operational WO collection. Classify **P1** for the exposed native-write boundary; do not claim P0 operational WO mutation without evidence. If another consumer or deployment mapping uses this collection, reassess impact separately.
+
+Inspected repository seed structure: array of **five** objects, fields `assetId` (string), `description` (string), `status` (string), `scheduledDate` (string), `completionDate` (string/null); no explicit `_id`, Facility, Department, actor/audit or provenance fields. All inserted values in this test were synthetic replacements. No inference that the original IDs resolve in a real database is made.
+
+Source has the characteristics of a development/demo seed endpoint: hardcoded database/collection and imported fixture, reachable through normal `app.use('/admin', adminRouter)` with no environment guard. The absence of a guard is established; whether its original author intended the mount to be accidental is unknown. The source was not fixed or executed against configured infrastructure.
+
+### Extension results and baselines
+
+| Evidence group | Total | Pass | Intentional security failures |
+|---|---:|---:|---:|
+| Original #6 (unchanged) | 318 | 269 | 49 |
+| New UDI/DI | 57 | 44 | 13 |
+| New /admin | 25 | 16 | 9 |
+| **Combined** | **400** | **329** | **71** |
+
+All non-security cases pass. New passing counts include existing protection assertions; these are observations/controls, not authorization to preserve vulnerable behavior in remediation. No original assertion was changed, skipped or weakened.
+
+Fresh safe baselines after extending the harness:
+
+- Complete core: **596/596**, 9 suites.
+- Facility: **45/45**, included in core.
+- Vendor: **90/90**, included in core.
+- Work Order subresource: **295/295**, included in core.
+- Authentication: **31/31**.
+
+Use the existing documented opt-in command to run both evidence files; expect intentional red results. `--runTestsByPath src/routers/_tests_/assetOwnershipAlternateCreation.reproduction.mjs` restricts to the extension, and `--testNamePattern='UDI'` or `'ADMIN'` selects the new groups. Normal core discovery still excludes both evidence files.
+
+### Extension handoff
+
+No production/dependency/previous-test changes; no commit/push, Gitea update, real-data or external provider access, Docker/runtime operation, scheduled job or #7 work. Temporary dependency links used for verification are removed before handoff. Pending changes are the opt-in config, appended report and new evidence file only. Original evidence checkpoint/history is intact. Await review; do not begin remediation. The sole remaining Ticket eligibility decision is described above.
+
+
+## 2026-09-16 — Remediation verification (uncommitted, pending review)
+
+The user authorized #6 remediation, including transaction-based Ticket promotion and isolated replica-set tests. This section records synthetic verification only, not deployed-runtime verification or production exploitation. The original evidence and extension assertions remain unchanged. No commit, push, merge, issue update, database migration, or runtime deployment was performed.
+
+### Implemented boundaries
+
+- Ordinary and UDI/DI Asset creation require an explicit, existing, authorized selected Facility. The server derives ownership; conflicting body ownership is rejected. Department and parent Asset references must belong to that Facility. Shared Template/Procedure semantics are preserved.
+- Ordinary Asset updates cannot transfer Facility, including for admins. Explicit editable-field allowlisting blocks ownership, audit, deletion, duplicate, relationship-list and calculated-metric injection, including dotted paths/operators. Department/parent references are validated. Canonical actors are server-controlled.
+- Asset detail explicitly queries related Work Orders with both the complete authorized predicate and the Asset Facility. Same-Facility results remain visible; foreign linked records are omitted, including for admin detail without a selected header.
+- Work Order creation requires selected Facility == referenced Asset Facility == derived Work Order Facility. Department and explicit assignee references are validated. Assignees require canonical admin/technician role and explicit Facility authorization. The creator is the default assignee only when eligible; otherwise creation is unassigned. Organization membership alone does not qualify.
+- Ordinary Work Order creation fixes provenance to `manual`, controls audit actors, rejects arbitrary Ticket and protected nested/audit/cost inputs, and retains schema-validated business `requestedBy`. Initial equipment arrays are rejected; clients use the already-validated #5 endpoint. Existing Contract lookup and vendorService business inputs remain supported; no Contract economics redesign.
+- Ticket promotion uses a MongoDB transaction for the Ticket lookup and eligibility recheck, Asset/Department/Facility validation, Work Order creation, Ticket `Approved → Converted` transition, and backlink. Only Approved, nondeleted Tickets with a same-Facility Asset and no existing Work Order qualify. Ticket requester is copied; creator is the authenticated actor and provenance is `ticket`. Work Order number allocation joins the same session. Concurrent/repeated promotion creates exactly one Work Order. Failure rolls back Work Order, Ticket and counter state. There is no nontransactional fallback.
+- UDI/DI creation preserves shared Template upsert semantics, validates ownership before provider work, fixes the DI-only missing-PI failure, stamps canonical audit actors, and returns safe input/provider errors. Tests mock all provider/Contract HTTP calls.
+- `/admin` is no longer imported or mounted by the application. The historical seed-router file remains unmounted; no legacy collection was inspected, migrated or removed.
+- Archive endpoints remain admin-only and idempotent. Ordinary Work Order status changes cannot substitute for archival. #5 ordinary PUT/nested-resource protections remain intact.
+- The Asset client now projects ordinary mutable fields from the full fetched object and converts populated Template/Procedure references to IDs. The Facility edit selector is disabled with a transfer-unavailable label. This preserves active ordinary editing without restoring ownership transfer.
+
+### Allowlists
+
+Asset create: `templateId`, `ctrlNumber`, `departmentId`, `locationNote`, `notes`, `manufacturer`, `model`, `description`, `serialNumber`, `parentAsset`, `relationToParent`, `maintenanceSchedule`, `attributes`. Facility and audit are supplied by the server. Unknown protected create fields are ignored; update unknown fields are rejected.
+
+Asset update: the create fields plus `revisionNumber`, `status`, `purchase`, `acquisitionDate`, `installationDate`, `retirementDate`, `purchaseDate`, `purchaseCost`, `budgetValue`, `contractValue`, `manufacturerRecommendedPMFrequency`, `equipmentClass`, `classificationName`, `regulationNumber`, `panel`, `recordStatus`, `prescriptionRequired`, `otc`, `submissionNumber`, `manufacturerDUNS`, `gmdnDefinition`, `riskLevel`, `isHIPAARelevant`, `isAlarmed`, `isSecuritySensitive`, `isAEMExcluded`, `documents`, `images`. Schema validation still applies. Maintenance schedule permits only frequency, intervalMonths, nextMaintenance, lastMaintenance and procedure; purchase permits price, date, expectedLifeYears and salvageValue.
+
+Work Order create input: `assetId`, agreement-only `facilityId`, `departmentId`, `assignedTo`, `description`, `workOrderType`, `priority`, `status`, `requestDate`, `scheduledDate`, `dueDate`, `completionDate`, `requestedBy`, `vendorService`. Contract attribution remains server-derived. #5 ordinary PUT allowlist is unchanged.
+
+### Permanent verification
+
+| Suite/check | Result |
+| --- | --- |
+| New #6 ownership/replica-set cases | 210/210 |
+| New standalone transaction-unavailable case | 1/1 |
+| Complete safe core | 807/807 = existing 596 + new 211 |
+| Facility isolation (included in core) | 45/45 |
+| Vendor security (included in core) | 90/90 |
+| Work Order subresource security (included in core) | 295/295 |
+| Authentication security | 31/31 |
+| Asset frontend client compatibility | 5/5 |
+| Baseline-compatible TypeScript | Pass on baseline and modified frontend (`--noEmit --noUnusedLocals false --noUnusedParameters false`) |
+| JavaScript syntax, installed dependency consistency, diff whitespace | Pass |
+
+Transaction tests cover correct requester/provenance/actor/backlink, all other Ticket statuses, existing Work Order, missing/foreign Asset/Facility/Department, asset-less and deleted Tickets, malformed IDs, injected promotion fields, role denial, Work Order validation rollback, Ticket-save rollback (including counter), concurrent/repeated promotion and standalone failure without partial state.
+
+Two existing permanent test fixtures were corrected without assertion changes: Facility compatibility fixtures now persist the Facilities whose IDs they use; assignment fixtures now explicitly declare canonical technician roles. These fixtures must meet the newly enforced existence/eligibility invariants.
+
+### Frozen evidence interpretation
+
+Before: original 318 cases = 269 passing observations/controls + 49 intentional failures; UDI 57 = 44 + 13; admin 25 = 16 + 9. Combined 400 = 329 + 71.
+
+After remediation the unchanged full frozen suite reports 276 passing / 124 failing. Original file: 218 passing / 100 failing; combined extension: 58 passing / 24 failing. Many observations deliberately expect behavior that the accepted policy removed, so this suite is not an ongoing green regression target.
+
+Of 73 security-labelled cases (including two already-green controls), 62 pass and 11 retain incompatible historical harness expectations:
+
+1. `Asset parent unlink own safe error` expects a 4xx for an authorized same-Facility unlink. The repaired operation now succeeds with 200; permanent coverage verifies success and foreign denial.
+2. `Asset PUT protects deletedAt` calls `toISOString()` on the unchanged null deletion field and throws in the assertion itself. Permanent coverage verifies that protected writes are rejected and stored data is unchanged.
+3. Nine `/admin` security cases explicitly import and mount the historical seed router in their minimal application. They continue to demonstrate that old router's behavior, not current application reachability. Permanent coverage evaluates actual application registration with inert startup dependencies and verifies no admin import/mount and HTTP 404.
+
+Thus 60 formerly failing security assertions became green, plus two previously green cases. No frozen assertion was weakened, deleted, inverted or skipped. The 211 new permanent cases supply policy-current coverage for the corrected behaviors and the frozen harness exceptions.
+
+### Safety, compatibility and deferred work
+
+Replica-set support is opt-in for these transaction tests. Runtime downloads are disabled; MongoMemoryServer-issued loopback targets are validated; configured/arbitrary targets are rejected; isolated databases and processes are cleaned up. Standalone MongoDB returns a controlled 503 for promotion without partial state. A transaction-capable deployment is required; no deployment capability was inspected or changed.
+
+The existing Template partial-index declaration fails when explicitly awaited against the installed MongoDB binary. This pre-existing unrelated index was not changed; transaction tests explicitly initialize only Asset, WorkOrder, Ticket and Counter collections, consistent with existing Template tests. No real index/database verification is claimed.
+
+No cost formulas, labor-rate snapshots, lifecycle calculations, Procedure/Task schemas/units, Part ownership model, Vendor implementation, Interaction, or dependencies/lockfiles changed. #7 cost correctness, #9 units, explicit transfer workflows and other ownership normalization remain deferred. The full frozen suite remains historical evidence; review its exceptions alongside permanent coverage rather than interpreting its total as remediation success/failure alone.
+
+
+## 2026-09-16 — Final commit-gate review
+
+**PASS for code/test review; uncommitted.** No Gitea, Git history, deployed service, or real database changes were made.
+
+### Deployment compatibility (source-only)
+
+`docker-compose.yml` declares a development `localmongo` service with no replica-set command or initialization. If the application connects to that service, Ticket promotion safely returns 503; supporting promotion there requires a separately authorized replica-set deployment change. Service connection targets remain externally supplied through MONGO_URI, so this is an inference about the declared service, not a verified ubuntu-lab deployment fact. The README's historical Compose example likewise describes standalone MongoDB.
+
+The `atlas` profile supplies an external MONGO_URI and defines no local MongoDB service. A transaction-capable Atlas/replica-set target should support promotion, but neither the target nor topology was inspected. A profile name cannot prove transaction support. Generated frontend Compose files define no MongoDB topology. No authoritative production topology was established from repository documentation. No secret files, real connection strings or database endpoints were inspected.
+
+### Transaction and Counter review
+
+All promotion reads and writes participate in one `withTransaction` callback/session, including eligibility rechecks, Work Order insertion, Ticket transition/backlink and Counter increment. Session cleanup runs in finally. Errors propagate through abort/rollback; unsupported transaction errors produce 503 without a fallback. The driver retries transient transaction errors and handles commit retry semantics. An ambiguous response after a successful commit does not split the transaction; a repeated promotion finds the backlink and returns conflict.
+
+The Counter's unique string `_id` is `wo:global`; despite its old per-Facility comment, the existing sequence is global. `seq` increments through `$inc` in the same session. Added tests verify rollback of a pre-existing sequence, concurrent distinct-Ticket numbers, and forced transient retry after Work Order insertion: one committed Work Order/backlink and one sequence increment. The existing schema has no unique Work Order number index; historical/import-supplied numbers are outside this promotion guarantee and were not redesigned.
+
+### Individual frozen security exceptions
+
+| Case | Classification | Review conclusion |
+| --- | --- | --- |
+| Asset parent unlink own safe error | OBSOLETE POLICY EXPECTATION | Authorized unlink now correctly succeeds; foreign unlink remains denied. |
+| Asset PUT protects deletedAt | TEST ASSERTION DEFECT | Frozen assertion calls toISOString on unchanged null. Added explicit permanent null-preservation test; spoof rejected. |
+| ADMIN anonymous cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Test directly mounts old router; actual app does not mount/import it. |
+| ADMIN invalid cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN expired cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN customer cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN viewer cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN tech cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN missing cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN unknown cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+| ADMIN technician cannot run mounted seed insertion | HISTORICAL ROUTE HARNESS | Same direct historical mount; not actual application reachability. |
+
+No exception was classified as STILL RELEVANT DEFECT. Frozen evidence remains unchanged. Actual application registration is covered separately, and no alternate mounted native seed route was identified.
+
+### Caller review and narrow corrections
+
+Asset modal, equipment-Asset helper and UDI callers all use apiClient's selected-Facility header. Missing selection fails safely at the server; matching body Facility is only an agreement check, never authority. Asset create modals now clear Department selection/results on Facility changes and ignore stale responses. Edit Department caching now includes selected Facility. Transfer remains disabled; schema-supported edit fields and response envelopes remain compatible. The existing UI's modelNumber field is absent from the Asset schema and already did not persist; no new schema semantics were introduced for it.
+
+Both active Work Order creation flows (list launcher and Asset detail) previously forced the current user into assignedTo. That could reject otherwise authorized admin creation where the admin lacks explicit assignment eligibility. They now omit implicit assignment and let the server choose an eligible actor or leave the Work Order unassigned; explicit API assignment validation remains strict. They send no protected provenance, Ticket or nested subresource fields. Added requestedBy to the frontend create type to match business-requester API semantics. No current Ticket-promotion frontend caller exists; no Ticket UI was built. HTTP 400/404, 409 and standalone 503 behavior is covered at the endpoint.
+
+Source-only inspection identified direct Mongoose Work Order writers in maintenanceService, cronJobs and import scripts (DSD, Wayne device imports, Mary Rutan text import), plus unmounted Ticket/portal routers. None was executed or rewritten. Ordinary nontransactional model saves still use the established global counter outside a session. Controlled imports remain outside HTTP input allowlisting.
+
+UDI provider calls remain mocked; shared Template semantics, selected-Facility Assets, Department validation, canonical actors, DI-only creation and duplicate privacy pass. Admin archival remains functional and technician archival denied. No #7 cost formulas, #9 units, ownership models, dependencies or production deployment settings changed.
+
+### Fresh verification
+
+- Permanent #6: **215/215** (214 replica-set ownership cases plus one standalone failure case).
+- Complete safe core: **811/811** = 596 existing + 215 new.
+- Dedicated Facility suites: **45/45** (29 + 16); Vendor: **90/90**; Work Order subresources: **295/295**.
+- Authentication: **31/31**.
+- Frontend: **21/21** = Asset client 5 + existing equipment client 5 + create API 4 + caller/Department compatibility 7.
+- Actual application TypeScript: **PASS**, `tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0`. This supersedes the earlier root-config check, which did not traverse application references and was insufficient evidence of application type safety.
+- JavaScript syntax, npm ls --depth=0 for all three packages, git diff --check, and scope/whitespace review: PASS.
+- Runtime downloads remain disabled; only issued loopback synthetic MongoDB targets were used; configured targets are rejected. Replica-set support remains opt-in to these transaction tests.
+
+
+## 2026-09-16 — Approved remediation checkpoint
+
+The user approved the reviewed #6 implementation for documentation, commit and push
+as `fix: enforce Asset and Work Order ownership`. This is a fix-branch checkpoint,
+not a merge or issue closure. The permanent 215-case suite is authoritative for
+ongoing #6 regression; the original 318 cases and 82 extension cases remain frozen
+historical evidence. All 11 security-labelled exceptions are classified individually
+above; none is a remaining security defect.
+
+Final security model and allowlists are recorded in the preceding remediation and
+commit-gate sections. Asset transfer remains deferred to an explicit audited
+workflow. Ticket promotion requires transaction-capable MongoDB; repository local
+Compose defines standalone MongoDB, remote/Atlas capability is not established by
+a profile or URI label, and actual ubuntu-lab/deployed topology was not inspected.
+No production Ticket promotion, real-data verification, legacy collection inspection,
+migration or deletion is claimed. Deployment normalization is outside #6.
+
+Fresh approved-checkpoint verification repeated successfully: #6 215/215, complete
+safe core 811/811, Facility 45/45, Vendor 90/90, subresources 295/295, authentication
+31/31, frontend compatibility 21/21, actual application TypeScript, syntax,
+installed dependency consistency and whitespace checks. Temporary dependency links
+were removed before staging. Transaction tests remained fail-closed and synthetic.

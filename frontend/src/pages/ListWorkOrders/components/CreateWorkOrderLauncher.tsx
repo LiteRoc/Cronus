@@ -7,13 +7,10 @@ import AssetPickerModal from "../modals/AssetPickerModal";
 import CreateWorkOrderModal from "../modals/CreateWorkOrderModal";
 import { Asset, WorkOrder, WorkOrderCreatePayload } from "@/types";
 import { addWorkOrder } from "@/services";
-import { useUser } from "@/context/UserContext";
 
 type Props = { onCreated?: (wo: WorkOrder) => void };
 
 export default function CreateWorkOrderLauncher({ onCreated }: Props) {
-  const { user } = useUser();
-  const userId = (user as any)?._id || (user as any)?.id;
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [asset, setAsset] = useState<Asset | null>(null);
@@ -23,9 +20,8 @@ export default function CreateWorkOrderLauncher({ onCreated }: Props) {
   const handleSelect = (a: Asset) => { setPickerOpen(false); setAsset(a); setCreateOpen(true); };
 
   const handleCreate = async (payload: WorkOrderCreatePayload) => {
-    // ensure assignedTo defaults to current user
-    const finalPayload = { ...payload, assignedTo: payload.assignedTo || userId };
-    const wo = await addWorkOrder(finalPayload);
+    // The server defaults assignment only when the actor is Facility-eligible.
+    const wo = await addWorkOrder(payload);
     onCreated?.(wo);
   };
 
