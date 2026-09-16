@@ -36,7 +36,6 @@ const fetcher = (url: string) => apiClient.get(url).then(res => res.data);
 
 const AssetWorkOrderTable: React.FC<Props> = ({ asset }) => {
   const { user } = useUser();
-  const userId = (user as any)?._id || (user as any)?.id;
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
 
@@ -46,9 +45,8 @@ const AssetWorkOrderTable: React.FC<Props> = ({ asset }) => {
   );
 
   const handleCreate = async (payload: WorkOrderCreatePayload) => {
-    // ensure assignedTo defaults to current user
-    const finalPayload = { ...payload, assignedTo: payload.assignedTo || userId };
-    await addWorkOrder(finalPayload);
+    // The server defaults assignment only when the actor is Facility-eligible.
+    await addWorkOrder(payload);
   };
 
   const renderStatusChip = (status: WorkOrderRow["status"]) => {

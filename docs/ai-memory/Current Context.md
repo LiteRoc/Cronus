@@ -2,12 +2,41 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Current merge gate — 2026-09-16: compatibility passed
+
+Main `c31f309f9747a5959f91e316c275e308d7b7bcc5` includes verified #3/#4/#5/#6
+remediation and is published to Gitea/GitHub. Its merged-main checks passed:
+core **811/811**, authentication **31/31**, frontend ownership/equipment **21/21**
+and actual application TypeScript. The intentional handoff is preserved in
+`8acb950`; remediation remains `d650873`.
+
+The merge into paused Interaction passed its complete compatibility gate after
+one approved test-only correction: the #6 application-registration router mock
+now provides the existing `interactionJsonErrorHandler` export. Production
+Interaction code and its tests are unchanged. The affected test passes **1/1**;
+Interaction **54/54**; #6 **215/215**; #5 **295/295**; #4 **90/90**; #3 **45/45**;
+complete safe core **865/865** = 811 main + 54 Interaction. Authentication **31/31**,
+frontend **21/21**, application TypeScript, syntax, npm ls for all three packages,
+whitespace, conflict-marker and focused security/scope checks passed.
+
+The earlier 864/865 failure was a stale test double, now resolved. This checkpoint
+completes code compatibility; Git refs and Gitea record the subsequent pushes,
+final verification comment and #6 closure. Close #6 only after both remote
+Interaction refs match this verified merge. Do not merge Interaction into main.
+
+All database verification used isolated synthetic persistence with downloads
+disabled. Ticket promotion still requires transaction-capable MongoDB and fails
+with 503 without partial state on unsupported standalone topology. No real-data
+or deployed-runtime verification occurred. Vendor creation stays disabled;
+normalization and audited Asset transfer remain deferred. P0 review and #7
+were not started in this task. Interaction frontend and Opportunity remain paused.
+
 ## Checkpoint
 
 - Interaction backend base: `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`.
 - Preserved Interaction backend checkpoint: `ce535d39627f7a77f9e342fd9146e8ba361f5899`.
 - Paused Interaction backend branch: `feat/crm-interactions`.
-- Authoritative main `1122219e401d272377bdb93daf98bb8fb5ec8554` includes verified #3/#4/#5 fixes; the Interaction branch remains separate and paused.
+- Authoritative main `c31f309` includes verified #3/#4/#5/#6 fixes; the Interaction branch remains separate and paused.
 - The Contact, FollowUp, and Interaction implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -65,8 +94,24 @@ Merged-main verification reproduced these passing results. The fix was fast-forw
 without rewriting history; Interaction compatibility has passed; Gitea records final issue closure.
 The frozen evidence remains historical; the permanent suite governs regression.
 Part/Procedure/Task ownership was not invented. #7 costs, #9 units and unmounted
-labor/travel PATCH helpers remain deferred. #6 has not started; all new feature
+labor/travel PATCH helpers remain deferred. #7 has not started; all new feature
 development remains paused. See the [#5 reproduction/remediation journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
+
+**Gitea #6 — merged-main and Interaction compatibility verification passed:** Asset and
+Work Order creation/reference ownership, immutable ordinary Asset Facility,
+related-Work-Order privacy, archive authorization, UDI/DI creation and `/admin`
+unmounting are verified. Ticket promotion requires Approved → Converted and a
+same-Facility Asset; Work Order, Ticket backlink and counter commit atomically.
+Transaction-capable MongoDB is required. Declared local Compose MongoDB is
+standalone; actual deployed transaction capability remains unverified. Deployment
+normalization and an explicit audited Asset transfer workflow are deferred.
+Permanent #6: 215/215; safe core: 811/811; Facility/Vendor/subresource: 45/90/295;
+auth: 31/31; frontend compatibility: 21/21; application TypeScript passes.
+Frozen evidence is historical; all 11 retained security-labelled exceptions were
+reviewed and none is an unresolved security defect. #7 has not started. Interaction
+frontend and Opportunity remain paused; Vendor ownership normalization and other
+P1/deferred work remain unresolved. See the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
+
 
 Interaction backend is implemented, reviewed, documented, committed and
 pushed at backend checkpoint `ce535d39627f7a77f9e342fd9146e8ba361f5899`;
@@ -97,14 +142,14 @@ remediation is resolved on main; Gitea records the final #4 closure separately.
 Vendor creation remains disabled, tenantId normalization deferred, features paused,
 at that checkpoint. No real-data or deployed-runtime verification occurred.
 
-Latest #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
+Earlier #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
 is incorporated without rewriting Interaction history. Interaction 54/54,
 Work Order security 295/295, Vendor 90/90, Facility 45/45 and complete safe core
 650/650 (166 shared + 54 Interaction + 45 Facility + 90 Vendor + 295 Work Order)
 passed. Authentication 31/31 and frontend equipment compatibility 5/5 passed;
 syntax, dependency and whitespace checks passed. Restricted Interaction visibility,
 Contact validation and #3/#4/#5 protections coexist. #7 costs and #9 units remain
-unchanged. No real-data/deployed-runtime verification occurred. #6 has not started;
+unchanged. No real-data/deployed-runtime verification occurred. At that historical checkpoint #6 had not started;
 Interaction frontend and Opportunity remain paused. Gitea records final #5 closure.
 
 Before continuing stabilization:
@@ -113,8 +158,8 @@ Before continuing stabilization:
 2. Confirm the working tree and checkpoint commit.
 3. Treat the accepted CRM policy document as authoritative for Phase 1.
 4. Treat the complete Contact and FollowUp vertical slices and the verified Interaction backend, including their Facility, tenant, authorization, visibility, lifecycle, audit, and stale-response invariants as the implementation baseline for subsequent CRM work.
-5. Keep feature development paused. #3/#4/#5 are merged and verified on main; Vendor creation stays disabled and long-term tenantId/Organization normalization remains deferred.
-6. Review Open Threads and the #3/#4/#5 evidence; continue only within the next explicitly authorized stabilization task.
+5. Keep feature development paused. #3/#4/#5/#6 are merged and verified on main; Vendor creation stays disabled and long-term tenantId/Organization normalization remains deferred.
+6. Review Open Threads and the #3/#4/#5/#6 evidence; continue only within the next explicitly authorized stabilization task.
 
 Do not begin additional CRM implementation merely because the Interaction backend is complete. Do not combine future CRM work with dependency upgrades, audit fixes, data repair, migrations, or unrelated refactors.
 

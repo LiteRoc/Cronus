@@ -19,7 +19,7 @@ and 18 formerly failing security assertions. Merged-main verification passed
 tests. Intended admin/global behavior remains preserved. These are isolated
 synthetic results, not production exploitation or deployed verification.
 See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea #3 is closed. Current main `1122219e401d272377bdb93daf98bb8fb5ec8554` includes verified #3/#4/#5 remediation.
+Gitea #3 is closed. Main `c31f309` includes verified #3/#4/#5/#6 remediation; #6 compatibility passed and Gitea records final closure after publication.
 
 Stabilization remains the priority. Other September findings remain
 hypotheses/unresolved according to their recorded status. Gitea #2 tracks
@@ -47,11 +47,10 @@ remediation is resolved on main; Gitea records the final #4 closure separately.
 Vendor creation remains disabled, tenantId normalization deferred, features paused,
 at that checkpoint. No real-data or deployed-runtime verification occurred.
 
-## Gitea #5 — code merged and verified; Interaction compatibility passed
+## Gitea #5 — resolved and merged
 
 - Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
-  fast-forward. #5 code remediation is resolved on main; the issue remains open
-  at this checkpoint pending the final Gitea comment/closure; Interaction compatibility has passed. Evidence checkpoint:
+  fast-forward. #5 is resolved on main. Evidence checkpoint:
   `72837f3c77f39fdba96055b03e8be8c93faa8165`.
 - Parent Work Order Facility scope, equipment role/reference checks, narrow
   responses, protected ordinary PUT and safe Procedure/result errors are fixed on
@@ -60,19 +59,52 @@ at that checkpoint. No real-data or deployed-runtime verification occurred.
 - Frozen pre-policy expectations remain historical, not the normal green suite.
 - Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,
   #9 procedure units and unmounted labor/travel PATCH helpers remain deferred.
-- #6 has not started. New feature development, Interaction frontend and Opportunity
+- #7 has not started. New feature development, Interaction frontend and Opportunity
   remain paused. Do not merge Interaction into main.
 - See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
 
-Latest #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
+Earlier #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
 is incorporated without rewriting Interaction history. Interaction 54/54,
 Work Order security 295/295, Vendor 90/90, Facility 45/45 and complete safe core
 650/650 (166 shared + 54 Interaction + 45 Facility + 90 Vendor + 295 Work Order)
 passed. Authentication 31/31 and frontend equipment compatibility 5/5 passed;
 syntax, dependency and whitespace checks passed. Restricted Interaction visibility,
 Contact validation and #3/#4/#5 protections coexist. #7 costs and #9 units remain
-unchanged. No real-data/deployed-runtime verification occurred. #6 has not started;
+unchanged. No real-data/deployed-runtime verification occurred. At that historical checkpoint #6 had not started;
 Interaction frontend and Opportunity remain paused. Gitea records final #5 closure.
+
+## Gitea #6 — merged-main and Interaction compatibility verification passed
+
+Main `c31f309f9747a5959f91e316c275e308d7b7bcc5` includes verified #3/#4/#5/#6
+remediation and is published to Gitea/GitHub. Its merged-main checks passed:
+core **811/811**, authentication **31/31**, frontend ownership/equipment **21/21**
+and actual application TypeScript. The intentional handoff is preserved in
+`8acb950`; remediation remains `d650873`.
+
+The merge into paused Interaction passed its complete compatibility gate after
+one approved test-only correction: the #6 application-registration router mock
+now provides the existing `interactionJsonErrorHandler` export. Production
+Interaction code and its tests are unchanged. The affected test passes **1/1**;
+Interaction **54/54**; #6 **215/215**; #5 **295/295**; #4 **90/90**; #3 **45/45**;
+complete safe core **865/865** = 811 main + 54 Interaction. Authentication **31/31**,
+frontend **21/21**, application TypeScript, syntax, npm ls for all three packages,
+whitespace, conflict-marker and focused security/scope checks passed.
+
+The earlier 864/865 failure was a stale test double, now resolved. This checkpoint
+completes code compatibility; Git refs and Gitea record the subsequent pushes,
+final verification comment and #6 closure. Close #6 only after both remote
+Interaction refs match this verified merge. Do not merge Interaction into main.
+
+All database verification used isolated synthetic persistence with downloads
+disabled. Ticket promotion still requires transaction-capable MongoDB and fails
+with 503 without partial state on unsupported standalone topology. No real-data
+or deployed-runtime verification occurred. Vendor creation stays disabled;
+normalization and audited Asset transfer remain deferred. P0 review and #7
+were not started in this task. Interaction frontend and Opportunity remain paused.
+
+Frozen evidence remains historical; all retained security-labelled exceptions
+are classified in the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
+The P0 review and #7 remain separate subsequent tasks.
 
 ## Completed baseline: core-service authentication hardening
 

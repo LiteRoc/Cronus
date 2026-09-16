@@ -28,7 +28,6 @@ const app = express();
 
 const assetRouter = require('./src/routers/assetsRouter');
 const templateRouter = require('./src/routers/templatesRouter');
-const adminRouter = require('./src/routers/adminRouter');
 const workOrderRouter = require('./src/routers/workOrderRouter');
 const authRouter = require('./src/routers/authRouter');
 const userRouter = require('./src/routers/userRouter');
@@ -81,7 +80,6 @@ app.use(express.static(path.join(__dirname, '/public')));
 // Routers
 app.use('/assets', assetRouter); // All asset-related routes, including nested work order routes
 app.use('/templates', templateRouter);
-app.use('/admin', adminRouter);
 app.use('/workorders', workOrderRouter); // path to view all Work Orders
 app.use('/auth', authRouter); // All authentication routes will start with `/auth`
 app.use('/users', userRouter);

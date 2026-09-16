@@ -50,13 +50,17 @@ const CreateAssetModal: React.FC<CreateAssetModalProps> = ({ isOpen, onClose, on
       }
     }, [selectedTemplateId]);
 
-    useEffect(() => {
-      if (isOpen && selectedFacilityId) {
-        getDepartmentsByFacility()
-          .then(setDepartments)
-          .catch((err) => console.error("Error fetching departments:", err));
-      }
-    }, [isOpen, selectedFacilityId]);
+  useEffect(() => {
+    let active = true;
+    setSelectedDept("");
+    setDepartments([]);
+    if (isOpen && selectedFacilityId) {
+      getDepartmentsByFacility()
+        .then(rows => { if (active) setDepartments(rows); })
+        .catch(() => { if (active) setDepartments([]); });
+    }
+    return () => { active = false; };
+  }, [isOpen, selectedFacilityId]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {

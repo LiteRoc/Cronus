@@ -1,3 +1,4 @@
+const ownership = require('../services/operationalOwnership');
 const express = require('express');
 const mongoose = require('mongoose');
 const debug = require('debug')('app:assetsRouter');
@@ -192,15 +193,19 @@ assetRouter.get('/:id', authenticateToken, async (req, res) => {
         const filter = { _id: id, ...buildTenantFilter(req) };
         const asset = await Asset.findOne(filter)
           .populate({ path: 'templateId', select:  'manufacturer model description benchmark lifecycleDefaults eolYears' })
-          .populate({ path: 'workOrders', select: 'description status scheduledDate completionDate' })
           .populate({ path: 'maintenanceSchedule.procedure', select: 'name tasks' });
 
         if (!asset) return res.status(404).json({ error: 'Asset not found' });
 
+        const relatedWorkOrders = await WorkOrder.find({ $and: [
+          ownership.visibility(req),
+          { _id: { $in: asset.workOrders }, facilityId: asset.facilityId || { $exists: false } },
+        ] }).select("description status scheduledDate completionDate").lean();
         const benchmarkComparison = computeBenchmarkComparison(asset, asset.templateId);
 
         res.status(200).json({
           ...asset.toObject(),
+          workOrders: relatedWorkOrders,
           benchmarkComparison,
         });
     } catch (error) {
@@ -212,6 +217,11 @@ assetRouter.get('/:id', authenticateToken, async (req, res) => {
 // POST: Create an asset
 assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
+    const facility = await ownership.selectedFacility(req);
+    ownership.agreeFacility(req.body || {}, facility);
+    const input = ownership.pick(req.body || {}, ownership.assetCreateFields);
+    await ownership.assetReferences(input, facility);
+    input.facilityId = facility;
     const {
       templateId,
       ctrlNumber,
@@ -227,11 +237,11 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       relationToParent,
       maintenanceSchedule,
       attributes,
-    } = req.body || {};
+    } = input;
 
     console.log('Incoming created Asset:', req.body);
 
-    if (!ctrlNumber?.trim()) {
+    if (typeof ctrlNumber !== 'string' || !ctrlNumber.trim()) {
       return res.status(400).json({ error: 'ctrlNumber is required' });
     }
 
@@ -276,8 +286,8 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       notes: notes ?? null,
       parentAsset: parentAsset || null,
       relationToParent,
-      createdBy: req.user?._id || null,
-      updatedBy: req.user?._id || null,
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
       attributes: {
         ...(attributes && typeof attributes === 'object' ? attributes : {}),
         ...(tpl?.di ? { di: tpl.di } : {}),
@@ -335,28 +345,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     return res.status(201).json({ message: 'Asset created successfully', asset });
 
   } catch (error) {
-    if (error?.code === 11000) {
-      const field = Object.keys(error.keyPattern || {})[0] || 'ctrlNumber';
-      return res.status(409).json({
-        error: 'Duplicate value',
-        field,
-        value: error?.keyValue?.[field],
-        message: `${field} must be unique.`,
-      });
-    }
-
-    if (error?.name === 'ValidationError') {
-      console.error("Asset validation error:", error?.errors || error);
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: Object.fromEntries(
-          Object.entries(error.errors).map(([k, v]) => [k, v.message])
-        ),
-      });
-    }
-
-    console.error('Error creating asset:', error);
-    return res.status(500).json({ error: 'Failed to create asset' });
+    return ownership.respond(res, error);
   }
 });
 
@@ -397,28 +386,26 @@ assetRouter.post("/batch", authenticateToken, async (req, res) => {
   }
 );
 
-// PUT: Update an asset by ID
+// PUT: Ordinary edits cannot transfer ownership or replace server-owned data.
 assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ error: 'Invalid asset ID format' });
-    }
-
-    try {
-        const updated = await Asset.findOneAndUpdate({ _id: id, ...buildTenantFilter(req) }, req.body, { new: true, runValidators: true });
-        if (!updated) return res.status(404).json({ error: 'Asset not found' });
-
-        res.status(200).json({ message: 'Asset updated successfully', asset: updated });
-    } catch (error) {
-        debug('Error updating asset:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
+  try {
+    ownership.id(req.params.id);
+    const filter = { _id: req.params.id, ...ownership.visibility(req), deletedAt: null };
+    const asset = await Asset.findOne(filter);
+    if (!asset) return res.status(404).json({ error: 'Asset not found' });
+    const patch = ownership.pick(req.body, ownership.assetEditFields, true);
+    if (!Object.keys(patch).length) ownership.fail(400, 'No editable fields');
+    await ownership.assetReferences(patch, asset.facilityId, asset._id);
+    asset.set(patch);
+    asset.updatedBy = req.user.id;
+    asset.$where = { ...ownership.visibility(req), deletedAt: null, facilityId: asset.facilityId };
+    await asset.save();
+    res.json({ message: 'Asset updated successfully', asset });
+  } catch (error) { return ownership.respond(res, error); }
 });
 
 // PATCH: SOFT DELETE / Remove an asset by ID
 assetRouter.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
-    const tenantFilter = buildTenantFilter(req);
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -429,7 +416,7 @@ assetRouter.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), as
         //const deletedAsset = await Asset.findByIdAndDelete(id, ...tenantFilter);
         // instead of findByIdAndDelete
         const deleted = await Asset.findOneAndUpdate(
-          { _id: id, ...buildTenantFilter(req) },   // filter enforces tenant
+          { _id: id, ...ownership.visibility(req), deletedAt: null },
           { 
             $set: { 
               deletedAt: new Date(), 
@@ -440,7 +427,7 @@ assetRouter.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), as
           { new: true } // return the updated doc
         );
 
-        if (!deleted) return res.status(404).json({ error: 'Asset not found' });
+        if (!deleted && !await Asset.exists({ _id: id, ...ownership.visibility(req) })) return res.status(404).json({ error: 'Asset not found' });
 
         res.status(200).json({ message: 'Asset deleted successfully' });
     } catch (error) {
@@ -463,11 +450,11 @@ assetRouter.patch('/:childId/parent', authenticateToken, authorizeRoles('admin',
     }
 
     // Ensure both child and (if provided) parent are within tenant scope for customers
-    const child = await Asset.findOne({ _id: childId, ...buildTenantFilter(req) });
+    const child = await Asset.findOne({ _id: childId, ...ownership.visibility(req), deletedAt: null });
     if (!child) return res.status(404).json({ error: 'Child asset not found' });
 
     if (parentAsset) {
-      const parent = await Asset.findOne({ _id: parentAsset, ...buildTenantFilter(req) });
+      const parent = await Asset.findOne({ _id: parentAsset, ...ownership.visibility(req), facilityId: child.facilityId });
       if (!parent) return res.status(404).json({ error: 'Parent asset not found (or not in tenant)' });
     }
 
@@ -482,10 +469,12 @@ assetRouter.patch('/:childId/parent', authenticateToken, authorizeRoles('admin',
       child.relationToParent = allowed.includes(relationToParent) ? relationToParent : 'Other';
     }
 
+    child.updatedBy = req.user.id;
+    child.$where = { ...ownership.visibility(req), facilityId: child.facilityId, deletedAt: null };
     await child.save(); // schema pre-save will guard against cycles/self-parenting
     res.json({ message: 'Parent updated', asset: child });
   } catch (err) {
-    res.status(400).json({ error: err.message || 'Failed to update parent' });
+    return ownership.respond(res, err);
   }
 });
 
@@ -496,17 +485,19 @@ assetRouter.delete('/:childId/parent', authenticateToken, authorizeRoles('admin'
     if (!mongoose.Types.ObjectId.isValid(childId)) {
       return res.status(400).json({ error: 'Invalid childId format' });
     }
-    const child = await Asset.findById(childId, ...buildTenantFilter(req));
+    const child = await Asset.findOne({ _id: childId, ...ownership.visibility(req), deletedAt: null });
     if (!child) return res.status(404).json({ error: 'Child asset not found' });
 
     // no-op if already null is fine
     child.parentAsset = null;
     child.relationToParent = 'Other'; // optional reset
+    child.updatedBy = req.user.id;
+    child.$where = { ...ownership.visibility(req), facilityId: child.facilityId, deletedAt: null };
     await child.save();
 
     res.json({ message: 'Parent cleared', asset: child });
   } catch (err) {
-    res.status(400).json({ error: err.message || 'Failed to clear parent' });
+    return ownership.respond(res, err);
   }
 });
 

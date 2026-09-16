@@ -1,3 +1,4 @@
+const ownership = require('../services/operationalOwnership');
 const express = require('express');
 const mongoose = require('mongoose');
 const axios = require('axios');
@@ -128,7 +129,18 @@ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) =>
 // POST: Create an Asset/Template from DI or UDI  (no transactions)
 router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
-    const { di: rawDi, udi, createAsset = false, asset: assetInput = {} } = req.body || {};
+    ownership.object(req.body);
+    const { di: rawDi, udi, createAsset = false } = req.body;
+    let assetInput = {};
+    let facilityId;
+    if (createAsset) {
+      facilityId = await ownership.selectedFacility(req);
+      ownership.agreeFacility(req.body.asset || {}, facilityId);
+      assetInput = ownership.pick(req.body.asset || {}, ownership.assetCreateFields);
+      await ownership.assetReferences(assetInput, facilityId);
+    }
+    if ((rawDi != null && typeof rawDi !== 'string') || (udi != null && typeof udi !== 'string')) ownership.fail(400, 'Invalid device identifier');
+    if (createAsset && assetInput.ctrlNumber != null && typeof assetInput.ctrlNumber !== 'string') ownership.fail(400, 'Invalid control number');
     let di = rawDi;
 
     // 1) Resolve DI
@@ -188,7 +200,7 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
     }
 
     // 6) Build asset payload (unchanged)
-    const { pi } = extractDIFromUDI(udi || '');
+    const { pi = {} } = extractDIFromUDI(udi || '');
     const assetPayload = {
       ctrlNumber: assetInput.ctrlNumber?.trim(),
       templateId: templateDoc._id,
@@ -197,7 +209,7 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
       description: assetInput.description ?? templateDoc.description ?? templateDoc.brandName ?? '',
       equipmentClass: templateDoc.equipmentClass,
       serialNumber: assetInput.serialNumber ?? pi.serialNumber ?? undefined,
-      facilityId: assetInput.facilityId || undefined,
+      facilityId,
       departmentId: assetInput.departmentId || undefined,
       locationNote: assetInput.locationNote || undefined,
       notes: assetInput.notes ?? null,
@@ -217,8 +229,8 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
       submissionNumber: templateDoc.submissionNumber || '',
       manufacturerDUNS: templateDoc.manufacturerDUNS || '',
       gmdnDefinition: templateDoc.gmdnDefinition || '',
-      createdBy: req.user?._id || null,
-      updatedBy: req.user?._id || null,
+      createdBy: req.user.id,
+      updatedBy: req.user.id,
       attributes: {
         ...(typeof assetInput.attributes === 'object' ? assetInput.attributes : {}),
         ...(pi.serialNumber ? { udiSerial: pi.serialNumber } : {}),
@@ -253,23 +265,8 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
     });
 
   } catch (e) {
-    // same error handling block as before
-    if (axios.isAxiosError(e)) {
-      return res
-        .status(e.response?.status || 502)
-        .json({ error: e.response?.data || 'GUDID lookup failed' });
-    }
-    if (e?.code === 11000) {
-      const field = Object.keys(e.keyPattern || {})[0] || 'ctrlNumber';
-      return res.status(409).json({
-        error: 'Duplicate value',
-        field,
-        value: e?.keyValue?.[field],
-        message: `${field} must be unique.`,
-      });
-    }
-    const status = e.status || (e.name === 'ValidationError' ? 400 : 500);
-    return res.status(status).json({ error: e.message || 'Failed to create template/asset' });
+    if (axios.isAxiosError(e)) return res.status(502).json({ error: 'Provider lookup failed' });
+    return ownership.respond(res, e);
   }
 });
 
@@ -277,6 +274,8 @@ router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'
 router.post('/from-di', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     const { di: rawDi, udi } = req.body || {};
+    if ((rawDi != null && typeof rawDi !== 'string') || (udi != null && typeof udi !== 'string')) ownership.fail(400, 'Invalid device identifier');
+    if (createAsset && assetInput.ctrlNumber != null && typeof assetInput.ctrlNumber !== 'string') ownership.fail(400, 'Invalid control number');
     let di = rawDi;
     if (!di && udi) di = extractDIFromUDI(udi).di || undefined;
     if (!di) return res.status(400).json({ error: 'Provide di or udi' });

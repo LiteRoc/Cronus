@@ -8,7 +8,7 @@ import { createIsolatedMongoHarness } from '../../test/mongoMemoryHarness.mjs';
 const requireCore = createRequire(new URL('../../../package.json', import.meta.url));
 const mongoose = requireCore('mongoose');
 const secret = 'synthetic-facility-compatibility-signing-key';
-let harness, app, Asset, WorkOrder, Template, a, b, template, rows;
+let harness, app, Asset, WorkOrder, Template, Facility, a, b, template, rows;
 jest.setTimeout(120000);
 
 function headers({ role = 'technician', selected = a, allowed = [a], defaultFacility = a } = {}) {
@@ -27,6 +27,7 @@ beforeAll(async () => {
   process.env.JWT_ISS = 'cronus.api';
   process.env.JWT_AUD = 'cronus.app';
   harness = await createIsolatedMongoHarness(mongoose);
+  Facility = requireCore('./src/models/Facility.js');
   Asset = requireCore('./src/models/Asset.js');
   WorkOrder = requireCore('./src/models/WorkOrder.js');
   Template = requireCore('./src/models/EquipmentTemplate.js');
@@ -41,6 +42,8 @@ beforeEach(async () => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
   a = new mongoose.Types.ObjectId();
   b = new mongoose.Types.ObjectId();
+  // #6 creation validates that the selected synthetic Facility exists.
+  await Facility.collection.insertMany([{ _id: a, name: 'Synthetic A' }, { _id: b, name: 'Synthetic B' }]);
   template = new mongoose.Types.ObjectId();
   await Template.collection.insertOne({ _id: template, manufacturer: 'Synthetic', model: 'Pump' });
   rows = [{ facilityId: a }, { facilityId: b }, {}, { facilityId: null }].map((scope, i) => ({
@@ -56,6 +59,7 @@ beforeEach(async () => {
   })));
 });
 afterEach(async () => {
+  await Facility.deleteMany({});
   if (harness) for (const model of [Asset, WorkOrder, Template]) if (model) await model.deleteMany({});
   jest.restoreAllMocks();
 });

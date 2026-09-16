@@ -5,12 +5,12 @@ import { useFacility } from "../context/FacilityContext";
 import { getDepartmentsByFacility } from "../services/departmentAPI";
 
 export const useFacilityDepartmentData = () => {
-  const { availableFacilities } = useFacility(); // scoped list already available
+  const { availableFacilities, selectedFacilityId } = useFacility(); // scoped list already available
 
   const {
     data: departments = [],
     isLoading: loadingDepartments,
-  } = useSWR(() => ("departments" ), () =>
+  } = useSWR(selectedFacilityId ? ["departments", selectedFacilityId] : null, () =>
     getDepartmentsByFacility()
   );
 

@@ -75,7 +75,7 @@ beforeEach(async () => {
   for (const method of ['log', 'warn', 'error']) jest.spyOn(console, method).mockImplementation(() => {});
   a = oid(); b = oid(); actorA = oid(); actorB = oid();
   await Facility.collection.insertMany([{ _id: a, name: 'Synthetic A', organizationId: oid() }, { _id: b, name: 'Synthetic B', organizationId: oid() }]);
-  await User.collection.insertMany([{ _id: actorA, name: 'Synthetic A actor', email: 'a@example.invalid', username: 'synthetic-a', facilities: [a] }, { _id: actorB, name: 'Synthetic B actor', email: 'b@example.invalid', username: 'synthetic-b', facilities: [b] }]);
+  await User.collection.insertMany([{ _id: actorA, name: 'Synthetic A actor', email: 'a@example.invalid', username: 'synthetic-a', role: 'technician', facilities: [a] }, { _id: actorB, name: 'Synthetic B actor', email: 'b@example.invalid', username: 'synthetic-b', role: 'technician', facilities: [b] }]);
   [aa, ab] = [a, b].map((facilityId, i) => ({ _id: oid(), facilityId, ctrlNumber: `Synthetic-${i}`, manufacturer: `Synthetic manufacturer ${i}`, model: `Synthetic model ${i}` }));
   await Asset.collection.insertMany([aa, ab]);
   [pa, pb] = await Part.create(['A', 'B'].map(label => ({ partNumber: `Synthetic part ${label}`, description: `Synthetic ${label} part`, price: 10, quantityOnHand: 5 })));
