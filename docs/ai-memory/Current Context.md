@@ -2,6 +2,70 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## End-of-day handoff — 2026-09-16
+
+**When asked “Where did we leave off?”:** Gitea #6 remediation is committed,
+pushed to both remotes, reviewed and verified, but **not merged into main**.
+Gitea #6 remains open. No further development tonight.
+
+Verified local checkpoints at handoff:
+
+- `main`: `1122219e401d272377bdb93daf98bb8fb5ec8554`
+  (`/tmp/cronus-facility-query-isolation`).
+- `fix/asset-workorder-ownership`: `d650873f781db3f69bc2da855f2b2c72e062c103`
+  (`/tmp/cronus-asset-workorder-ownership`). Gitea/GitHub fix refs were verified
+  equal after push. Gitea #6 remediation comment: #66.
+- Paused `feat/crm-interactions`: `c11307bc53e8bc18de435d8d7f0d39abbbf469c5`
+  (`/home/thecapt/apps/cronus`), preserving accumulated #3/#4/#5 compatibility.
+- All five worktrees were clean before this documentation-only handoff; this
+  Current Context update is intentionally uncommitted. No new code changes.
+
+Gitea #3, #4 and #5 are completed and closed. #6 completed reproduction,
+evidence preservation, human policy decisions, remediation, permanent tests,
+final review, documentation, commit/push and its remediation checkpoint.
+Verification: #6 **215/215**, safe core **811/811**, Facility **45/45**, Vendor
+**90/90**, subresources **295/295**, authentication **31/31**, frontend **21/21**;
+actual application TypeScript, syntax, dependency and whitespace checks passed.
+Transaction success/rollback/counter/retry/concurrency/unsupported-topology tests
+passed. Ticket promotion requires transaction-capable MongoDB and returns 503
+without partial state when unavailable. Actual deployed capability is unverified.
+
+### Exact next-session sequence
+
+1. **Complete the Gitea #6 merge gate first.** Review/preserve this pending
+   handoff documentation, verify fix/main/remotes, merge the fix into current main
+   without history rewriting, and run merged-main security/regression checks.
+   Push verified main to Gitea and GitHub. Merge updated main into paused
+   Interaction without rebasing; resolve only expected documentation conflicts
+   semantically, preserving main stabilization state and Interaction history.
+   Stop on implementation conflicts/divergence/regression. Run combined
+   Interaction/security verification, then push Interaction to both remotes.
+   Post final #6 verification comment and close #6 **only after all gates pass**.
+   Never merge Interaction into main as part of this gate.
+2. **After #6 closes, perform a read-only P0 security stabilization assessment.**
+   Inspect the mounted application for anonymous operational endpoints, canonical
+   role bypasses, Facility/tenant query leaks, cross-Facility creation/mutation,
+   reference-binding bypasses, destructive-operation authorization bypasses and
+   major identifier/data disclosure. Assess whether any remaining P0 blocker
+   prevents declaring the security/ownership phase complete. Do not remediate
+   during this assessment.
+3. **Only if that review finds no new P0 blocker**, begin the P1 backlog with
+   Gitea #7 — Work Order cost snapshot correctness. #7 has not started.
+
+Interaction frontend, Opportunity and other new CRM work remain paused until
+explicit stabilization authorization. Preserve Vendor tenantId/Organization
+normalization and disabled Vendor creation; audited Asset transfer workflow;
+deployed MongoDB transaction-capability verification; #7 costs; #8 lifecycle
+refresh; #9 procedure units; #10 lifecycle filters; #11 Contract lifecycle
+reconciliation; #12 profitability reconciliation; Interaction revision
+history/retention; Node/environment maintenance; and other documented deferred
+items. Do not silently fix these during the merge gate or P0 assessment.
+
+Workflow remains: issue → reproduce → preserve evidence → human policy decision
+if needed → remediate → permanent regression → review → commit/push → merge
+verification → compatibility verification → close. A passing fix branch alone
+is never sufficient to close an issue.
+
 ## Checkpoint
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
@@ -23,7 +87,7 @@ runtime or real-data verification. See the
 [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
 Gitea #3 is closed after verified main merge and Interaction compatibility.
 The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`; the current
-paused Interaction branch is preserved at `2c8776975c54f13bfeb580b9c96cd9fb3f4c4fa4`.
+paused Interaction branch is preserved at `c11307bc53e8bc18de435d8d7f0d39abbbf469c5`.
 Other September findings remain hypotheses/unresolved according to their
 recorded status. Interaction frontend and Opportunity remain paused.
 Do not merge the separate Interaction backend branch into main.
