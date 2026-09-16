@@ -2,75 +2,34 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## End-of-day handoff — 2026-09-16
+## Current merge gate — 2026-09-16
 
-**When asked “Where did we leave off?”:** Gitea #6 remediation is committed,
-pushed to both remotes, reviewed and verified, but **not merged into main**.
-Gitea #6 remains open. No further development tonight.
+Gitea #6 remediation `d650873f781db3f69bc2da855f2b2c72e062c103` is now
+fast-forwarded into main. The intentional prior-session handoff was preserved
+in documentation commit `8acb950`; Git retains its complete text.
 
-Verified local checkpoints at handoff:
+Fresh merged-main verification passed: safe core **811/811**, including #6
+**215/215**, Facility **45/45**, Vendor **90/90**, and subresources **295/295**;
+authentication **31/31**; frontend Asset/Work Order compatibility **21/21**;
+actual application TypeScript and whitespace checks passed. All database tests
+used isolated synthetic persistence with downloads disabled. Ticket promotion
+requires transaction-capable MongoDB; unsupported standalone topology returns
+503 without partial promotion. Deployed capability and real data are unverified.
 
-- `main`: `1122219e401d272377bdb93daf98bb8fb5ec8554`
-  (`/tmp/cronus-facility-query-isolation`).
-- `fix/asset-workorder-ownership`: `d650873f781db3f69bc2da855f2b2c72e062c103`
-  (`/tmp/cronus-asset-workorder-ownership`). Gitea/GitHub fix refs were verified
-  equal after push. Gitea #6 remediation comment: #66.
-- Paused `feat/crm-interactions`: `c11307bc53e8bc18de435d8d7f0d39abbbf469c5`
-  (`/home/thecapt/apps/cronus`), preserving accumulated #3/#4/#5 compatibility.
-- All five worktrees were clean before this documentation-only handoff; this
-  Current Context update is intentionally uncommitted. No new code changes.
-
-Gitea #3, #4 and #5 are completed and closed. #6 completed reproduction,
-evidence preservation, human policy decisions, remediation, permanent tests,
-final review, documentation, commit/push and its remediation checkpoint.
-Verification: #6 **215/215**, safe core **811/811**, Facility **45/45**, Vendor
-**90/90**, subresources **295/295**, authentication **31/31**, frontend **21/21**;
-actual application TypeScript, syntax, dependency and whitespace checks passed.
-Transaction success/rollback/counter/retry/concurrency/unsupported-topology tests
-passed. Ticket promotion requires transaction-capable MongoDB and returns 503
-without partial state when unavailable. Actual deployed capability is unverified.
-
-### Exact next-session sequence
-
-1. **Complete the Gitea #6 merge gate first.** Review/preserve this pending
-   handoff documentation, verify fix/main/remotes, merge the fix into current main
-   without history rewriting, and run merged-main security/regression checks.
-   Push verified main to Gitea and GitHub. Merge updated main into paused
-   Interaction without rebasing; resolve only expected documentation conflicts
-   semantically, preserving main stabilization state and Interaction history.
-   Stop on implementation conflicts/divergence/regression. Run combined
-   Interaction/security verification, then push Interaction to both remotes.
-   Post final #6 verification comment and close #6 **only after all gates pass**.
-   Never merge Interaction into main as part of this gate.
-2. **After #6 closes, perform a read-only P0 security stabilization assessment.**
-   Inspect the mounted application for anonymous operational endpoints, canonical
-   role bypasses, Facility/tenant query leaks, cross-Facility creation/mutation,
-   reference-binding bypasses, destructive-operation authorization bypasses and
-   major identifier/data disclosure. Assess whether any remaining P0 blocker
-   prevents declaring the security/ownership phase complete. Do not remediate
-   during this assessment.
-3. **Only if that review finds no new P0 blocker**, begin the P1 backlog with
-   Gitea #7 — Work Order cost snapshot correctness. #7 has not started.
-
-Interaction frontend, Opportunity and other new CRM work remain paused until
-explicit stabilization authorization. Preserve Vendor tenantId/Organization
-normalization and disabled Vendor creation; audited Asset transfer workflow;
-deployed MongoDB transaction-capability verification; #7 costs; #8 lifecycle
-refresh; #9 procedure units; #10 lifecycle filters; #11 Contract lifecycle
-reconciliation; #12 profitability reconciliation; Interaction revision
-history/retention; Node/environment maintenance; and other documented deferred
-items. Do not silently fix these during the merge gate or P0 assessment.
-
-Workflow remains: issue → reproduce → preserve evidence → human policy decision
-if needed → remediate → permanent regression → review → commit/push → merge
-verification → compatibility verification → close. A passing fix branch alone
-is never sufficient to close an issue.
+Gitea #3/#4/#5 are closed. #6 remains open pending publication, paused Interaction
+compatibility verification and the final Gitea comment/closure. Preserve the
+Interaction backend and merge main into it only; never merge Interaction into main.
+After #6 closes, perform the read-only mounted-application P0 security review.
+Do not remediate during that review. #7 has not started and remains gated on
+finding no new P0 blocker. Interaction frontend and Opportunity remain paused.
+Vendor creation stays disabled; ownership normalization, audited Asset transfer,
+deployed transaction capability and other previously deferred work remain deferred.
 
 ## Checkpoint
 
 - FollowUp frontend branch checkpoint: `3ea60fadbc4c7417d035f226b10c4ec9713ac432`
 - Checkpoint message: `feat: add CRM follow-up management`
-- Current stabilization branch: `fix/asset-workorder-ownership`; #6 is remediated and verified here, not yet merged. #3/#4/#5 are resolved on main. #5 fix: `30e521113749b01987ffbbb10381ed80cf736d0f`.
+- Main includes verified #3/#4/#5/#6 fixes. #6 code merge and merged-main tests passed; its final compatibility and issue-closure gates remain pending.
 - The Contact and FollowUp implementation and verification state below is recorded by the commits containing this file; use Git for exact commit identifiers and remote state.
 
 ## Current engineering priority
@@ -124,7 +83,7 @@ Part/Procedure/Task ownership was not invented. #7 costs, #9 units and unmounted
 labor/travel PATCH helpers remain deferred. #7 has not started; all new feature
 development remains paused. See the [#5 reproduction/remediation journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
 
-**Gitea #6 — remediated and verified on fix branch, not merged:** Asset and
+**Gitea #6 — merged and verified on main; final compatibility gate pending:** Asset and
 Work Order creation/reference ownership, immutable ordinary Asset Facility,
 related-Work-Order privacy, archive authorization, UDI/DI creation and `/admin`
 unmounting are verified. Ticket promotion requires Approved → Converted and a

@@ -647,3 +647,31 @@ safe core 811/811, Facility 45/45, Vendor 90/90, subresources 295/295, authentic
 31/31, frontend compatibility 21/21, actual application TypeScript, syntax,
 installed dependency consistency and whitespace checks. Temporary dependency links
 were removed before staging. Transaction tests remained fail-closed and synthetic.
+
+
+## 2026-09-16 — Merged-main verification
+
+Reconciled all three local branch checkpoints and live Gitea/GitHub refs with the
+user-supplied handoff. Main and Interaction were clean; the #6 worktree contained
+only the intentional Current Context handoff. Preserved that exact edit in
+`8acb950`, then fast-forwarded main from `1122219` through remediation `d650873`
+and the handoff commit. No history was rewritten and no implementation was repeated.
+
+Fresh main verification passed: complete safe core **811/811** (11 suites),
+including permanent #6 **215/215**, Facility **45/45**, Vendor **90/90**, and
+subresources **295/295**; authentication **31/31**; frontend ownership/equipment
+compatibility **21/21**; actual application TypeScript and `git diff --check`.
+Commands used the previously documented MongoMemoryServer binary/version with
+runtime downloads disabled, core `npm test -- --runInBand --silent`, the dedicated
+core-authentication test from contract-service, four frontend ownership/equipment
+files, and `tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0`.
+Existing installed dependencies were linked temporarily; manifests and lockfiles
+match the Interaction checkout. No install or dependency modification occurred.
+
+Only isolated synthetic database processes were exercised. No real data, deployed
+runtime, Docker or scheduled job was accessed. Existing experimental Node/Jest,
+duplicate Mongoose index and React Router future-flag warnings remain unchanged.
+Transaction-capable MongoDB remains required for promotion; unsupported topology
+fails safely. Publication, Interaction compatibility and final #6 closure follow
+this checkpoint and are not yet claimed here. The P0 review follows closure;
+#7 and CRM feature development remain paused.

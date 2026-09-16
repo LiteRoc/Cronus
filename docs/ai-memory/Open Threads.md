@@ -41,10 +41,12 @@ The Interaction backend branch must not be merged into main.
   remain paused. Do not merge Interaction into main.
 - See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
 
-## Gitea #6 — verified fix branch; merge pending
+## Gitea #6 — merged-main verification passed; compatibility/closure pending
 
-- `fix/asset-workorder-ownership` contains verified remediation; #6 remains open
-  pending merge to main. It is not resolved on main yet.
+- Main contains remediation `d650873f781db3f69bc2da855f2b2c72e062c103` and the
+  preserved handoff commit `8acb950`. Fresh merged-main core 811/811, auth 31/31,
+  frontend 21/21 and actual application TypeScript passed. #6 remains open pending
+  publication, paused Interaction compatibility and final Gitea verification/closure.
 - Asset/Work Order ownership, Department/assignee references, protected fields,
   related Work Order privacy, archive roles, UDI/DI creation and `/admin` routing
   are covered by 215 permanent #6 cases; safe core 811/811, auth 31/31 and frontend
