@@ -7,15 +7,19 @@ This file records verified defects and clearly unresolved engineering work. Runt
 This checkpoint supersedes the earlier branch-specific handoffs. Gitea #3
 (Facility isolation), #4 (Vendor authorization/lifecycle), #5 (Work Order
 subresources), and #6 (Asset/Work Order ownership) are merged, verified and closed.
-Authoritative main: `c31f309f9747a5959f91e316c275e308d7b7bcc5`.
+Main now includes Supplier fix `e95d22dcd2a67eeef436867170a46ccd882e6a2a`;
+the resulting main documentation checkpoint is recorded by Git.
 Paused Interaction: `395e39c2ed2f6001db7daa78537b9eb06dd43903`; its last combined
 checks passed core 865/865, authentication 31/31, frontend compatibility 21/21
 and application TypeScript. Do not merge Interaction into main.
 
-**#13 Supplier: remediated and verified on `fix/supplier-auth`, not merged into
-main; issue remains open pending merge.** Evidence checkpoint: `c99c91f`.
-The remediation commit containing this checkpoint is authorized for publication;
-Git and the Gitea remediation comment record its exact hash/publication status.
+**#13 Supplier: merged into main and verified; issue remains open pending
+Interaction compatibility and final closure.** Main fast-forwarded from
+`c31f309f9747a5959f91e316c275e308d7b7bcc5` to Supplier fix
+`e95d22dcd2a67eeef436867170a46ccd882e6a2a`. Evidence checkpoint: `c99c91f`.
+The documentation-only commit containing this handoff follows the verified
+code merge; Git records the resulting main hash. Interaction compatibility for
+#13 is not yet verified. Do not treat the prior 865-test checkpoint as that gate.
 See the [Supplier journal](<../engineering-journal/2026-09-16 - Supplier Authentication Reproduction.md>)
 for accepted policy, immutable reproduction evidence and verification.
 Supplier remains shared internal reference data: admin read/create, canonical
@@ -24,11 +28,11 @@ new lifecycle endpoints. Creation excludes client metadata; reads explicitly
 project approved fields. Permanent Supplier 59/59 and all six original security
 assertions pass unchanged; safe core 870/870, Facility 45/45, Vendor 90/90,
 subresources 295/295, ownership 215/215, authentication 31/31 and application
-TypeScript passed the final review. All persistence verification is isolated and
+TypeScript passed fresh merged-main verification. All persistence verification is isolated and
 synthetic; deployed behavior and real data remain unverified.
 
 **P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** The post-#6 read-only
-review is already complete. After #13 is merged and closed, the remaining
+review is already complete. After #13 passes Interaction compatibility and closes, the remaining
 mounted candidates require separate reproduction:
 
 - S2: shared-resource ordinary-update bypass of admin archival boundaries.

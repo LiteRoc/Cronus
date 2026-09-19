@@ -370,3 +370,32 @@ disabled and only isolated synthetic persistence was used. No real-data or
 deployed-runtime verification occurred. Temporary dependency links were removed.
 The seven-file scope contains only Supplier remediation/tests and the journal,
 Current Context and Open Threads; no S2/S3/#7/CRM or relationship changes.
+
+
+## Main merge gate — September 19
+
+Pre-merge fix/main/Interaction worktrees were clean. Local and both live remote
+refs matched the approved checkpoints. The Supplier-only code/evidence/tests/
+documentation scope and unchanged dependency manifests/lockfiles were confirmed.
+Both remotes were fetched; main fast-forwarded cleanly from c31f309 to
+`e95d22dcd2a67eeef436867170a46ccd882e6a2a`, with no squash, rebase or rewrite.
+
+Fresh merged-main verification passed: Supplier 59/59; original security 6/6
+unchanged; Facility 45/45; Vendor 90/90; subresources 295/295; ownership 215/215;
+complete safe core 870/870; authentication 31/31; application TypeScript, syntax,
+npm ls in all three packages and whitespace/security scope checks. Existing
+frontend extraneous-package warnings remain unchanged. Tests used inspected
+fail-closed synthetic persistence with downloads disabled. Temporary dependency
+links were removed. No real-data/deployed-runtime verification occurred.
+
+The Supplier tests confirm anonymous/invalid/expired GET and POST denial,
+admin read/create, technician read with create denied, and denial of customer,
+viewer, legacy/missing/unknown roles. Identity/timestamps are server-controlled;
+exact duplicates return 409, invalid input safe 400; GET is explicitly projected.
+No Facility/tenant ownership or additional lifecycle endpoints were introduced.
+
+Current Context/Open Threads now record #13 as merged and verified on main,
+with the issue still open pending Interaction compatibility and final closure.
+This documentation-only commit follows the verified fast-forward. #3–#6 remain
+resolved. The P0 gate remains blocked by S2/S3 pending reproduction; #7 and CRM
+features remain paused. Main must be merged into Interaction, never the reverse.
