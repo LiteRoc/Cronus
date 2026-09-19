@@ -137,7 +137,7 @@ npm test -- --runInBand --silent --runTestsByPath src/routers/_tests_/facilityQu
 npm test -- --runInBand --silent --runTestsByPath src/security/_tests_/coreAuthentication.security.test.js
 ```
 
-## Policy decisions and proposed remediation — not implemented
+## Historical September 16 policy questions — before remediation
 
 1. Decide Supplier read roles, including customer/viewer access, and whether contact fields require an internal-only projection.
 2. Decide whether creation is admin-only, admin plus canonical technician, or temporarily disabled pending a managed master-data workflow. Unknown/missing/legacy token roles must not acquire privileges through fallback.
@@ -186,3 +186,187 @@ Interaction and all new CRM development remain paused; do not merge Interaction
 into main. The authorized next steps are evidence commit/push and an issue
 comment, followed by narrow remediation and permanent tests, stopping for final
 review before committing remediation.
+
+
+## September 19 remediation — historical pre-review checkpoint
+
+Evidence checkpoint `c99c91f` was committed and pushed to Gitea and GitHub
+before production changes. The authorized evidence/policy comment is
+[comment 79](http://192.168.1.185:3000/LiteRoc/cronus/issues/13#issuecomment-79).
+The original reproduction suite and opt-in configuration remain unchanged.
+The remediation described below is intentionally uncommitted and unpushed.
+
+Implementation is limited to the Supplier router and its application mount.
+Existing authentication and canonical role middleware now protect reads and
+creation; only admin can create. A seven-field business allowlist discards
+identity, timestamps, version and undeclared fields before model construction.
+The Supplier schema, exact-name unique index, case/whitespace semantics,
+GET array and successful POST response shape are unchanged. No ownership,
+new endpoint, migration, dependency or downstream Part/Work Order change occurs.
+Validation returns generic 400, exact-name duplicate index failures return 409,
+and unexpected read/create errors return generic 500 without logging payloads
+or database errors. Malformed JSON receives a Supplier-scoped generic JSON 400.
+
+The initial permanent run passed 52/59: seven parser cases demonstrated that
+an error handler inside the router does not catch errors from the preceding
+application parser. The fix follows the existing Vendor/Contact mount pattern:
+`app.use('/suppliers', supplierRouter.supplierJsonErrorHandler, supplierRouter)`.
+The #6 application-registration test double gains only that handler export;
+its assertions remain unchanged. This discovery was verified through the real
+application registration evaluated with startup effects disabled, not a running
+application service.
+
+Final verification:
+
+| Check | Result |
+| --- | --- |
+| Permanent Supplier suite | 59/59 |
+| Original Supplier SECURITY assertions, unchanged | 6/6 (75 historical cases intentionally not selected) |
+| Complete safe core, 12 suites | 870/870 = previous 811 + Supplier 59 |
+| Core authentication | 31/31 |
+| Changed application/router/new-suite JavaScript syntax | PASS |
+| Whitespace check | PASS |
+
+The full core run includes Facility 45, Vendor 90, Work Order subresources 295
+and ownership 215; no baseline assertion was weakened. The permanent Supplier
+suite covers all ten caller types, pre-query/pre-save denial, shared reads,
+server metadata protection with independently queried persistence, schema and
+parser failures, exact and concurrent duplicate creation, case/whitespace
+compatibility, and safe unexpected errors. The six formerly failing frozen
+security assertions pass without modification. Remaining frozen observations
+record historical behavior and are not the post-policy regression suite.
+
+All persistence was isolated and synthetic through inspected fail-closed
+MongoMemoryServer harnesses, with the cached binary and runtime downloads
+disabled. Existing matching dependency trees were temporarily symlinked for
+testing; those links were removed at handoff. Existing experimental Node and
+Mongoose duplicate-index warnings remain deferred. No frontend or TypeScript
+checks were rerun because frontend/API-client files and TypeScript contracts
+were unchanged and source search found no direct frontend Supplier consumer.
+No deployed, real-data or external-client compatibility verification occurred.
+
+Final review must precede any remediation commit. #13 remains open; main and
+Interaction were not modified. No merge or issue closure is claimed. The P0 gate
+remains BLOCKED, with the two additional P0 reproductions still pending. #7,
+P1 and CRM features remain paused. Current Context/Open Threads still describe
+an earlier checkpoint; reconcile those documents in an authorized handoff update
+using this journal and the user's accepted post-#6 review state.
+
+
+## Final commit-gate review — September 19 (before publication approval)
+
+**PASS for local #13 remediation review; no remediation commit or publication.**
+This review supersedes the preceding handoff's TypeScript verification omission.
+
+One concrete read-projection gap was confirmed: synthetic undeclared stored
+`legacySecret`, `tenantId` and `createdBy` fields appeared in both admin and
+technician GET responses (57/59 passed, two strengthened cases failed).
+The router now uses an explicit MongoDB inclusion projection:
+`_id __v name contactName contactEmail contactPhone address website status createdAt updatedAt`.
+The same 59-test suite now proves those undeclared fields are excluded and
+checks that POST responses equal the independently read stored document, with
+server-generated metadata rather than rejected client values. No schema or
+Facility-scoping change was made.
+
+The sole Supplier mount authenticates and checks canonical admin/technician
+roles before Supplier query or Supplier-specific body processing. POST adds an
+admin-only gate. The application JSON parser precedes authentication; malformed
+JSON is handled as a safe 400 before Supplier operations. All ten caller types
+are exercised. No alternate Supplier API mount was found.
+
+The create allowlist remains `name`, `contactName`, `contactEmail`,
+`contactPhone`, `address`, `website`, `status`. Null, arrays, primitive JSON,
+empty objects, malformed JSON and schema failures receive safe 400 responses;
+exact duplicate names receive 409; unexpected read/write failures receive generic
+500. Case variants and surrounding whitespace retain exact-name semantics.
+
+Repeated source inspection found no direct frontend or service HTTP consumer
+requiring unauthenticated Supplier access. Part.supplierId remains a Supplier
+ObjectId reference; the mounted Work Order parts handler still populates its
+name. These files and models are unchanged. This is source compatibility
+analysis plus existing regression coverage, not verification of external clients
+or a deployed Supplier-to-Part-to-Work-Order end-to-end workflow. No additional
+Supplier endpoints were introduced.
+
+Fresh final checks, each requested dedicated group executed separately:
+
+| Check | Result |
+| --- | --- |
+| Supplier permanent suite | 59/59 |
+| Frozen original security assertions | 6/6 unchanged; 75 historical cases not selected |
+| Complete safe core | 870/870, 12 suites |
+| Facility #3 | 45/45 |
+| Vendor #4 | 90/90 |
+| Work Order subresources #5 | 295/295 |
+| Ownership #6 | 215/215 |
+| Authentication | 31/31 |
+| Actual application TypeScript | PASS |
+| Changed JavaScript syntax | PASS |
+| npm ls --depth=0, all three packages | exit 0 |
+| Whitespace and focused security/scope review | PASS |
+
+Application TypeScript used `tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0`.
+Frontend npm ls reported extraneous entries in the reused dependency tree;
+no install, upgrade or cleanup was performed. Manifest/lockfile and downstream
+schema/router diffs against c99c91f are empty. Temporary dependency symlinks
+were removed after checking. All test persistence was synthetic and isolated,
+with downloads disabled; no real databases or runtime services were accessed.
+
+Before remains 75 passing controls/observations and six intentional failures.
+After remains all six original security assertions passing without modification.
+The frozen reproduction/config are byte-for-byte unchanged from c99c91f; obsolete
+historical access expectations are not rewritten. The permanent 59-test Supplier
+suite is the authoritative ongoing regression suite.
+
+Only the read projection, strengthened existing assertions and this review record
+were added during the final gate. HEAD remains the evidence checkpoint c99c91f;
+remediation remains uncommitted. No Gitea update, commit, push, merge or closure
+occurred during this review. The overall P0 gate remains blocked and S2/S3/#7,
+P1 and CRM work remain paused.
+
+
+## Approved documentation and publication checkpoint — September 19
+
+The user accepted the final commit-gate review and authorized documentation,
+commit and publication as `fix: secure Supplier API access` on `fix/supplier-auth`.
+Earlier uncommitted/pre-review statements above describe historical checkpoints.
+The commit containing this section is the remediation checkpoint; Git provides
+its exact hash, and the post-push Gitea #13 comment records publication results.
+No merge or issue closure is authorized. #13 is not resolved on main.
+
+Final accepted policy: Supplier remains shared internal reference/master data,
+without Facility or tenant ownership. Admin reads/creates; canonical technician
+reads only. Customer, viewer, legacy tech, missing/unknown roles and anonymous,
+invalid or expired authentication are denied. No update/archive/delete/restore.
+
+POST accepts only `name`, `contactName`, `contactEmail`, `contactPhone`, `address`,
+`website`, `status`. Clients cannot control `_id`, `__v`, timestamps,
+ownership/audit metadata or other undeclared/server-managed fields; rejected
+metadata is not echoed. GET includes those seven business fields plus `_id`,
+`__v`, `createdAt`, `updatedAt`; arbitrary legacy/stored fields are excluded.
+Malformed/non-object/schema-invalid bodies return safe 400; exact duplicate name
+returns 409; unexpected failures return generic 500; malformed JSON returns safe
+400. Existing case-sensitive/exact-name uniqueness is preserved.
+
+Historical evidence remains 81 cases: 75 passing controls/observations and six
+intentional failures for anonymous/invalid/expired disclosure and persisted
+creation. After remediation all six original assertions pass unchanged. The
+frozen suite stays historical; the permanent 59-test suite governs regression.
+
+Current Context and Open Threads now supersede stale branch handoffs: #3–#6
+are closed; #13 is verified on its fix branch and awaits merge; the completed
+post-#6 review left the P0 gate blocked. S2/S3 await reproduction. #7, P1,
+Interaction frontend, Opportunity and new CRM work remain paused.
+
+Fresh pre-publication reruns passed: Supplier 59/59; original security 6/6
+unchanged; complete safe core 870/870 (12 suites); separately run Facility 45/45,
+Vendor 90/90, subresources 295/295, ownership 215/215 and authentication 31/31.
+Application TypeScript, changed-file syntax, whitespace/security scope review
+and npm ls for all three packages passed. Frontend npm ls exited 0 with 490
+existing extraneous entries and no other reported problems; no remediation of
+that dependency tree was attempted. Frozen evidence/config, inspected fail-closed
+harnesses, manifests and lockfiles remain unchanged from c99c91f. Downloads were
+disabled and only isolated synthetic persistence was used. No real-data or
+deployed-runtime verification occurred. Temporary dependency links were removed.
+The seven-file scope contains only Supplier remediation/tests and the journal,
+Current Context and Open Threads; no S2/S3/#7/CRM or relationship changes.

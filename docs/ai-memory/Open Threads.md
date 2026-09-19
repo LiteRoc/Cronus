@@ -2,65 +2,52 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Completed code remediation — Gitea #3 merged into main
+## Current stabilization checkpoint — September 19, 2026
 
-The four reproduced defects are resolved on main at
-`c89f22193e9eb3ca810af7087bb6392c15897ccc`:
-P0 Asset and Work Order search scope loss; P1 template lifecycle selected
-Facility scope and Asset duplicate-warning identifier disclosure.
+This checkpoint supersedes the earlier branch-specific handoffs. Gitea #3
+(Facility isolation), #4 (Vendor authorization/lifecycle), #5 (Work Order
+subresources), and #6 (Asset/Work Order ownership) are merged, verified and closed.
+Authoritative main: `c31f309f9747a5959f91e316c275e308d7b7bcc5`.
+Paused Interaction: `395e39c2ed2f6001db7daa78537b9eb06dd43903`; its last combined
+checks passed core 865/865, authentication 31/31, frontend compatibility 21/21
+and application TypeScript. Do not merge Interaction into main.
 
-Fresh merged-main verification passed 45/45 permanent Facility cases
-(including all 29 unchanged original reproduction cases), 211/211 core
-tests, and 31/31 authentication tests. Original controls and formerly
-failing assertions remain green; intended admin/global behavior is preserved.
+**#13 Supplier: remediated and verified on `fix/supplier-auth`, not merged into
+main; issue remains open pending merge.** Evidence checkpoint: `c99c91f`.
+The remediation commit containing this checkpoint is authorized for publication;
+Git and the Gitea remediation comment record its exact hash/publication status.
+See the [Supplier journal](<../engineering-journal/2026-09-16 - Supplier Authentication Reproduction.md>)
+for accepted policy, immutable reproduction evidence and verification.
+Supplier remains shared internal reference data: admin read/create, canonical
+technician read only, all other roles denied. No Facility/tenant ownership or
+new lifecycle endpoints. Creation excludes client metadata; reads explicitly
+project approved fields. Permanent Supplier 59/59 and all six original security
+assertions pass unchanged; safe core 870/870, Facility 45/45, Vendor 90/90,
+subresources 295/295, ownership 215/215, authentication 31/31 and application
+TypeScript passed the final review. All persistence verification is isolated and
+synthetic; deployed behavior and real data remain unverified.
 
-Evidence is isolated and synthetic, not production exploitation or
-deployed-runtime verification. See the
-[September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea #3 is closed following verified main merge and paused Interaction
-compatibility. The #3 main checkpoint was `4771555ed50044bedaa464127a2fe68e6f32c769`; main now includes
-#5 fix `30e521113749b01987ffbbb10381ed80cf736d0f`, with #3/#4/#5 code resolved/merged.
+**P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** The post-#6 read-only
+review is already complete. After #13 is merged and closed, the remaining
+mounted candidates require separate reproduction:
 
-Other September findings remain hypotheses/unresolved according to their
-recorded status. Interaction frontend and Opportunity remain paused.
-The Interaction backend branch must not be merged into main.
+- S2: shared-resource ordinary-update bypass of admin archival boundaries.
+- S3: test-equipment picker Facility authorization bypass.
 
-## Gitea #5 — resolved and merged
-
-- Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
-  fast-forward. #5 is resolved on main. Evidence checkpoint:
-  `72837f3c77f39fdba96055b03e8be8c93faa8165`.
-- Parent Work Order Facility scope, equipment role/reference checks, narrow
-  responses, protected ordinary PUT and safe Procedure/result errors are fixed on
-  merged main. Tests: original security 20/20 unchanged; permanent #5 295/295;
-  core 596/596; Facility 45/45; Vendor 90/90; auth 31/31; frontend equipment 5/5.
-- Frozen pre-policy expectations remain historical, not the normal green suite.
-- Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,
-  #9 procedure units and unmounted labor/travel PATCH helpers remain deferred.
-- #7 has not started. New feature development, Interaction frontend and Opportunity
-  remain paused. Do not merge Interaction into main.
-- See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
-
-## Gitea #6 — merged-main verification passed; compatibility/closure pending
-
-- Main contains remediation `d650873f781db3f69bc2da855f2b2c72e062c103` and the
-  preserved handoff commit `8acb950`. Fresh merged-main core 811/811, auth 31/31,
-  frontend 21/21 and actual application TypeScript passed. #6 remains open pending
-  publication, paused Interaction compatibility and final Gitea verification/closure.
-- Asset/Work Order ownership, Department/assignee references, protected fields,
-  related Work Order privacy, archive roles, UDI/DI creation and `/admin` routing
-  are covered by 215 permanent #6 cases; safe core 811/811, auth 31/31 and frontend
-  compatibility 21/21 pass. #3/#4/#5 dedicated suites remain green.
-- Ticket Approved → Converted promotion is transactional, including Work Order,
-  Ticket backlink and Counter. Transaction-capable MongoDB is required; declared
-  local Compose MongoDB is standalone. Actual deployed capability is unverified;
-  deployment normalization is separate work. No nontransactional fallback exists.
-- Asset transfers require a future explicit audited workflow. Vendor tenantId /
-  Organization normalization remains deferred. Other P1/deferred findings retain
-  their existing unresolved status; #7 has not started.
-- Interaction frontend and Opportunity remain paused.
-- Frozen evidence remains historical; all 11 retained security-labelled exceptions
-  were reviewed, with no remaining security defect. See the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
+These remain candidates pending reproduction, not newly verified defects.
+Rerun the P0 gate after remediation of its confirmed blockers. #7, P1 security
+work, Interaction frontend, Opportunity and all new CRM development remain
+paused. Do not begin S2/S3 in the Supplier publication task.
+Vendor creation remains disabled; ownership normalization, audited Asset
+transfer and deployed transaction capability remain deferred.
+Ticket promotion requires transaction-capable MongoDB and returns 503 without
+partial state on unsupported standalone topology; deployed capability remains
+unverified. The Interaction backend is complete on its paused branch; its
+frontend has not begun. Earlier #3–#6 investigation and verification remain in
+the [Facility](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>),
+[Vendor](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>),
+[Work Order subresource](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>)
+and [ownership](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>) journals.
 
 ## Completed baseline: core-service authentication hardening
 

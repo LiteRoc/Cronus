@@ -148,7 +148,7 @@ test('actual application registration has no admin import/mount or endpoint',asy
   if(name.includes('adminRouter'))throw new Error('Admin seed router must not be imported');
   if(name==='express')return fakeExpress;if(name==='path')return path;if(name==='process')return {title:'test'};
   if(name==='dotenv')return {config(){}};if(name==='debug')return ()=>()=>{};
-  if(name.includes('/routers/')){ const r=express.Router();r.vendorJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,next)=>next();return r; }if(name.includes('/middleware/'))return {authenticateToken:(_q,_s,next)=>next()};
+  if(name.includes('/routers/')){ const r=express.Router();r.supplierJsonErrorHandler=r.vendorJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,next)=>next();return r; }if(name.includes('/middleware/'))return {authenticateToken:(_q,_s,next)=>next()};
   if(name.includes('/models/'))return {};if(name.includes('/config/db'))return ()=>{};if(name.includes('/cronJobs/'))return {};
   if(['morgan','cors'].includes(name))return ()=>((_req,_res,next)=>next());
   if(name==='express-ejs-layouts')return (_req,_res,next)=>next();throw new Error('Unexpected startup dependency '+name);
