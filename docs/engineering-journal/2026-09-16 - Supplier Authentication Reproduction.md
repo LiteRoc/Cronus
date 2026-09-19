@@ -1,0 +1,188 @@
+# Supplier authentication reproduction — Gitea #13
+
+Date: September 16, 2026.
+
+Issue: [#13 — security: Require authentication and authorization for Supplier API](http://192.168.1.185:3000/LiteRoc/cronus/issues/13), OPEN, priority P0 stated in the issue body. The repository had no available labels when the issue was created.
+
+Provenance: Derived from the September 16, 2026 post-#6 P0 Security Stabilization Review.
+
+Base: `main @ c31f309f9747a5959f91e316c275e308d7b7bcc5`.
+Reproduction branch: `fix/supplier-auth`; dedicated worktree `/tmp/cronus-supplier-auth`.
+No production implementation or prior suite was modified during reproduction. The original evidence was left uncommitted; the September 19 checkpoint below preserves it for publication before remediation.
+
+## Result and classification
+
+**CONFIRMED BUG — P0:** Anonymous `GET /suppliers` discloses all synthetic Supplier records, including contact information. Anonymous `POST /suppliers` creates a record that is independently verified in isolated persistence. Invalid and expired tokens likewise obtain both outcomes. These authentication failures require no Facility-ownership or authenticated-role policy decision.
+
+The missing boundary is reproduced against the real router and Mongoose model, using actual application registration under a controlled startup harness. It is not merely a source hypothesis. No real-data or deployed-runtime verification occurred; external proxy/network protections were not tested.
+
+**P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** Issue #13 remains open; remediation is not part of this task. Opportunity, Interaction frontend, P1 stabilization, S2/S3 and #7 remain paused/unstarted within this task.
+
+## Architecture and reachable surface
+
+- `core-service/src/models/Supplier.js:3`: required unique `name`; optional `contactName`, `contactEmail`, `contactPhone`, `address`, `website`; `status` is Active/Inactive, default Active. Mongoose adds `_id`, `__v`, `createdAt`, `updatedAt`.
+- No Facility, tenant, organization, audit-actor or archive ownership fields exist. Source structure and Part references indicate shared master/reference data; this does not establish an approved future ownership policy. No Facility ownership is invented here.
+- `core-service/app.js:87` mounts the Supplier router at `/suppliers`. Earlier middleware supplies parsing/static/logging/CORS/layout behavior, with no inherited authentication for this path. Other routers mounted earlier have distinct path prefixes.
+- `core-service/src/routers/supplierRouter.js:9` declares `POST /` using `new Supplier(req.body)` and save; line 21 declares `GET /` using unfiltered `Supplier.find()`. Neither operation has authentication or role middleware.
+- Only collection GET and POST are declared. No detail GET, update, delete, restore or archive operation exists in this router. The suite inspects the route stack and does not fabricate PUT/DELETE requests.
+- Source search of `frontend/src`, `core-service/src`, and `contract-service/src` found no direct frontend or contract-service Supplier API consumer. This is source coverage, not a claim about deployed external clients.
+- Active reference consumers: Part `supplierId` and Work Order parts' nested Supplier-name population. No other operational Supplier references were identified in that search.
+
+Comparable conventions are not Supplier policy: Vendor has a router-wide admin/technician gate, differentiated read exposure, admin mutations and disabled creation. Manufacturer authenticates reads, permits admin/canonical technician creation via declaration alias `tech`, and restricts archive to admin. The shared authorization helper canonicalizes declarations, not legacy `tech` token claims. These different conventions require an explicit Supplier decision.
+
+## Authentication and role matrix
+
+Each row used its own requests and fixture reset. GET returned both seeded records, including an Inactive record. Each valid POST returned 201 and increased independently queried document count from two to three.
+
+| Caller | Real authentication control | Supplier GET | Supplier POST valid body | Role interpretation |
+| --- | --- | --- | --- | --- |
+| Anonymous | 401 | 200, all records | 201, persisted | Confirmed missing authentication |
+| Invalid token | 403 | 200, all records | 201, persisted | Confirmed token validation bypass |
+| Expired signed token | 403 | 200, all records | 201, persisted | Confirmed expiry validation bypass |
+| Admin | Authenticated | 200, all records | 201, persisted | No Supplier role gate is invoked |
+| Canonical technician | Authenticated | 200, all records | 201, persisted | Create policy requires decision |
+| Customer | Authenticated | 200, all records | 201, persisted | Read/create policy requires decision |
+| Viewer | Authenticated | 200, all records | 201, persisted | Read/create policy requires decision |
+| Legacy `tech` | Authenticated; role remains `tech` | 200, all records | 201, persisted | Bypasses canonical authorization convention |
+| Missing role | Authenticated; role is null | 200, all records | 201, persisted | No role requirement is enforced |
+| Unknown role | Authenticated; role remains unknown | 200, all records | 201, persisted | No allowlist is enforced |
+
+Authenticated success here does not establish approved authorization. The suite deliberately does not turn an undecided read/create allowlist into an expected failing assertion. The missing role enforcement is observed; the exact replacement policy is **POLICY DECISION REQUIRED**.
+
+## Disclosure and body behavior
+
+GET exposes these field categories without redaction: record identity/version, Supplier name/status, contact person's name/email/phone, postal address, website, and creation/update timestamps. All two synthetic records were returned. Search, status, page/limit, and supplied Facility/tenant query parameters did not restrict results. Source confirms there is no filtering or pagination implementation; the test does not claim large-dataset load behavior.
+
+POST body tests were performed for all ten caller types:
+
+| Input | Reproduced response/persistence |
+| --- | --- |
+| Valid name/contact body | 201; persisted with default Active status |
+| Missing required name | 500; no new record |
+| Unsupported status | 500; no new record |
+| Object supplied as name | 500; no new record |
+| Supplied `_id`, `createdAt`, `updatedAt`, `__v` | 201; supplied ID and both 2001 timestamps persist; supplied version 99 becomes 0 |
+| Undeclared `facilityId`, `tenantId`, `organizationId`, `createdBy`, `updatedBy`, `deletedBy`, `deletedAt` | 201; all undeclared fields stripped from response and raw persisted document |
+| Exact duplicate name | 500; real initialized unique index prevents another record |
+
+Additional anonymous controls: malformed JSON returns 400 with no insertion; a lowercase case-variant name is distinct and persists with 201.
+
+**NOT REPRODUCED:** persistence of undeclared ownership/audit fields, bypass of exact-name uniqueness, or insertion from the tested malformed inputs. These negative results are limited to the enumerated inputs. No claim of cross-Facility reassignment is made for a model without such ownership.
+
+**POLICY DECISION REQUIRED:** whether IDs/timestamps must be exclusively generated by the server, acceptable input fields/status control, and case-normalization/duplicate semantics. Acceptance of supplied metadata is reproduced, but its independent severity is not inflated into another P0. Malformed/duplicate 500 handling is a validation-quality observation, not the P0 finding.
+
+## Downstream reference implications — inspection only
+
+`core-service/src/models/Part.js:12` defines `supplierId` as a Supplier ObjectId reference. Mounted Part creation (`partRouter.js:33`) is authenticated and role-gated; its Supplier check validates ObjectId syntax, not provenance. Its update path also accepts body-supplied fields. Thus source supports that an anonymously created, syntactically valid Supplier ID can later be selected by an authorized Part writer.
+
+`workOrderRouter.js:680` retrieves authorized Work Order parts and populates each Part's Supplier `name`. Its part-add operation at line 704 requires authentication, canonical role authorization, parent Work Order ownership, and an existing Part. Supplier linkage is indirect through Part, not a direct Supplier field on a Work Order.
+
+Anonymous creation therefore plausibly poisons shared reference data that can flow into authorized operational workflows. No Part or Work Order request was executed in this reproduction, and downstream adoption remains source-supported rather than runtime-reproduced. The result does not show anonymous updates to existing Suppliers, Parts or Work Orders. No additional issue was created for downstream endpoints.
+
+## Evidence design and execution
+
+Files:
+
+- `core-service/jest.supplier-auth-reproduction.config.cjs` — explicit opt-in config.
+- `core-service/src/routers/_tests_/supplierAuth.reproduction.mjs` — controls, current-behavior observations and intentionally failing security assertions.
+- This report — durable findings, limitations, policy questions and commands.
+
+The suite evaluates `app.js` registration in a VM with real Express parsing, Supplier router/model and authentication middleware. Application listen, configured DB connection, dotenv loading, cron, unrelated routers/models, logging/CORS/layout and outbound-client setup are disabled/stubbed. No production entry point is loaded normally. Prefix inspection establishes why unrelated router stubs do not supply Supplier authentication. Real deployed CORS/proxy/static behavior is not claimed to be reproduced.
+
+The existing `mongoMemoryHarness.mjs` is unchanged. It creates a new loopback MongoMemoryServer database, replaces the configured URI with a forbidden sentinel, guards `mongoose.connect` against other targets and drops/stops only its own persistence. Fail-closed controls reject both the configured sentinel and an alternate URI. Downloads are disabled; the pre-existing cached MongoDB binary is used. Supplier indexes are initialized before duplicate tests. Only synthetic `.invalid` contact data is seeded, with per-test cleanup. Tokens use a synthetic key and are checked against real authentication middleware; no real credentials or Supplier records are used.
+
+Reproduction command, from `core-service/`:
+
+```sh
+env MONGOMS_SYSTEM_BINARY=/tmp/cronus-mongodb-cache/mongod-x64-debian-8.2.1 MONGOMS_VERSION=8.2.1 MONGOMS_RUNTIME_DOWNLOAD=false npm test -- --config jest.supplier-auth-reproduction.config.cjs --runInBand --silent
+```
+
+Result: **81 tests: 75 passed, 6 intentionally failed; exit 1.** Breakdown: 12 controls (including ten token fixtures), 60 per-caller body/list controls and observations, 3 additional query/parser/duplicate observations, 6 security assertions. A test may exercise multiple inputs; 81 is Jest test count, not HTTP-request count.
+
+The six failing expectations preserve the intended boundary:
+
+| Security assertion | Expected | Actual |
+| --- | --- | --- |
+| Anonymous GET | denied, 0 records disclosed | not denied, 2 records disclosed |
+| Invalid-token GET | denied, 0 records disclosed | not denied, 2 records disclosed |
+| Expired-token GET | denied, 0 records disclosed | not denied, 2 records disclosed |
+| Anonymous POST | denied, 0 inserted | not denied, 1 inserted |
+| Invalid-token POST | denied, 0 inserted | not denied, 1 inserted |
+| Expired-token POST | denied, 0 inserted | not denied, 1 inserted |
+
+No unexpected reproduction failure or testability blocker occurred. The reproduction filename does not match default safe-suite test discovery; its intentionally red assertions do not change the existing baseline.
+
+## Safe baselines
+
+All ran against the unchanged prior suites in this worktree with the same cached-binary/download-disabled environment:
+
+| Baseline | Result |
+| --- | --- |
+| Complete safe core, 11 suites | 811/811 |
+| Facility #3, two suites | 45/45 |
+| Vendor #4 | 90/90 |
+| Work Order subresource #5 | 295/295 |
+| Ownership #6, including standalone topology | 215/215 |
+| Core authentication, hosted in contract-service | 31/31 |
+
+The six stabilization suites were also rerun together: 645/645, exit 0. They are a subset of the 811 core tests, not 645 additional unique tests. Authentication ran separately with 31/31, exit 0. Full core exited 0. Existing experimental Node/Mongoose duplicate-index warnings appeared; no baseline failed.
+
+Commands after the same environment prefix above:
+
+```sh
+# core-service/
+npm test -- --runInBand --silent
+npm test -- --runInBand --silent --runTestsByPath src/routers/_tests_/facilityQueryIsolation.test.mjs src/routers/_tests_/facilityIsolationCompatibility.test.mjs src/routers/_tests_/vendorSecurity.test.mjs src/routers/_tests_/workOrderSubresourceSecurity.test.mjs src/routers/_tests_/operationalOwnership.test.mjs src/routers/_tests_/ticketPromotionStandalone.test.mjs
+# contract-service/
+npm test -- --runInBand --silent --runTestsByPath src/security/_tests_/coreAuthentication.security.test.js
+```
+
+## Policy decisions and proposed remediation — not implemented
+
+1. Decide Supplier read roles, including customer/viewer access, and whether contact fields require an internal-only projection.
+2. Decide whether creation is admin-only, admin plus canonical technician, or temporarily disabled pending a managed master-data workflow. Unknown/missing/legacy token roles must not acquire privileges through fallback.
+3. Preserve current shared-reference semantics unless an explicitly approved ownership redesign is requested. Authentication remediation does not require inventing Facility ownership.
+4. Proposed minimum boundary: router-wide authentication and explicit per-operation canonical role allowlists, with tests proving anonymous/invalid/expired denial before reads/writes.
+5. Proposed input contract: allowlisted Supplier business fields, server-managed ID/timestamps, explicit malformed/duplicate handling, and preserved unique-name enforcement. Confirm the metadata/status policy before implementation.
+6. Future update/archive/restore support and lifecycle/reference policy require separate decisions; no such operations should be added as incidental security remediation.
+
+No remediation, commit, push or closure was performed. Only issue #13 was created externally. Temporary dependency symlinks reuse matching existing manifests without dependency changes and are removed at handoff. Main and paused Interaction remain at their starting commits; Supplier evidence remains uncommitted in the dedicated branch/worktree. No real database, Docker container, runtime service or scheduled job was accessed or changed; only isolated test persistence and the explicitly authorized Gitea issue integration were used.
+
+
+## September 19 resumption — accepted policy and evidence checkpoint
+
+The preceding sections preserve the September 16 reproduction and its then-open
+policy questions. The user subsequently accepted the following policy; it
+supersedes those questions without changing the historical evidence:
+
+- Supplier remains shared internal reference/master data, without Facility or
+  tenant ownership.
+- Admin may read and create; canonical technician may read only. Customer,
+  viewer, legacy `tech`, missing/unknown roles and anonymous/invalid/expired
+  authentication are denied.
+- Creation uses an explicit allowlist: `name`, `contactName`, `contactEmail`,
+  `contactPhone`, `address`, `website`, `status`. Identity, timestamps, version
+  and other server metadata cannot be supplied by the client.
+- Preserve exact-name uniqueness and existing case-sensitive behavior; no
+  case-insensitive normalization or deduplication workflow.
+- Malformed/non-object bodies, schema validation and malformed JSON receive
+  safe 400 responses; exact duplicate names receive 409; unexpected errors
+  receive generic 500 responses.
+- No update, archive, delete, restore, ownership redesign or schema migration.
+
+Read-only reconciliation confirmed local and both live remote main refs at
+`c31f309f9747a5959f91e316c275e308d7b7bcc5` and Interaction refs at
+`395e39c2ed2f6001db7daa78537b9eb06dd43903`. The local `fix/supplier-auth`
+worktree retained exactly the three untracked reproduction files and no
+production edits. The branch was not yet published on either remote. Authenticated
+Gitea inspection confirmed #13 remains open with the expected P0 scope.
+Existing evidence was inspected, not recreated or rerun at this checkpoint.
+
+The user confirms the post-#6 read-only P0 review is complete and its gate is
+**BLOCKED**. After #13 is eventually merged and closed, reproduce the
+shared-resource ordinary-update archival bypass and test-equipment picker
+Facility bypass, then rerun the gate. #7 and P1 work must wait until it passes.
+Interaction and all new CRM development remain paused; do not merge Interaction
+into main. The authorized next steps are evidence commit/push and an issue
+comment, followed by narrow remediation and permanent tests, stopping for final
+review before committing remediation.
