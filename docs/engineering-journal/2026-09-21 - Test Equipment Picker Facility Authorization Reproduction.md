@@ -340,3 +340,227 @@ compatibility where required and final verification/review. The original eleven
 security assertions must pass unchanged after production remediation; obsolete
 observations stay frozen. Remediation must remain uncommitted/unpushed, the issue
 open, and the broader P0 gate rerun deferred. #7/#14/#15/CRM work remains paused.
+
+## Evidence publication and local remediation review — September 21, 2026
+
+Evidence/policy commit: `ed51a0e1eab67ef00fc7501b4f7557c22c84b0aa`
+(`test: reproduce test-equipment picker Facility disclosure`). Both Gitea/GitHub
+pushes succeeded and live branch refs were verified against that commit before
+remediation began. Created [Gitea #16 — security: Enforce Facility authorization
+on test-equipment picker](http://192.168.1.185:3000/LiteRoc/cronus/issues/16),
+labelled P0 and open. The issue records the evidence, accepted policy, isolated
+regression requirement and blocked P0 gate. No remediation commit/push or issue
+closure is authorized at this review checkpoint.
+
+### Local implementation (uncommitted)
+
+The production backend diff is confined to the picker handler in assetsRouter.
+It authenticates, gates canonical admin/technician, then calls the existing
+operationalOwnership.selectedFacility helper. Missing/malformed context returns
+400, unauthorized context 403, and an authorized but nonexistent Facility 404.
+Unrecognized roles are denied before Facility/Asset lookup. Unexpected failures
+use the shared generic error response; inaccessible IDs/internal errors are not
+echoed. Admin has no missing-context/global fallback. Existing helper semantics
+use explicit claims for non-admin authority and admin authorization for an
+explicitly selected existing Facility; helpers themselves were not changed.
+
+The Asset query composes selected facilityId, authenticated assignedTo,
+status=Active, deletedAt=null (including absent legacy deletion metadata), and
+isArchived != true. Active status follows the normal Asset list default; deletion
+and archive flags retain existing Asset archive/lifecycle semantics. This does
+not modify any lifecycle schema or transition. Template qualification remains
+isTestEquipment=true. Ineligible/missing Template population excludes the Asset.
+No Template archive/UDI policy (#15), ownership redesign, loaner exception or
+downstream attachment change was introduced.
+
+The exact JSON row is **{ _id, ctrlNumber, manufacturer, model }**. The database
+projection includes only those fields plus templateId needed for eligibility;
+Template population selects only its ID and that ID is removed from the response.
+No full Asset or Template is returned. Notes, serial, Facility/assignment IDs,
+financial/lifecycle/calculated/audit data and arbitrary stored extras are omitted.
+
+Active consumer inspection found only getTestEquip → useTestEquipment →
+AddTestEquipmentModal, where the modal displays tag/manufacturer/model and sends
+Asset ID to the existing attach callback. Four frontend production files changed:
+
+- types/Asset.ts adds the narrow TestEquipmentOption identity/display type.
+- services/assetAPI.ts requires explicit Facility for getTestEquip and sends its
+  header explicitly, preserving it against stale localStorage interceptor state.
+- useTestEquipment uses a Facility-keyed SWR cache, disables requests without a
+  selection and does not keep previous-Facility options during key changes.
+- AddTestEquipmentModal consumes TestEquipmentOption[]; display and attach
+  behavior are unchanged and no Template-derived data is required.
+
+The existing creation/edit helper payload types remain Asset-based because those
+are separate operations. No client restores a full picker Asset response.
+
+### Verification and frozen-evidence transition
+
+- Permanent picker regression: **49/49**. Covers roles; admin/technician explicit
+  context and authority; stale/other/unassigned equipment; multi-Facility
+  selection; missing/non-test Templates; inactive/deleted/archived Assets;
+  actual admin archive; exact response keys; query override attempts; safe lookup
+  failures; malformed authenticated identity; and same-Facility attachment.
+- Original eleven SECURITY assertions: **11/11 passed unchanged** (80 historical
+  controls/observations intentionally skipped by the SECURITY filter). SHA-256
+  comparisons confirm the entire frozen reproduction and config are byte-for-byte
+  unchanged from before the evidence commit. Before was 80 passing + 11 failing
+  out of 91; after, all eleven original boundary assertions pass. Historical
+  observations describing ignored context, permissive roles and full responses
+  are obsolete by design and are preserved, not rewritten to make the full old
+  suite green. No claim is made that all 91 historical expectations now pass.
+- Complete safe core: **919/919 across 13 suites = prior main 870 + picker 49**.
+  Included baselines: Supplier 59, Facility 45 (29+16), Vendor 90, Work Order
+  subresources 295, ownership 215 (214+1), Contact 56, FollowUp 107, lifecycle 3.
+- Authentication: **31/31**.
+- Frontend: **14/14** = new API/header/type 4 + Facility cache/state 4 + minimal
+  modal display/selection 1 + existing Work Order equipment compatibility 5.
+  Includes stale localStorage context, missing selection, independent request
+  headers, immediate clearing on Facility switch and late old-response isolation.
+- Application TypeScript passed with established
+  `tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0` override.
+- Changed/new JavaScript syntax, new-file whitespace, git diff --check and
+  focused security/scope checks passed.
+- npm ls --depth=0 exited 0 in all three packages. Core/contract reported no
+  problems; the reused frontend dependency tree reported 490 extraneous entries
+  and no other problems. No install, upgrade or cleanup was attempted.
+
+All database verification used the existing fail-closed synthetic harness with
+runtime downloads disabled. No real database, deployed service, container,
+provider or scheduled job was used. Existing Node/Jest and duplicate-index
+warnings remain. Temporary dependency links are removed after verification.
+
+### Final read-only review
+
+**PASS for local final review.** Under A, stale B assignment no longer exposes B;
+selected Facility is authoritative; admin requires selection and remains
+personally assigned; inappropriate roles cannot query; minimal projection is
+asserted exactly. #5's downstream same-Facility check is unchanged and verified.
+#3/#4/#5/#6/#13 regressions remain green. Frozen evidence, schemas, shared helpers,
+dependency manifests/lockfiles and previous suites remain unchanged. No Facility
+ownership redesign or service-boundary change occurred.
+
+This is an uncommitted local remediation result, not a merged/deployed fix.
+Evidence-only HEAD/remotes remain ed51a0e; main and paused Interaction are
+unchanged. #16 remains open, P0 is not declared cleared, and the broader gate
+has not been rerun. #7/#14/#15 and CRM work were not started. Publication and
+closure require a subsequent authorized checkpoint.
+
+## Final commit-gate review — September 21, 2026
+
+Result: **PASS**, with remediation still uncommitted/unpushed at evidence HEAD
+ed51a0e. No issue mutation, merge, closure or broader P0 gate rerun occurred.
+
+Repository-wide route/client searches and App/main mounting confirm the active
+picker consumer chain is getTestEquip → useTestEquipment → EditWorkOrderPage →
+AddTestEquipmentModal. Its only reads are _id for attachment and ctrlNumber,
+manufacturer and model for display. No active consumer needs serial, description,
+location, Facility/assignment IDs, Template, lifecycle or purchase information.
+The existing four-field projection is sufficient; it was not expanded.
+
+The explicit request header survives stale localStorage through the unchanged
+Axios interceptor. SWR keys include selected Facility and disable missing-context
+requests. Existing tests cover A→B clearing and late A success; two narrowly
+necessary tests were added during this review: late A failure cannot populate
+B's error state, and the active hook sends A/B selections through the real client
+and interceptor while browser storage is stale. No production correction was
+needed. Frontend verification is now **16/16** (API/integration 5, cache/state 5,
+modal 1, existing equipment attachment compatibility 5).
+
+Lifecycle review traced Asset's Active default/status enum, deletedAt/deletedBy,
+isArchived boolean, actual admin archive's deletedAt + Archived writes, #6's
+non-deleted update predicates and existing lifecycle archive filtering. The
+picker combines those established fields; no state or transition was invented.
+The older schema/route difference where archive writes Archived outside the
+ordinary status enum is pre-existing and was not changed. Active eligibility,
+actual admin archive exclusion, independent deletion/archive flags and legacy
+absent deletion metadata are covered by permanent tests.
+
+Role/context and privacy tests freshly verify canonical admin/technician only;
+explicit selection including admin; selected-Facility/personal assignment;
+stale foreign exclusion; safe 400/403/404 responses; and generic 500 on lookup
+failures. #5 attachment remains unchanged: local succeeds, foreign returns 404
+without changing the Work Order, including for admin. Its separate predicates
+are not replaced or weakened by the picker.
+
+Fresh commit-gate verification:
+
+- Frozen original S2 SECURITY assertions: 11/11; entire evidence/config match
+  ed51a0e byte-for-byte. Original before state remains 91 total, 80 passing and
+  11 intentional failures. The 80 historical cases remain preserved/skipped in
+  the post-remediation security-only run.
+- Permanent picker: 49/49; complete safe core: 919/919, 13 suites.
+- Included baselines: Supplier 59, Facility 45, Vendor 90, subresources 295,
+  ownership 215; authentication separately 31/31.
+- Frontend 16/16; application TypeScript with established compatibility override,
+  JavaScript syntax, new-file whitespace, git diff --check and scope checks pass.
+- npm ls --depth=0 exits 0 in all three packages. Frontend reports 490 extraneous
+  entries and no other problems, reusing the existing dependency tree. The
+  September 19 Supplier journal already recorded this exact warning before #16;
+  all manifests/lockfiles match the evidence commit. No dependency mutation.
+
+Only the two additional frontend test cases and this review record were added
+in the commit-gate turn. Temporary dependency links were removed. Persistence
+remained fail-closed, ephemeral and synthetic; no real database, runtime service,
+container or provider was accessed. Browser deployment/manual end-to-end behavior
+was not exercised. #16 was not updated or closed; #7/#14/#15/CRM remain untouched.
+
+## Approved remediation publication checkpoint — September 21, 2026
+
+The user accepted the final commit-gate review and authorized documentation,
+commit and publication as `fix: scope test-equipment picker by Facility` on
+fix/test-equipment-picker-scope. Earlier uncommitted/no-publication statements
+above describe historical checkpoints. The commit containing this section is
+the remediation checkpoint; Git records its hash and the post-push #16 comment
+records publication results. No merge or issue closure is authorized. #16 is
+not resolved on main and Interaction compatibility for this fix is outstanding.
+
+Preserved before: 91 reproduction cases, 80 passing controls/observations and
+11 intentional security failures. An A-only caller received material B Asset
+information solely through stale assignment while selected Facility was ignored.
+Preserved after: all 11 original assertions pass unchanged; the frozen suite and
+configuration are byte-for-byte historical evidence. Permanent picker **49/49**
+is authoritative for ongoing regression, with frontend compatibility/isolation
+**16/16**. Obsolete historical observations have not been rewritten.
+
+Final policy/implementation: canonical admin/technician only; explicit authorized
+Facility required for both, with no global admin picker. Asset Facility equals
+selection, assignment equals authenticated caller, Template qualifies as test
+equipment, and established active/deleted/archive predicates apply. Assignment
+is not an independent cross-Facility read grant. #5 downstream attachment
+validation remains independent and unchanged. No ownership redesign or equipment
+exception was introduced.
+
+Exact response projection: `_id`, `ctrlNumber`, `manufacturer`, `model`.
+All active consumers need only those fields. Frontend requests explicitly carry
+selected Facility; the shared interceptor preserves that header. Facility-keyed
+cache and disabled missing-context requests enforce A→B state isolation and
+prevent stale A success/failure from populating B data/error state.
+
+Fresh pre-publication verification passed:
+
+| Check | Result |
+| --- | --- |
+| Original S2 security assertions | 11/11 unchanged |
+| Permanent picker | 49/49 |
+| Supplier #13 | 59/59 |
+| Facility #3 | 45/45 |
+| Vendor #4 | 90/90 |
+| Work Order subresources #5 | 295/295 |
+| Ownership #6 | 215/215 |
+| Complete safe core | 919/919, 13 suites (870 + picker 49) |
+| Authentication | 31/31 |
+| Frontend compatibility/isolation | 16/16 |
+| Application TypeScript, syntax, whitespace/security scope | PASS |
+| npm ls --depth=0, all three packages | exit 0 |
+
+Frontend retains 490 pre-existing/reused-environment extraneous entries; no
+other npm ls problem or dependency/lockfile change. Tests used isolated,
+fail-closed synthetic persistence with downloads disabled. Temporary dependency
+links were removed. No real-data/deployed-runtime verification was performed.
+
+Current Context/Open Threads now accurately record #3–#6/#13 closed, #16 verified
+on its fix branch but unmerged/open, S3 deferred into P1 #14/#15, and #16 as the
+final known P0 candidate from the post-#6 sweep. The broader P0 gate has not been
+rerun or declared clear. #7 and CRM remain paused; #14/#15 remediation was not
+started. Main and paused Interaction remain unchanged.

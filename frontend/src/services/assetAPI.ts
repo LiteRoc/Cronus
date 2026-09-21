@@ -1,4 +1,4 @@
-import { Asset, AssetLifecycleResponse, AssetFilters, AssetListResponse, Procedure } from "../types";
+import { Asset, TestEquipmentOption, AssetLifecycleResponse, AssetFilters, AssetListResponse, Procedure } from "../types";
 import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
 
@@ -36,8 +36,11 @@ export const fetchAssetsForSelect = async (facilityId?: string | null): Promise<
   return data.assets ?? [];
 }
 
-export const getTestEquip = async (): Promise<Asset[]> => {
-  const response = await apiClient.get<Asset[]>(`/assets/test-equipment`);
+export const getTestEquip = async (facilityId: string): Promise<TestEquipmentOption[]> => {
+  if (!facilityId) throw new Error("Select a Facility to view test equipment");
+  const response = await apiClient.get<TestEquipmentOption[]>(`/assets/test-equipment`, {
+    headers: { "x-facility-id": facilityId },
+  });
   return response.data;
 }
 

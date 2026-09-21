@@ -1,12 +1,18 @@
 //src/hooks/useTestEquipment.ts
 
 import useSWR from "swr";
-import { Asset } from "@/types";
+import { useFacility } from "@/context/FacilityContext";
+import { Asset, TestEquipmentOption } from "@/types";
 import { createAsset, getTestEquip, updateAsset } from "@/services";
 import { showSuccess, showError } from "@/utils/toastUtils";
 
 export const useTestEquipment = () => {
-    const { data: testEquip, error, isLoading, mutate } = useSWR<Asset[]>("test-equipment", getTestEquip);
+    const { selectedFacilityId } = useFacility();
+    const { data: testEquip, error, isLoading, mutate } = useSWR<TestEquipmentOption[]>(
+        selectedFacilityId ? ["test-equipment", selectedFacilityId] : null,
+        ([, facilityId]: [string, string]) => getTestEquip(facilityId),
+        { keepPreviousData: false },
+    );
 
     // Create
     const addTestEquip = async (payload: Partial<Asset>) => {
@@ -33,7 +39,7 @@ export const useTestEquipment = () => {
     };
 
     return {
-        testEquip: testEquip ?? [],
+        testEquip: selectedFacilityId ? testEquip ?? [] : [],
         error,
         isLoading,
         mutate,
