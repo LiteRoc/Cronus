@@ -4,20 +4,19 @@
 
 ## Current stabilization checkpoint — September 21, 2026
 
-This checkpoint supersedes earlier branch-specific handoffs. Main remains
-`2f7bea84f2585eb6de14f3706c4b744b4719ab1b`. Gitea #3 (Facility isolation), #4
+This checkpoint supersedes earlier branch-specific handoffs. Main fast-forwarded
+from `2f7bea84f2585eb6de14f3706c4b744b4719ab1b` to verified #16 fix
+`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01`; this documentation commit follows. Gitea #3 (Facility isolation), #4
 (Vendor authorization/lifecycle), #5 (Work Order subresources), #6 (Asset/Work
 Order ownership) and #13 (Supplier authorization) are verified and closed.
 Paused Interaction remains `e242b2044cca33a09359bc37cf2bdb1a0c7641a6`;
 its Supplier compatibility passed core 924/924, authentication 31/31,
 frontend 21/21 and application TypeScript. Do not merge Interaction into main.
 
-**#16 is remediated and verified on fix/test-equipment-picker-scope only. It is
-not merged into main or resolved on main.** The remediation commit containing
-this handoff follows evidence `ed51a0e1eab67ef00fc7501b4f7557c22c84b0aa`;
-Git records its hash and the issue checkpoint records publication results.
+**#16 is merged and verified on main.** The merge was a clean fast-forward,
+without rewriting history. Evidence remains `ed51a0e1eab67ef00fc7501b4f7557c22c84b0aa`.
 [Gitea #16](http://192.168.1.185:3000/LiteRoc/cronus/issues/16) remains open pending
-merge into main and Interaction compatibility. No merge is part of publication.
+Interaction compatibility. Interaction must remain paused and must not enter main.
 
 S2 (#16), the test-equipment picker, was the final known P0 candidate from the
 post-#6 sweep and reproduced material foreign-Facility disclosure. Its fix
@@ -29,7 +28,7 @@ need only these fields. Frontend explicit headers and Facility-keyed caching
 isolate switches and stale success/failure responses. #5 attachment authorization
 remains independently enforced. No ownership or lifecycle schema was redesigned.
 
-Verified fix-branch baseline: original S2 security 11/11 unchanged; permanent
+Fresh merged-main verification: original S2 security 11/11 unchanged; permanent
 picker 49/49; complete safe core 919/919 (main 870 + picker 49); Supplier 59,
 Facility 45, Vendor 90, subresources 295, ownership 215; authentication 31/31;
 frontend 16/16; application TypeScript. The frozen 91-case reproduction remains
@@ -37,9 +36,9 @@ historical evidence (before: 80 passing, 11 failures); the permanent suite gover
 ongoing regression. See the [#16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
 
 **P0 GATE: NOT CLEARED; broader review has not been rerun.** #7 remains paused,
-as do Interaction frontend, Opportunity and all new CRM development. Next is a
-separately authorized #16 main-merge/Interaction-compatibility checkpoint, not
-another issue or an automatic broader gate rerun.
+as do Interaction frontend, Opportunity and all new CRM development. Next is the authorized Interaction compatibility checkpoint, followed only on
+success by #16 closure and the read-only P0 gate review. No other remediation
+is authorized in this sequence.
 
 S3 shared-resource archival reproduced no P0 operational removal effect and was
 reclassified into open P1 backlog issues

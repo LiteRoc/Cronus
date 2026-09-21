@@ -564,3 +564,21 @@ on its fix branch but unmerged/open, S3 deferred into P1 #14/#15, and #16 as the
 final known P0 candidate from the post-#6 sweep. The broader P0 gate has not been
 rerun or declared clear. #7 and CRM remain paused; #14/#15 remediation was not
 started. Main and paused Interaction remain unchanged.
+
+## Merged-main verification — September 21, 2026
+
+Main fast-forwarded from `2f7bea84f2585eb6de14f3706c4b744b4719ab1b` to
+`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01`, with no implementation conflicts
+or history rewriting. Fresh verification passed: original frozen S2 assertions
+11/11 unchanged; permanent picker 49/49; Supplier 59, Facility 45, Vendor 90,
+Work Order subresources 295, ownership 215; complete safe core 919/919;
+authentication 31/31; frontend 16/16; application TypeScript, syntax, whitespace
+and diff checks. Dependency inventory is unchanged (frontend retains 490
+pre-existing extraneous entries). No manifest/lockfile or downstream changes.
+
+Tests verify selected Facility authority, admin explicit selection, exclusion
+of stale foreign assignments, no assignment-only read grant, exact four-field
+projection and independent local/foreign attachment checks. Only isolated
+synthetic persistence was used; no real-data or deployed-runtime verification.
+#16 remains open until Interaction compatibility passes. The broader read-only
+P0 gate remains pending; #14/#15 are P1 and #7/CRM remain paused.
