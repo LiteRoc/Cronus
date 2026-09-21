@@ -4,59 +4,58 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Current stabilization checkpoint — September 21, 2026
 
-This checkpoint supersedes earlier branch-specific handoffs. Main fast-forwarded
-from `2f7bea84f2585eb6de14f3706c4b744b4719ab1b` to verified #16 fix
-`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01`; this documentation commit follows. Gitea #3 (Facility isolation), #4
-(Vendor authorization/lifecycle), #5 (Work Order subresources), #6 (Asset/Work
-Order ownership) and #13 (Supplier authorization) are verified and closed.
-Paused Interaction remains `e242b2044cca33a09359bc37cf2bdb1a0c7641a6`;
-its Supplier compatibility passed core 924/924, authentication 31/31,
-frontend 21/21 and application TypeScript. Do not merge Interaction into main.
+**P0 SECURITY/OWNERSHIP STABILIZATION GATE: PASS**
 
-**#16 is merged and verified on main.** The merge was a clean fast-forward,
-without rewriting history. Evidence remains `ed51a0e1eab67ef00fc7501b4f7557c22c84b0aa`.
-[Gitea #16](http://192.168.1.185:3000/LiteRoc/cronus/issues/16) remains open pending
-Interaction compatibility. Interaction must remain paused and must not enter main.
+The P0 security/ownership stabilization phase is complete at this checkpoint.
+A fresh read-only review of mounted application source at main
+`20f3d65ceea25f1fed8bcdb071be11ec4fc1af37`, after #16 closure, found no new
+credible mounted P0 candidate requiring reproduction. This is a focused source
+review supported by isolated regression evidence, not deployed-runtime assurance.
+The documentation-only commit containing this handoff records the stopping point.
 
-S2 (#16), the test-equipment picker, was the final known P0 candidate from the
-post-#6 sweep and reproduced material foreign-Facility disclosure. Its fix
-requires canonical admin/technician, explicit authorized selected Facility for
-both roles, personally assigned same-Facility active/non-deleted equipment and
-a qualifying Template. There is no global admin picker or assignment read grant.
-The response is exactly _id, ctrlNumber, manufacturer, model; all active consumers
-need only these fields. Frontend explicit headers and Facility-keyed caching
-isolate switches and stale success/failure responses. #5 attachment authorization
-remains independently enforced. No ownership or lifecycle schema was redesigned.
+Gitea #3, #4, #5, #6, #13 and #16 are verified closed. #16 fix
+`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01` entered main by fast-forward.
+Merged-main verification passed: safe core 919/919, frozen S2 security 11/11,
+picker 49/49, Supplier 59, Facility 45, Vendor 90, subresources 295, ownership
+215, authentication 31/31, frontend 16/16 and application TypeScript.
 
-Fresh merged-main verification: original S2 security 11/11 unchanged; permanent
-picker 49/49; complete safe core 919/919 (main 870 + picker 49); Supplier 59,
-Facility 45, Vendor 90, subresources 295, ownership 215; authentication 31/31;
-frontend 16/16; application TypeScript. The frozen 91-case reproduction remains
-historical evidence (before: 80 passing, 11 failures); the permanent suite governs
-ongoing regression. See the [#16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
+Paused Interaction incorporated verified main at
+`45f19da5bc5572b9b35c3290559b3a585058af0b`, pushed to both remotes. Combined
+core passed 973/973 = main 919 + Interaction 54; original S2 security 11/11,
+authentication 31/31, frontend 16/16 and TypeScript passed. Only the existing
+interactionJsonErrorHandler export was added to each picker router mock;
+all other evidence/assertion/fixture bytes remain unchanged. Interaction has
+not entered main. Later documentation-only synchronization does not change
+this verified implementation checkpoint.
 
-**P0 GATE: NOT CLEARED; broader review has not been rerun.** #7 remains paused,
-as do Interaction frontend, Opportunity and all new CRM development. Next is the authorized Interaction compatibility checkpoint, followed only on
-success by #16 closure and the read-only P0 gate review. No other remediation
-is authorized in this sequence.
+#16 requires explicit authorized selected Facility for canonical admin and
+technician, personally assigned same-Facility active/nondeleted test equipment,
+and exactly _id, ctrlNumber, manufacturer, model. No global admin picker or
+assignment-only cross-Facility grant exists. #5 attachment protection remains
+independent. [Final #16 verification/closure](http://192.168.1.185:3000/LiteRoc/cronus/issues/16#issuecomment-103).
 
-S3 shared-resource archival reproduced no P0 operational removal effect and was
-reclassified into open P1 backlog issues
-[#14 Part/Manufacturer](http://192.168.1.185:3000/LiteRoc/cronus/issues/14) and
-[#15 Template](http://192.168.1.185:3000/LiteRoc/cronus/issues/15).
-Its evidence/policy is preserved at `84d58ee4927ff4a23dbfd6c5add1b43ef404f49f`
-on fix/shared-resource-archive-auth (tracking tip 6dc5322). S3 no longer blocks
-P0; its accepted shared-reference archive/restore/UDI policies remain unimplemented
-and remediation deferred until P0 clears. Current naming is S2 picker, S3 shared
-lifecycle; older sweep notes used reversed numbering.
+S3 reproduced no P0 operational removal effect. #14 Part/Manufacturer lifecycle
+and #15 Template lifecycle remain OPEN P1, with accepted policies unimplemented.
+Other deferred items: historical-reference isolation/ownership normalization,
+JWT configuration/test-mode hardening, customer identity mismatch, historical
+plaintext-password possibility, Part/Procedure/Task policy, role minimization,
+safe-error/logging consistency and deployed transaction capability. These were
+not promoted to P0 without new evidence and were not remediated.
 
-All persistence verification used isolated synthetic databases. Real data and
-deployed behavior remain unverified. Vendor creation, ownership normalization,
-audited Asset transfer and deployed transaction capability remain deferred.
-Ticket promotion needs transaction-capable MongoDB and fails safely with 503 on
-unsupported standalone topology. No real data or runtime infrastructure changed.
+**STOP.** #7 (WorkOrder cost snapshots across every mutation path) is the next
+original business-correctness stabilization issue, recommended for a separately
+authorized investigation only. It has not started. #14/#15 remediation,
+Interaction frontend, Opportunity and other CRM work have not started; CRM
+remains paused pending human direction. No real databases, deployed services,
+Docker, scheduled jobs or dependencies were changed.
+
+See [the final read-only gate record](<../engineering-journal/2026-09-21 - Final P0 Security Ownership Gate.md>)
+and [the #16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
 
 ## Paused Interaction backend history
+
+The following records earlier compatibility checkpoints. Current issue closure
+and gate disposition are authoritative in the stopping-point section above.
 
 The Interaction backend base is `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`;
 its preserved backend checkpoint is `ce535d39627f7a77f9e342fd9146e8ba361f5899`
