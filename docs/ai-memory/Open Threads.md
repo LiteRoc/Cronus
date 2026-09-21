@@ -2,109 +2,77 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Completed code remediation — Gitea #3 merged into main
+## Current stabilization checkpoint — September 21, 2026
 
-The #3 main checkpoint `4771555ed50044bedaa464127a2fe68e6f32c769` includes
-fix `c89f22193e9eb3ca810af7087bb6392c15897ccc`. Four defects reproduced
-against `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4` are resolved:
+This checkpoint supersedes the earlier branch-specific handoffs. Gitea #3
+(Facility isolation), #4 (Vendor authorization/lifecycle), #5 (Work Order
+subresources), and #6 (Asset/Work Order ownership) are merged, verified and closed.
+Main now includes Supplier fix `e95d22dcd2a67eeef436867170a46ccd882e6a2a`;
+the resulting main documentation checkpoint is recorded by Git.
+Interaction compatibility now passes core 924/924, authentication 31/31,
+frontend compatibility 21/21 and application TypeScript. The merge containing
+this handoff records the new paused Interaction checkpoint in Git.
+Do not merge Interaction into main.
 
-- P0 Asset search: list/count/page queries preserve Facility visibility.
-- P0 Work Order search: ordinary and analytics queries preserve Facility visibility.
-- P1 Template lifecycle: authorized selected Facility controls summaries and tenant benchmarks.
-- P1 Asset duplicate warnings: inaccessible foreign identifiers are not disclosed.
+**#13 Supplier: main and Interaction compatibility verified; publication and
+final issue closure follow this merge checkpoint.** Main fast-forwarded from
+`c31f309f9747a5959f91e316c275e308d7b7bcc5` to Supplier fix
+`e95d22dcd2a67eeef436867170a46ccd882e6a2a`. Evidence checkpoint: `c99c91f`.
+The documentation-only commit containing this handoff follows the verified
+code merge; Git records the resulting main hash. Interaction compatibility for
+#13 passed fresh verification on September 21; see the Supplier journal.
+See the [Supplier journal](<../engineering-journal/2026-09-16 - Supplier Authentication Reproduction.md>)
+for accepted policy, immutable reproduction evidence and verification.
+Supplier remains shared internal reference data: admin read/create, canonical
+technician read only, all other roles denied. No Facility/tenant ownership or
+new lifecycle endpoints. Creation excludes client metadata; reads explicitly
+project approved fields. Permanent Supplier 59/59 and all six original security
+assertions pass unchanged; safe core 870/870, Facility 45/45, Vendor 90/90,
+subresources 295/295, ownership 215/215, authentication 31/31 and application
+TypeScript passed fresh merged-main verification. All persistence verification is isolated and
+synthetic; deployed behavior and real data remain unverified.
 
-All 29 original reproduction cases pass unchanged, including the 11 controls
-and 18 formerly failing security assertions. Merged-main verification passed
-45/45 permanent Facility cases, 211/211 core tests, and 31/31 authentication
-tests. Intended admin/global behavior remains preserved. These are isolated
-synthetic results, not production exploitation or deployed verification.
-See the [September 15 report](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>).
-Gitea #3 is closed. Main `c31f309` includes verified #3/#4/#5/#6 remediation; #6 compatibility passed and Gitea records final closure after publication.
+**P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** The post-#6 read-only
+review is already complete. After #13 passes Interaction compatibility and closes, the remaining
+mounted candidates require separate reproduction:
 
-Stabilization remains the priority. Other September findings remain
-hypotheses/unresolved according to their recorded status. Gitea #2 tracks
-the implemented, reviewed, committed and pushed Interaction backend.
-Its frontend has not begun; Interaction frontend and Opportunity remain
-paused. Do not merge Interaction into main. Accepted Interaction architecture,
-verification history, and deferred revision history/retention remain intact.
+- S2: shared-resource ordinary-update bypass of admin archival boundaries.
+- S3: test-equipment picker Facility authorization bypass.
 
-Earlier #3 compatibility verification (2026-09-15, before Vendor remediation):
-Interaction 54/54, permanent Facility 45/45, combined safe core-service
-265/265 (166 shared + 54 Interaction + 45 Facility), and authentication
-31/31 passed. Restricted visibility, Contact validation, and all Facility
-regressions remain intact in isolated tests. Syntax, dependency consistency,
-whitespace, and focused visibility/scope checks passed. No real-data or
-deployed-runtime verification was performed. Interaction remains paused.
+These remain candidates pending reproduction, not newly verified defects.
+Rerun the P0 gate after remediation of its confirmed blockers. #7, P1 security
+work, Interaction frontend, Opportunity and all new CRM development remain
+paused. Do not begin S2/S3 in the Supplier publication task.
+Vendor creation remains disabled; ownership normalization, audited Asset
+transfer and deployed transaction capability remain deferred.
+Ticket promotion requires transaction-capable MongoDB and returns 503 without
+partial state on unsupported standalone topology; deployed capability remains
+unverified. The Interaction backend is complete on its paused branch; its
+frontend has not begun. Earlier #3–#6 investigation and verification remain in
+the [Facility](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>),
+[Vendor](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>),
+[Work Order subresource](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>)
+and [ownership](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>) journals.
 
-Earlier #4 compatibility verification (2026-09-15): main
-`a7ad89724722b999bb0b201ae894142eae82c8ea` is incorporated without history
-rewriting. Interaction 54/54, Vendor 90/90, Facility 45/45 and complete safe core
-355/355 (166 shared + 54 Interaction + 45 Facility + 90 Vendor) passed;
-authentication 31/31, historical Vendor references 6/6 and analytics 3/3 passed.
-Restricted Interaction visibility, Contact validation, and #3/#4 protections
-remain intact. Syntax, dependency and whitespace checks passed. #3 and #4 code
-remediation is resolved on main; Gitea records the final #4 closure separately.
-Vendor creation remains disabled, tenantId normalization deferred, features paused,
-at that checkpoint. No real-data or deployed-runtime verification occurred.
+## Paused Interaction backend history
 
-## Gitea #5 — resolved and merged
-
-- Main includes verified fix `30e521113749b01987ffbbb10381ed80cf736d0f` via
-  fast-forward. #5 is resolved on main. Evidence checkpoint:
-  `72837f3c77f39fdba96055b03e8be8c93faa8165`.
-- Parent Work Order Facility scope, equipment role/reference checks, narrow
-  responses, protected ordinary PUT and safe Procedure/result errors are fixed on
-  merged main. Tests: original security 20/20 unchanged; permanent #5 295/295;
-  core 596/596; Facility 45/45; Vendor 90/90; auth 31/31; frontend equipment 5/5.
-- Frozen pre-policy expectations remain historical, not the normal green suite.
-- Part/Procedure/Task ownership remains deliberately unchanged. #7 cost correctness,
-  #9 procedure units and unmounted labor/travel PATCH helpers remain deferred.
-- #7 has not started. New feature development, Interaction frontend and Opportunity
-  remain paused. Do not merge Interaction into main.
-- See the [#5 journal](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>).
-
-Earlier #5 compatibility verification (2026-09-15): main `1122219e401d272377bdb93daf98bb8fb5ec8554`
-is incorporated without rewriting Interaction history. Interaction 54/54,
-Work Order security 295/295, Vendor 90/90, Facility 45/45 and complete safe core
-650/650 (166 shared + 54 Interaction + 45 Facility + 90 Vendor + 295 Work Order)
-passed. Authentication 31/31 and frontend equipment compatibility 5/5 passed;
-syntax, dependency and whitespace checks passed. Restricted Interaction visibility,
-Contact validation and #3/#4/#5 protections coexist. #7 costs and #9 units remain
-unchanged. No real-data/deployed-runtime verification occurred. At that historical checkpoint #6 had not started;
-Interaction frontend and Opportunity remain paused. Gitea records final #5 closure.
-
-## Gitea #6 — merged-main and Interaction compatibility verification passed
-
-Main `c31f309f9747a5959f91e316c275e308d7b7bcc5` includes verified #3/#4/#5/#6
-remediation and is published to Gitea/GitHub. Its merged-main checks passed:
-core **811/811**, authentication **31/31**, frontend ownership/equipment **21/21**
-and actual application TypeScript. The intentional handoff is preserved in
-`8acb950`; remediation remains `d650873`.
-
-The merge into paused Interaction passed its complete compatibility gate after
-one approved test-only correction: the #6 application-registration router mock
-now provides the existing `interactionJsonErrorHandler` export. Production
-Interaction code and its tests are unchanged. The affected test passes **1/1**;
-Interaction **54/54**; #6 **215/215**; #5 **295/295**; #4 **90/90**; #3 **45/45**;
-complete safe core **865/865** = 811 main + 54 Interaction. Authentication **31/31**,
-frontend **21/21**, application TypeScript, syntax, npm ls for all three packages,
-whitespace, conflict-marker and focused security/scope checks passed.
-
-The earlier 864/865 failure was a stale test double, now resolved. This checkpoint
-completes code compatibility; Git refs and Gitea record the subsequent pushes,
-final verification comment and #6 closure. Close #6 only after both remote
-Interaction refs match this verified merge. Do not merge Interaction into main.
-
-All database verification used isolated synthetic persistence with downloads
-disabled. Ticket promotion still requires transaction-capable MongoDB and fails
-with 503 without partial state on unsupported standalone topology. No real-data
-or deployed-runtime verification occurred. Vendor creation stays disabled;
-normalization and audited Asset transfer remain deferred. P0 review and #7
-were not started in this task. Interaction frontend and Opportunity remain paused.
-
-Frozen evidence remains historical; all retained security-labelled exceptions
-are classified in the [#6 journal](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>).
-The P0 review and #7 remain separate subsequent tasks.
+The Interaction backend base is `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`;
+its preserved backend checkpoint is `ce535d39627f7a77f9e342fd9146e8ba361f5899`
+and governance checkpoint `898d05e98afead5644ce3d78164df0f9948f0473`.
+Gitea #2 remains its tracking issue and is not modified by Supplier stabilization.
+The backend's accepted Facility/visibility/audit policy and 54-test behavior
+remain authoritative. Interaction frontend and Opportunity remain paused.
+Historical #3/#4/#5/#6 compatibility totals were 265/355/650/865 core cases;
+these do not establish the pending #13 compatibility result. Earlier detailed
+handoffs remain preserved in Git and the Interaction/Security journals.
+The main-to-Interaction merge aligns three test-router mocks with existing
+exports; no additional production behavior changes were introduced. The frozen
+Supplier reproduction differs from c99c91f only by its Interaction error-handler
+mock export; all assertions and fixtures remain byte-for-byte unchanged.
+Compatibility passed: core 924/924 (870 main + 54 Interaction), original Supplier
+security 6/6, authentication 31/31, frontend 21/21 and application TypeScript.
+Both Interaction pushes and final #13 comment/closure follow this checkpoint;
+the issue records their outcome. P0 remains blocked pending S2/S3 reproduction.
 
 ## Completed baseline: core-service authentication hardening
 

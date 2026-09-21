@@ -85,7 +85,7 @@ app.use('/auth', authRouter); // All authentication routes will start with `/aut
 app.use('/users', userRouter);
 app.use('/reports', reportRouter);
 app.use('/parts', partRouter);
-app.use('/suppliers', supplierRouter);
+app.use('/suppliers', supplierRouter.supplierJsonErrorHandler, supplierRouter);
 app.use('/procedures', procedureRouter);
 app.use('/tasks', taskRouter);
 app.use('/dashboard', dashboardRouter);
