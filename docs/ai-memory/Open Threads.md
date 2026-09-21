@@ -4,55 +4,57 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Current stabilization checkpoint — September 21, 2026
 
-This checkpoint supersedes the earlier branch-specific handoffs. Gitea #3
-(Facility isolation), #4 (Vendor authorization/lifecycle), #5 (Work Order
-subresources), and #6 (Asset/Work Order ownership) are merged, verified and closed.
-Main now includes Supplier fix `e95d22dcd2a67eeef436867170a46ccd882e6a2a`;
-the resulting main documentation checkpoint is recorded by Git.
-Interaction compatibility now passes core 924/924, authentication 31/31,
-frontend compatibility 21/21 and application TypeScript. The merge containing
-this handoff records the new paused Interaction checkpoint in Git.
-Do not merge Interaction into main.
+This checkpoint supersedes earlier branch-specific handoffs. Main fast-forwarded
+from `2f7bea84f2585eb6de14f3706c4b744b4719ab1b` to verified #16 fix
+`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01`; this documentation commit follows. Gitea #3 (Facility isolation), #4
+(Vendor authorization/lifecycle), #5 (Work Order subresources), #6 (Asset/Work
+Order ownership) and #13 (Supplier authorization) are verified and closed.
+Paused Interaction remains `e242b2044cca33a09359bc37cf2bdb1a0c7641a6`;
+its Supplier compatibility passed core 924/924, authentication 31/31,
+frontend 21/21 and application TypeScript. Do not merge Interaction into main.
 
-**#13 Supplier: main and Interaction compatibility verified; publication and
-final issue closure follow this merge checkpoint.** Main fast-forwarded from
-`c31f309f9747a5959f91e316c275e308d7b7bcc5` to Supplier fix
-`e95d22dcd2a67eeef436867170a46ccd882e6a2a`. Evidence checkpoint: `c99c91f`.
-The documentation-only commit containing this handoff follows the verified
-code merge; Git records the resulting main hash. Interaction compatibility for
-#13 passed fresh verification on September 21; see the Supplier journal.
-See the [Supplier journal](<../engineering-journal/2026-09-16 - Supplier Authentication Reproduction.md>)
-for accepted policy, immutable reproduction evidence and verification.
-Supplier remains shared internal reference data: admin read/create, canonical
-technician read only, all other roles denied. No Facility/tenant ownership or
-new lifecycle endpoints. Creation excludes client metadata; reads explicitly
-project approved fields. Permanent Supplier 59/59 and all six original security
-assertions pass unchanged; safe core 870/870, Facility 45/45, Vendor 90/90,
-subresources 295/295, ownership 215/215, authentication 31/31 and application
-TypeScript passed fresh merged-main verification. All persistence verification is isolated and
-synthetic; deployed behavior and real data remain unverified.
+**#16 is merged and verified on main.** The merge was a clean fast-forward,
+without rewriting history. Evidence remains `ed51a0e1eab67ef00fc7501b4f7557c22c84b0aa`.
+[Gitea #16](http://192.168.1.185:3000/LiteRoc/cronus/issues/16) remains open pending
+Interaction compatibility. Interaction must remain paused and must not enter main.
 
-**P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** The post-#6 read-only
-review is already complete. After #13 passes Interaction compatibility and closes, the remaining
-mounted candidates require separate reproduction:
+S2 (#16), the test-equipment picker, was the final known P0 candidate from the
+post-#6 sweep and reproduced material foreign-Facility disclosure. Its fix
+requires canonical admin/technician, explicit authorized selected Facility for
+both roles, personally assigned same-Facility active/non-deleted equipment and
+a qualifying Template. There is no global admin picker or assignment read grant.
+The response is exactly _id, ctrlNumber, manufacturer, model; all active consumers
+need only these fields. Frontend explicit headers and Facility-keyed caching
+isolate switches and stale success/failure responses. #5 attachment authorization
+remains independently enforced. No ownership or lifecycle schema was redesigned.
 
-- S2: shared-resource ordinary-update bypass of admin archival boundaries.
-- S3: test-equipment picker Facility authorization bypass.
+Fresh merged-main verification: original S2 security 11/11 unchanged; permanent
+picker 49/49; complete safe core 919/919 (main 870 + picker 49); Supplier 59,
+Facility 45, Vendor 90, subresources 295, ownership 215; authentication 31/31;
+frontend 16/16; application TypeScript. The frozen 91-case reproduction remains
+historical evidence (before: 80 passing, 11 failures); the permanent suite governs
+ongoing regression. See the [#16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
 
-These remain candidates pending reproduction, not newly verified defects.
-Rerun the P0 gate after remediation of its confirmed blockers. #7, P1 security
-work, Interaction frontend, Opportunity and all new CRM development remain
-paused. Do not begin S2/S3 in the Supplier publication task.
-Vendor creation remains disabled; ownership normalization, audited Asset
-transfer and deployed transaction capability remain deferred.
-Ticket promotion requires transaction-capable MongoDB and returns 503 without
-partial state on unsupported standalone topology; deployed capability remains
-unverified. The Interaction backend is complete on its paused branch; its
-frontend has not begun. Earlier #3–#6 investigation and verification remain in
-the [Facility](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>),
-[Vendor](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>),
-[Work Order subresource](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>)
-and [ownership](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>) journals.
+**P0 GATE: NOT CLEARED; broader review has not been rerun.** #7 remains paused,
+as do Interaction frontend, Opportunity and all new CRM development. Next is the authorized Interaction compatibility checkpoint, followed only on
+success by #16 closure and the read-only P0 gate review. No other remediation
+is authorized in this sequence.
+
+S3 shared-resource archival reproduced no P0 operational removal effect and was
+reclassified into open P1 backlog issues
+[#14 Part/Manufacturer](http://192.168.1.185:3000/LiteRoc/cronus/issues/14) and
+[#15 Template](http://192.168.1.185:3000/LiteRoc/cronus/issues/15).
+Its evidence/policy is preserved at `84d58ee4927ff4a23dbfd6c5add1b43ef404f49f`
+on fix/shared-resource-archive-auth (tracking tip 6dc5322). S3 no longer blocks
+P0; its accepted shared-reference archive/restore/UDI policies remain unimplemented
+and remediation deferred until P0 clears. Current naming is S2 picker, S3 shared
+lifecycle; older sweep notes used reversed numbering.
+
+All persistence verification used isolated synthetic databases. Real data and
+deployed behavior remain unverified. Vendor creation, ownership normalization,
+audited Asset transfer and deployed transaction capability remain deferred.
+Ticket promotion needs transaction-capable MongoDB and fails safely with 503 on
+unsupported standalone topology. No real data or runtime infrastructure changed.
 
 ## Paused Interaction backend history
 
@@ -63,7 +65,7 @@ Gitea #2 remains its tracking issue and is not modified by Supplier stabilizatio
 The backend's accepted Facility/visibility/audit policy and 54-test behavior
 remain authoritative. Interaction frontend and Opportunity remain paused.
 Historical #3/#4/#5/#6 compatibility totals were 265/355/650/865 core cases;
-these do not establish the pending #13 compatibility result. Earlier detailed
+these are historical baselines, not the pending #16 compatibility result. Earlier detailed
 handoffs remain preserved in Git and the Interaction/Security journals.
 The main-to-Interaction merge aligns three test-router mocks with existing
 exports; no additional production behavior changes were introduced. The frozen
@@ -71,8 +73,14 @@ Supplier reproduction differs from c99c91f only by its Interaction error-handler
 mock export; all assertions and fixtures remain byte-for-byte unchanged.
 Compatibility passed: core 924/924 (870 main + 54 Interaction), original Supplier
 security 6/6, authentication 31/31, frontend 21/21 and application TypeScript.
-Both Interaction pushes and final #13 comment/closure follow this checkpoint;
-the issue records their outcome. P0 remains blocked pending S2/S3 reproduction.
+The prior #13 compatibility checkpoint was pushed and #13 is closed. The current
+main-to-Interaction #16 merge passed fresh compatibility: combined core 973/973
+(919 main + 54 Interaction), original S2 security 11/11 unchanged, picker 49/49,
+authentication 31/31, frontend 16/16 and application TypeScript. Only the existing
+interactionJsonErrorHandler export was added to the two picker router mocks;
+all assertion and fixture bytes are unchanged. Publication and #16 closure
+follow this checkpoint; the broader P0 review has not yet been rerun.
+S3 is deferred as P1 #14/#15; the broader P0 review awaits #16 closure.
 
 ## Completed baseline: core-service authentication hardening
 

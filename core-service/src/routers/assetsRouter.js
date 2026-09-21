@@ -160,24 +160,31 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
     }
 });
 
-// GET: Return only test equipment
-assetRouter.get('/test-equipment', authenticateToken, async (req, res) => {
+// Operational picker: assignment narrows eligibility; it never grants Facility access.
+assetRouter.get('/test-equipment', authenticateToken, authorizeRoles('admin', 'technician'), async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const populatedAssets = await Asset.find({ assignedTo: userId })
-      .populate({
-        path: "templateId",
-        match: { isTestEquipment: true }
-      })
+    const facilityId = await ownership.selectedFacility(req);
+    const userId = ownership.id(req.user.id);
+    const assets = await Asset.find({
+      facilityId,
+      assignedTo: userId,
+      status: 'Active',
+      deletedAt: null,
+      isArchived: { $ne: true },
+    })
+      .select('_id ctrlNumber manufacturer model templateId')
+      .populate({ path: 'templateId', match: { isTestEquipment: true }, select: '_id' })
       .lean();
 
-    const testEquipAssets = populatedAssets.filter(a => a.templateId !== null);
-
-    res.status(200).json(testEquipAssets);
+    // Template identity is only needed to establish eligibility, not by the UI.
+    return res.json(assets.filter(asset => asset.templateId != null).map(asset => ({
+      _id: asset._id,
+      ctrlNumber: asset.ctrlNumber,
+      manufacturer: asset.manufacturer,
+      model: asset.model,
+    })));
   } catch (error) {
-    debug('Error fetching test equipment:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return ownership.respond(res, error);
   }
 });
 

@@ -153,3 +153,5 @@ export interface AssetListResponse {
   totalAssets: number;
   pageSize?: number;
 }
+// Minimal identity/display contract for the personally assigned equipment picker.
+export type TestEquipmentOption = Pick<Asset, "_id" | "ctrlNumber" | "manufacturer" | "model">;

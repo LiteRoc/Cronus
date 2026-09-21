@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import Modal from "../../../components/Modal"
-import { Asset  } from "@/types";
+import { TestEquipmentOption } from "@/types";
 import { FormCard, Button, Label, Select } from "@/components/ui";
 import { showSuccess, showError } from "@/utils/toastUtils";
 
 interface AddTestEquipmentModalProps {
-  equip: Asset[];
+  equip: TestEquipmentOption[];
   onAttachEquip: (equipId: string) => Promise<void>;
   onClose: () => void;
 }
