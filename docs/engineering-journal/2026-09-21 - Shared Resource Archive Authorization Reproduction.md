@@ -375,3 +375,35 @@ on fix/shared-resource-archive-auth, followed by two open P1 Gitea backlog issue
 Part/Manufacturer lifecycle protection and Template lifecycle authorization.
 Git and subsequent tracking records provide the evidence commit and issue IDs.
 No production remediation, restore workflow, S2, #7 or CRM work is included.
+
+
+## Evidence publication and P1 backlog tracking — September 21, 2026
+
+Evidence/policy commit `84d58ee4927ff4a23dbfd6c5add1b43ef404f49f`
+(`test: reproduce shared-resource lifecycle authorization defects`) contains
+only the reproduction, opt-in configuration and journal. Both Gitea/GitHub
+pushes succeeded and both live evidence refs were verified equal to that commit.
+SHA-256 comparisons confirmed the entire suite and configuration were unchanged
+from the accepted reproduction, including all nine security assertions. Syntax,
+staged/unstaged whitespace and git diff --check passed. Tests were not rerun for
+this append-only policy/publication task; the preserved run remains 237 total,
+228 passing, nine intentional failures, with the earlier green baselines above.
+
+Created open P1 backlog issues:
+
+- [Gitea #14 — security: Protect Part and Manufacturer lifecycle fields](http://192.168.1.185:3000/LiteRoc/cronus/issues/14).
+- [Gitea #15 — security: Enforce Template lifecycle authorization](http://192.168.1.185:3000/LiteRoc/cronus/issues/15).
+
+Each issue carries the P1 label, evidence commit, reproduced findings, accepted
+lifecycle requirements, future acceptance criteria and isolated synthetic
+regression requirement. Neither issue is closed or under remediation.
+Current Context/Open Threads now record S3 as reproduced and removed from P0
+blockers, with S2 the final known candidate and #7 paused pending S2 reproduction
+and a P0 gate rerun. They also correct inherited stale Supplier #13/Interaction
+handoff status using the already verified publication/closure checkpoint.
+
+This follow-up documentation commit records the issue IDs and current handoff;
+Git identifies its hash. No merge to main or Interaction occurred. No production
+code, tests, dependencies, real databases, containers or runtime jobs changed.
+Only the authorized Git publication and Gitea label/issue creation mutated
+external systems. S2, #7, S3 remediation and CRM work were not started.

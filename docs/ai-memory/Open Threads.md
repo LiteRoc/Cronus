@@ -2,56 +2,62 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Current stabilization checkpoint — September 19, 2026
+## Current stabilization checkpoint — September 21, 2026
 
-This checkpoint supersedes the earlier branch-specific handoffs. Gitea #3
-(Facility isolation), #4 (Vendor authorization/lifecycle), #5 (Work Order
-subresources), and #6 (Asset/Work Order ownership) are merged, verified and closed.
-Main now includes Supplier fix `e95d22dcd2a67eeef436867170a46ccd882e6a2a`;
-the resulting main documentation checkpoint is recorded by Git.
-Paused Interaction: `395e39c2ed2f6001db7daa78537b9eb06dd43903`; its last combined
-checks passed core 865/865, authentication 31/31, frontend compatibility 21/21
-and application TypeScript. Do not merge Interaction into main.
+This checkpoint supersedes earlier branch-specific handoffs. Main remains
+`2f7bea84f2585eb6de14f3706c4b744b4719ab1b`. Gitea #3 (Facility isolation), #4
+(Vendor authorization/lifecycle), #5 (Work Order subresources), #6 (Asset/Work
+Order ownership) and #13 (Supplier authorization) are verified and closed.
+Supplier fix e95d22d is on main. Paused Interaction is
+`e242b2044cca33a09359bc37cf2bdb1a0c7641a6`, published to Gitea and GitHub;
+compatibility passed core 924/924 (main 870 + Interaction 54), original Supplier
+security 6/6, authentication 31/31, frontend 21/21 and application TypeScript.
+Do not merge Interaction into main. Its frontend remains unstarted.
 
-**#13 Supplier: merged into main and verified; issue remains open pending
-Interaction compatibility and final closure.** Main fast-forwarded from
-`c31f309f9747a5959f91e316c275e308d7b7bcc5` to Supplier fix
-`e95d22dcd2a67eeef436867170a46ccd882e6a2a`. Evidence checkpoint: `c99c91f`.
-The documentation-only commit containing this handoff follows the verified
-code merge; Git records the resulting main hash. Interaction compatibility for
-#13 is not yet verified. Do not treat the prior 865-test checkpoint as that gate.
-See the [Supplier journal](<../engineering-journal/2026-09-16 - Supplier Authentication Reproduction.md>)
-for accepted policy, immutable reproduction evidence and verification.
-Supplier remains shared internal reference data: admin read/create, canonical
-technician read only, all other roles denied. No Facility/tenant ownership or
-new lifecycle endpoints. Creation excludes client metadata; reads explicitly
-project approved fields. Permanent Supplier 59/59 and all six original security
-assertions pass unchanged; safe core 870/870, Facility 45/45, Vendor 90/90,
-subresources 295/295, ownership 215/215, authentication 31/31 and application
-TypeScript passed fresh merged-main verification. All persistence verification is isolated and
-synthetic; deployed behavior and real data remain unverified.
+**P0 SECURITY/OWNERSHIP STABILIZATION GATE: NOT CLEARED.**
+The post-#6 sweep is complete. **S3 has been reproduced and no P0 operational
+archive/removal effect was found. S3 no longer blocks the P0 gate.** Its confirmed
+security/lifecycle integrity defects are deferred into two open P1 issues:
 
-**P0 SECURITY/OWNERSHIP STABILIZATION GATE: BLOCKED.** The post-#6 read-only
-review is already complete. After #13 passes Interaction compatibility and closes, the remaining
-mounted candidates require separate reproduction:
+- [#14 — Protect Part and Manufacturer lifecycle fields](http://192.168.1.185:3000/LiteRoc/cronus/issues/14).
+- [#15 — Enforce Template lifecycle authorization](http://192.168.1.185:3000/LiteRoc/cronus/issues/15).
 
-- S2: shared-resource ordinary-update bypass of admin archival boundaries.
-- S3: test-equipment picker Facility authorization bypass.
+Evidence/policy commit: `84d58ee4927ff4a23dbfd6c5add1b43ef404f49f` on
+`fix/shared-resource-archive-auth`, published to both remotes. Reproduction is
+237 cases: 228 passing controls/observations and nine intentional security
+failures. Baselines passed unchanged: Supplier 59, Facility 45, Vendor 90,
+subresources 295, ownership 215, full safe core 870 and authentication 31.
+See the [S3 journal](<../engineering-journal/2026-09-21 - Shared Resource Archive Authorization Reproduction.md>)
+for immutable reproduction-time observations and the dated accepted policy.
+The publication/tracking documentation commit follows that evidence commit.
 
-These remain candidates pending reproduction, not newly verified defects.
-Rerun the P0 gate after remediation of its confirmed blockers. #7, P1 security
-work, Interaction frontend, Opportunity and all new CRM development remain
-paused. Do not begin S2/S3 in the Supplier publication task.
-Vendor creation remains disabled; ownership normalization, audited Asset
-transfer and deployed transaction capability remain deferred.
-Ticket promotion requires transaction-capable MongoDB and returns 503 without
-partial state on unsupported standalone topology; deployed capability remains
-unverified. The Interaction backend is complete on its paused branch; its
-frontend has not begun. Earlier #3–#6 investigation and verification remain in
-the [Facility](<../engineering-journal/2026-09-15 - Facility Query Isolation Reproduction.md>),
-[Vendor](<../engineering-journal/2026-09-15 - Vendor Authentication and Ownership Reproduction.md>),
-[Work Order subresource](<../engineering-journal/2026-09-15 - Work Order Subresource Ownership Reproduction.md>)
-and [ownership](<../engineering-journal/2026-09-15 - Asset Work Order Ownership Reproduction.md>) journals.
+**Exact next task: reproduce S2 — test-equipment picker Facility authorization —
+in an isolated synthetic investigation from current main, preserving paused
+Interaction.** S2 is the final known P0 candidate from the post-#6 sweep, not a
+newly confirmed defect. It was not started in the S3 preservation task.
+Rerun the P0 gate after S2 reproduction and resolution of any confirmed P0
+blocker. #7 remains paused until S2 is reproduced and the P0 gate is rerun.
+S3/P1 remediation remains deferred until P0 clears. Interaction frontend,
+Opportunity and other new CRM development remain paused.
+
+Current naming follows the user's assignments: S3 is shared-resource lifecycle;
+S2 is the equipment picker. Earlier sweep notes used the reverse numbering.
+
+Accepted future policy keeps all three resources shared reference/catalog data
+without Facility ownership. Archive is admin-controlled, excludes active
+lists/pickers and new references, and preserves historical references. There is
+no restore workflow in this slice. Ordinary business updates must protect
+server lifecycle/audit state and reject operators/pipelines. Legitimate business
+status editing remains distinct from archive. Template archive audit must be
+explicit; matching archived Templates must fail safely/conflict in DI/UDI flows
+rather than being reused or silently reactivated. **This policy is accepted but
+not implemented.** Complete requirements are in #14/#15 and the dated journal.
+
+All persistence verification was isolated and synthetic; deployed behavior and
+real data remain unverified. Vendor creation stays disabled; ownership
+normalization, audited Asset transfer and deployed transaction capability remain
+deferred. Ticket promotion requires transaction-capable MongoDB and returns 503
+without partial state on unsupported standalone topology.
 
 ## Completed baseline: core-service authentication hardening
 
