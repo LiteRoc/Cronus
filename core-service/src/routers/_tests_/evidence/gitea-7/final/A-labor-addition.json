@@ -1,0 +1,87 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/workorders/00000000000000000000000a/time-logs",
+    "payload": {
+      "timeSpent": 60,
+      "description": "Synthetic one-hour labor"
+    }
+  },
+  "status": 200,
+  "before": {
+    "_id": "00000000000000000000000a",
+    "facilityId": "000000000000000000000001",
+    "assetId": "000000000000000000000003",
+    "workOrderNumber": 10,
+    "workOrderType": "Corrective Maintenance",
+    "description": "Gitea 7 synthetic zero-cost Work Order",
+    "status": "Open",
+    "priority": "Normal",
+    "requestDate": "2026-01-01T00:00:00.000Z",
+    "ticketId": null,
+    "vendorService": null,
+    "costs": {
+      "labor": 0,
+      "parts": 0,
+      "total": 0,
+      "calculatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdBy": "000000000000000000000002",
+    "updatedBy": null,
+    "createdFrom": "manual",
+    "requestedBy": null,
+    "procedures": [],
+    "timeLogs": [],
+    "travelLogs": [],
+    "partsUsed": [],
+    "testEquipmentUsed": [],
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "__v": 0
+  },
+  "after": {
+    "_id": "00000000000000000000000a",
+    "facilityId": "000000000000000000000001",
+    "assetId": "000000000000000000000003",
+    "workOrderNumber": 10,
+    "workOrderType": "Corrective Maintenance",
+    "description": "Gitea 7 synthetic zero-cost Work Order",
+    "status": "Open",
+    "priority": "Normal",
+    "requestDate": "2026-01-01T00:00:00.000Z",
+    "ticketId": null,
+    "vendorService": null,
+    "costs": {
+      "labor": 0,
+      "parts": 0,
+      "total": 0,
+      "calculatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdBy": "000000000000000000000002",
+    "updatedBy": "000000000000000000000002",
+    "createdFrom": "manual",
+    "requestedBy": null,
+    "procedures": [],
+    "timeLogs": [
+      {
+        "userId": "000000000000000000000002",
+        "timeSpent": 60,
+        "description": "Synthetic one-hour labor",
+        "createdAt": "2026-01-02T00:00:00.000Z",
+        "laborRate": 0,
+        "laborCost": 0,
+        "_id": "69570a80c6ef9803ba789096"
+      }
+    ],
+    "travelLogs": [],
+    "partsUsed": [],
+    "testEquipmentUsed": [],
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-02T00:00:00.000Z",
+    "__v": 0
+  }
+}

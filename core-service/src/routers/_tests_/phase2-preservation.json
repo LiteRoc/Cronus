@@ -1,0 +1,10 @@
+{
+  "core-service/src/routers/_tests_/workOrderCostSnapshots.phase2.reproduction.mjs": "a832dd95828293aff4a74dcabb0c94b7fdbe605295a0c6e7910471409af1c0aa",
+  "core-service/jest.workorder-cost-snapshots-phase2-reproduction.config.cjs": "490d5c93d9bbf72a49e1f71da63119ace7a663176fb3da74d7e9738b6bab4dad",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/C-priced-labor-delete.json": "dcc3b8668ea68442fb366ba390d6370f02ecc7783433641ffd56866e1516ca44",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/D-priced-part-quantity.json": "3243a482b6bb8b1c406d2ce88e146eb297b81336ae7b050a5d19c732d83f8d25",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/E-priced-part-delete.json": "782e8706d7d4cb046fb0f2c4247d83ce3e7b3b959dbf9d5d1bd2896eb6d3b941",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/F-later-unrelated-save.json": "789fef79c08abc222df587356a7b947791e6458e4568fbde89c8126d619a2187",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/G-catalog-price-change.json": "878a0b63046ee56df2bd9e2086839cb183bd168cfed4f1e9ca3467db8859b50f",
+  "core-service/src/routers/_tests_/evidence/gitea-7-phase2/README.md": "d85cffbed6e427329b2ee100b1820f0aaa9570d193ce8c404cc94bba0c218954"
+}

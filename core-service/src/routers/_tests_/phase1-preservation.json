@@ -1,0 +1,9 @@
+{
+  "core-service/src/routers/_tests_/workOrderCostSnapshots.reproduction.mjs": "19c49bdb33588f185a085dbc75a908127f4783180247a1e0372fb49b1fbe41cd",
+  "core-service/jest.workorder-cost-snapshots-reproduction.config.cjs": "fa0d86574ded1f45269dda32ddb7ac9d4af24d4d4ce57ca227beccf1f5793b75",
+  "core-service/src/routers/_tests_/evidence/gitea-7/A-labor-addition.json": "31f17d8984ff7010b3b01d32152935593f2e940f7ae455caa99358d11da06047",
+  "core-service/src/routers/_tests_/evidence/gitea-7/B-part-addition.json": "8f7bba164655455f2db93489a8070ae3a5ea6d5b1e5936c98e06bf5fb78b34f4",
+  "core-service/src/routers/_tests_/evidence/gitea-7/README.md": "ec9afca31329abed722353569906ed0ef54578010dd84d7d247a1435527a8c19",
+  "core-service/src/routers/_tests_/evidence/gitea-7/final/A-labor-addition.json": "567bf7994c99c629e7628a80f00e77133e0c265b0ef98ec3b889de0e457e1a7a",
+  "core-service/src/routers/_tests_/evidence/gitea-7/final/B-part-addition.json": "beb37eb5043a8dc18297660bd3b8d9adbbb44c0f2bd3993c86a68473d482688c"
+}

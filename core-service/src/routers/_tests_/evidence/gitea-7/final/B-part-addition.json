@@ -1,0 +1,120 @@
+{
+  "request": {
+    "method": "POST",
+    "path": "/workorders/00000000000000000000000b/parts",
+    "payload": {
+      "partId": "000000000000000000000004",
+      "quantity": 2
+    }
+  },
+  "status": 201,
+  "partBefore": {
+    "_id": "000000000000000000000004",
+    "partNumber": "SYNTHETIC-7-40",
+    "description": "Synthetic $40 Part",
+    "price": 40,
+    "quantityOnHand": 10,
+    "compatibleAssets": [],
+    "status": "Active",
+    "createdBy": null,
+    "updatedBy": null,
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdAt": "2026-01-02T00:00:00.000Z",
+    "updatedAt": "2026-01-02T00:00:00.000Z",
+    "__v": 0
+  },
+  "partAfter": {
+    "_id": "000000000000000000000004",
+    "partNumber": "SYNTHETIC-7-40",
+    "description": "Synthetic $40 Part",
+    "price": 40,
+    "quantityOnHand": 10,
+    "compatibleAssets": [],
+    "status": "Active",
+    "createdBy": null,
+    "updatedBy": null,
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdAt": "2026-01-02T00:00:00.000Z",
+    "updatedAt": "2026-01-02T00:00:00.000Z",
+    "__v": 0
+  },
+  "before": {
+    "_id": "00000000000000000000000b",
+    "facilityId": "000000000000000000000001",
+    "assetId": "000000000000000000000003",
+    "workOrderNumber": 11,
+    "workOrderType": "Corrective Maintenance",
+    "description": "Gitea 7 synthetic zero-cost Work Order",
+    "status": "Open",
+    "priority": "Normal",
+    "requestDate": "2026-01-01T00:00:00.000Z",
+    "ticketId": null,
+    "vendorService": null,
+    "costs": {
+      "labor": 0,
+      "parts": 0,
+      "total": 0,
+      "calculatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdBy": "000000000000000000000002",
+    "updatedBy": null,
+    "createdFrom": "manual",
+    "requestedBy": null,
+    "procedures": [],
+    "timeLogs": [],
+    "travelLogs": [],
+    "partsUsed": [],
+    "testEquipmentUsed": [],
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "__v": 0
+  },
+  "after": {
+    "_id": "00000000000000000000000b",
+    "facilityId": "000000000000000000000001",
+    "assetId": "000000000000000000000003",
+    "workOrderNumber": 11,
+    "workOrderType": "Corrective Maintenance",
+    "description": "Gitea 7 synthetic zero-cost Work Order",
+    "status": "Open",
+    "priority": "Normal",
+    "requestDate": "2026-01-01T00:00:00.000Z",
+    "ticketId": null,
+    "vendorService": null,
+    "costs": {
+      "labor": 0,
+      "parts": 0,
+      "total": 0,
+      "calculatedAt": "2026-01-02T00:00:00.000Z"
+    },
+    "deletedAt": null,
+    "deletedBy": null,
+    "createdBy": "000000000000000000000002",
+    "updatedBy": null,
+    "createdFrom": "manual",
+    "requestedBy": null,
+    "procedures": [],
+    "timeLogs": [],
+    "travelLogs": [],
+    "partsUsed": [
+      {
+        "partId": "000000000000000000000004",
+        "quantity": 2,
+        "note": "",
+        "unitCost": 0,
+        "extendedCost": 0,
+        "usedBy": "000000000000000000000002",
+        "usedAt": "2026-01-02T00:00:00.000Z"
+      }
+    ],
+    "testEquipmentUsed": [],
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-02T00:00:00.000Z",
+    "__v": 1
+  },
+  "referenceEconomicValue": 80
+}
