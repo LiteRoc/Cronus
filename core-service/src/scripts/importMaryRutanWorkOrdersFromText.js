@@ -1,3 +1,4 @@
+throw new Error('Legacy Work Order importer blocked: review and use the canonical economic import service');
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");

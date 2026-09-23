@@ -19,9 +19,12 @@ const PurchaseSchema = new Schema({
 }, { _id: false });
 
 const LifecycleMetricsSchema = new Schema({
-  totalMaintenanceCost: { type: Number, min: 0, default: 0 },
+  totalMaintenanceCost: { type: Number, min: 0, default: null },
   currentBookValue: { type: Number, min: 0, default: 0 },
-  projectedAnnualMaintenance: { type: Number, min: 0, default: 0 },
+  projectedAnnualMaintenance: { type: Number, min: 0, default: null },
+  maintenanceScopes: { type: Schema.Types.Mixed, default: null },
+  calculationVersion: { type: String, default: null },
+  costRecommendationStatus: { type: String, default: null },
   replacementRecommended: { type: Boolean, default: false },
   replacementReason: { type: String, default: null },
 

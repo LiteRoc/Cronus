@@ -25,7 +25,7 @@ describe("buildAssetAnalyticsOverview", () => {
   test("returns a complete zero-value analytics object for no work orders", async () => {
     const result = await calculate([], { assetIds: [] });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       workOrders: [],
       assetCosts: [],
       workOrdersSummary: {
@@ -41,13 +41,13 @@ describe("buildAssetAnalyticsOverview", () => {
         overdue: 0,
       },
       parts: { totalUsed: 0, totalPartCost: 0 },
-      labor: { hoursYTD: 0, costYTD: 0, blendedRate: 50 },
-      travel: { hoursYTD: 0, costYTD: 0, blendedRate: 20 },
+      labor: { hoursYTD: 0, costYTD: 0, blendedRate: null },
+      travel: { hoursYTD: 0, costYTD: 0, blendedRate: null },
       performance: { costToServeYTD: 0 },
     });
   });
 
-  test("aggregates one completed PM work order", async () => {
+  test("retains operational PM metrics but never reprices legacy economics", async () => {
     const workOrder = {
       assetId: "asset-1",
       status: "Completed",
@@ -60,16 +60,16 @@ describe("buildAssetAnalyticsOverview", () => {
 
     const result = await calculate([workOrder]);
 
-    expect(result.assetCosts).toEqual([
+    expect(result.assetCosts).toMatchObject([
       {
         assetId: "asset-1",
         woCount: 1,
-        partsCost: 100,
+        partsCost: null,
         laborHours: 2,
         travelHours: 0.5,
-        laborCost: 100,
-        travelCost: 10,
-        totalCost: 210,
+        laborCost: null,
+        travelCost: null,
+        totalCost: null,
       },
     ]);
     expect(result.workOrdersSummary).toEqual({
@@ -84,10 +84,10 @@ describe("buildAssetAnalyticsOverview", () => {
       completedThisYear: 1,
       overdue: 0,
     });
-    expect(result.performance.costToServeYTD).toBe(210);
+    expect(result.performance.costToServeYTD).toBeNull();
   });
 
-  test("aggregates all work orders, assets, and vendor service components", async () => {
+  test("keeps legacy economics unknown and vendor hours separate from internal labor", async () => {
     const workOrders = [
       {
         assetId: "asset-a",
@@ -118,7 +118,7 @@ describe("buildAssetAnalyticsOverview", () => {
         completionDate: "2026-06-01T00:00:00.000Z",
         partsUsed: [{ extendedPrice: 20 }],
         vendorService: {
-          laborHours: 1,
+          laborHours: 0,
           travelHours: 0.5,
           partsCost: 30,
           shippingCost: 5,
@@ -138,35 +138,33 @@ describe("buildAssetAnalyticsOverview", () => {
       openCount: 1,
       closedCount: 2,
     });
-    expect(result.assetCosts).toEqual([
+    expect(result.assetCosts).toMatchObject([
       {
         assetId: "asset-a",
         woCount: 2,
-        partsCost: 80,
-        laborHours: 3.5,
-        travelHours: 2,
-        laborCost: 350,
-        travelCost: 100,
-        totalCost: 530,
+        partsCost: null,
+        laborHours: 1.5,
+        travelHours: 1,
+        laborCost: null,
+        travelCost: null,
+        totalCost: null,
       },
       {
         assetId: "asset-b",
         woCount: 1,
-        partsCost: 55,
-        laborHours: 1,
-        travelHours: 0.5,
-        laborCost: 100,
-        travelCost: 25,
-        totalCost: 180,
+        partsCost: null,
+        laborHours: 0,
+        travelHours: 0,
+        laborCost: null,
+        travelCost: null,
+        totalCost: null,
       },
     ]);
-    expect(result.parts).toEqual({ totalUsed: 3, totalPartCost: 135 });
-    expect(result.labor).toEqual({ hoursYTD: 4.5, costYTD: 450, blendedRate: 100 });
-    expect(result.travel).toEqual({ hoursYTD: 2.5, costYTD: 125, blendedRate: 50 });
-    expect(result.performance.costToServeYTD).toBe(710);
-    expect(result.performance.costToServeYTD).toBe(
-      result.parts.totalPartCost + result.labor.costYTD + result.travel.costYTD
-    );
+    expect(result.parts).toEqual({ totalUsed: 3, totalPartCost: null });
+    expect(result.labor).toEqual({ hoursYTD: 1.5, costYTD: null, blendedRate: null });
+    expect(result.travel).toEqual({ hoursYTD: 1, costYTD: null, blendedRate: null });
+    expect(result.performance.costToServeYTD).toBeNull();
+    expect(result.performance.economics.directMaintenance).toMatchObject({isComplete:false,legacyCount:3,knownSubtotal:0});
     expect(result.pmSummary).toEqual({
       compliancePercent: 50,
       dueThisYear: 2,
@@ -174,4 +172,8 @@ describe("buildAssetAnalyticsOverview", () => {
       overdue: 1,
     });
   });
+});
+
+test('missing canonical response is unavailable, never complete zero',async()=>{
+  await expect(buildAssetAnalyticsOverview({coreClient:{get:async()=>({data:{}})},assetIds:['asset-1'],rangeStart,rangeEnd})).rejects.toThrow('analytics unavailable');
 });

@@ -1,3 +1,4 @@
+import type { CostScope } from "./WorkOrderCosts";
 // src/types/Asset.ts
 
 export interface MaintenanceSchedule {
@@ -42,10 +43,13 @@ export interface BenchmarkComparison {
 }
 
 export interface AssetLifecycleMetrics {
-  totalMaintenanceCost?: number;
-  last12MonthsMaintenanceCost?: number;
+  maintenanceScopes?: { lifetime: Record<string, CostScope>; last12Months: Record<string, CostScope> };
+  calculationVersion?: string | null;
+  costRecommendationStatus?: string;
+  totalMaintenanceCost?: number | null;
+  last12MonthsMaintenanceCost?: number | null;
   currentBookValue?: number;
-  projectedAnnualMaintenance?: number;
+  projectedAnnualMaintenance?: number | null;
   replacementRecommended?: boolean;
   replacementReason?: string | null;
   yearsInService?: number;

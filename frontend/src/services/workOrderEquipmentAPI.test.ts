@@ -45,3 +45,9 @@ test('equipment response types expose only the acknowledgement', () => {
   expectTypeOf<Awaited<ReturnType<typeof removeTestEquipFromWorkOrder>>>().toEqualTypeOf<EquipmentAcknowledgement>();
   expectTypeOf<keyof EquipmentAcknowledgement>().toEqualTypeOf<'message'>();
 });
+
+test('Part removal uses the usage identity when the same catalog Part appears more than once', async () => {
+  const { deletePartFromWorkOrder } = await import('./workOrderAPI');
+  await deletePartFromWorkOrder('synthetic-wo', 'synthetic-part', 'synthetic-usage');
+  expect(calls[0].url).toBe('/workorders/synthetic-wo/part-usages/synthetic-usage');
+});

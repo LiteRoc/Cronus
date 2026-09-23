@@ -619,6 +619,7 @@ assetRouter.get('/:id/lifecycle', authenticateToken, async (req, res) => {
       template,
       lifetimeMaintenanceTotal: maintenanceTotals.lifetime.total,
       last12MonthMaintenanceTotal: maintenanceTotals.last12Months.total,
+      maintenanceScopes: {lifetime:maintenanceTotals.lifetime.scopes,last12Months:maintenanceTotals.last12Months.scopes},
     });
     
     res.json({ 

@@ -1,3 +1,4 @@
+import WorkOrderCostSummary from './components/WorkOrderCostSummary';
 //src/pages/EditWorkOrder/EditWorkOrderPage.tsx
 
 import React, { useState } from "react";
@@ -121,6 +122,7 @@ const EditWorkOrderPage: React.FC = () => {
         updateField={updateField}
       />
 
+      <WorkOrderCostSummary costs={workOrder.costs} />
       {/* Add Time Log Button */}
       <div className="flex justify-end">
         <Button
@@ -202,8 +204,8 @@ const EditWorkOrderPage: React.FC = () => {
       <PartsUsedSection
         workOrder={workOrder}
         onShowAddPartModal={() => setShowAddPartModal(true)}
-        onDeletePart={(partId: string) =>
-          deletePart(workOrderId, partId)
+        onDeletePart={(partId: string, usageId?: string) =>
+          deletePart(workOrderId, partId, usageId)
         }
       />
 

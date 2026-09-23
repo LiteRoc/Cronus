@@ -11,14 +11,19 @@ const TimeLogSchema = new Schema({
   description: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
 
-  // NEW: labor cost snapshot
-  laborRate: { type: Number, min: 0, default: 0 }, // $/hour
-  laborCost: { type: Number, min: 0, default: 0 }, // computed: minutes/60 * rate
+  workDate: { type: String, default: null },
+  pricing: { type: Schema.Types.Mixed, default: null },
+  // Historical cost snapshot
+  laborRate: { type: Number, min: 0, default: null }, // $/hour
+  laborCost: { type: Number, min: 0, default: null }, // computed: minutes/60 * rate
 });
 
 const TravelLogSchema = new Schema({
   userId:     { type: Schema.Types.ObjectId, ref: 'User', required: true },
   travelTime: { type: Number, min: 1, required: true }, // minutes
+  workDate: { type: String, default: null },
+  travelCost: { type: Number, default: null },
+  pricing: { type: Schema.Types.Mixed, default: null },
   note:       { type: String, default: '' },
   createdAt:  { type: Date, default: Date.now },
 });
@@ -40,9 +45,11 @@ const PartUsageSchema = new mongoose.Schema({
   quantity: { type: Number, min: 1, required: true },
   note:     { type: String, default: '' },
 
-  // NEW: cost snapshot fields
-  unitCost: { type: Number, min: 0, default: 0 },
-  extendedCost: { type: Number, min: 0, default: 0 },
+  _id: { type: Schema.Types.ObjectId, default: undefined },
+  pricing: { type: Schema.Types.Mixed, default: null },
+  // Historical cost snapshot fields
+  unitCost: { type: Number, min: 0, default: null },
+  extendedCost: { type: Number, min: 0, default: null },
 
   usedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   usedAt:   { type: Date, default: Date.now },
@@ -53,18 +60,21 @@ const VendorServiceSchema = new Schema({
   vendorName: { type: String, default: '' },
   vendorWorkOrderNumber: { type: String, default: '' },
 
-  laborHours: { type: Number, min: 0, default: 0 },
-  travelHours: { type: Number, min: 0, default: 0 },
+  laborHours: { type: Number, min: 0, default: null },
+  travelHours: { type: Number, min: 0, default: null },
 
-  laborCost: { type: Number, min: 0, default: 0 },
-  travelCost: { type: Number, min: 0, default: 0 },
-  partsCost: { type: Number, min: 0, default: 0 },
-  shippingCost: { type: Number, min: 0, default: 0 },
-  totalCost: { type: Number, min: 0, default: 0 },
+  laborCost: { type: Number, min: 0, default: null },
+  travelCost: { type: Number, min: 0, default: null },
+  partsCost: { type: Number, min: 0, default: null },
+  shippingCost: { type: Number, min: 0, default: null },
+  totalCost: { type: Number, min: 0, default: null },
 
   invoiceNumber: { type: String, default: '' },
   poNumber: { type: String, default: '' },
   sourceDocument: { type: String, default: '' },
+  pricing: { type: Schema.Types.Mixed, default: null },
+  attribution: { type: Schema.Types.Mixed, default: null },
+  breakdownComplete: { type: Boolean, default: false },
 }, { _id: false });
 
 const WorkOrderSchema = new Schema({
@@ -121,14 +131,13 @@ const WorkOrderSchema = new Schema({
     },
   ],
 
-  // optional fields for better analytics & lifecycle management
-  costs: {
-    labor: { type: Number, min: 0, default: 0 },
-    parts: { type: Number, min: 0, default: 0 },
-    total: { type: Number, min: 0, default: 0 },
-    calculatedAt: { type: Date, default: null },
-  },
-
+  // Server-owned reproducible cache; legacy raw values remain readable through
+  // the canonical adapter without being promoted to authoritative economics.
+  costs: { type: Schema.Types.Mixed, default: undefined },
+  economics: { type: Schema.Types.Mixed, default: undefined },
+  importIdentity: { type: String, default: undefined },
+  importProvenance: { type: Schema.Types.Mixed, default: undefined },
+  costRepairHistory: { type: [Schema.Types.Mixed], default: undefined },
 
   // soft delete + audit
   deletedAt:  { type: Date, default: null, index: true },
@@ -146,7 +155,7 @@ const WorkOrderSchema = new Schema({
 
   // NEW (optional but handy): who asked for it (copied from Ticket if present)
   requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-}, { timestamps: true });
+}, { timestamps: true, minimize: false });
 
 // indexes that matter
 WorkOrderSchema.index({ facilityId: 1, status: 1, dueDate: 1 });
@@ -175,39 +184,37 @@ WorkOrderSchema.add({
   partsUsed: [PartUsageSchema],
 });
 
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
+const economicContext = require('../services/workOrderCosts/context');
+const protectedRoots = ['timeLogs','travelLogs','partsUsed','vendorService','costs','economics','importIdentity','importProvenance','costRepairHistory'];
+function protectEconomicChanges() {
+  if (!economicContext.authorized() && !this.isNew && protectedRoots.some(k => this.isModified(k))) {
+    throw new Error('Economic changes require the canonical Work Order service');
+  }
+  // Unreviewed model callers may create operational legacy records, but cannot
+  // certify them. Mounted creators and sanctioned imports use the service.
+  if (!economicContext.authorized() && this.isNew && (this.economics || this.costs)) {
+    throw new Error('Canonical aggregates cannot be supplied by callers');
+  }
 }
-
-WorkOrderSchema.pre('save', function (next) {
-  // parts extended cost (in case caller didn’t compute)
-  if (Array.isArray(this.partsUsed)) {
-    for (const p of this.partsUsed) {
-      const qty = Number(p.quantity) || 0;
-      const unit = Number(p.unitCost) || 0;
-      p.extendedCost = round2(qty * unit);
-    }
+WorkOrderSchema.pre('validate', protectEconomicChanges);
+WorkOrderSchema.pre('save', protectEconomicChanges);
+function economicUpdate(update) {
+  if (Array.isArray(update)) return true;
+  for (const [key, value] of Object.entries(update || {})) {
+    if (key.startsWith('$')) {
+      if (economicUpdate(value)) return true;
+      if (key === '$rename' && Object.values(value).some(v => protectedRoots.includes(String(v).split('.')[0]))) return true;
+    } else if (protectedRoots.includes(key.split('.')[0])) return true;
   }
-
-  // labor cost (in case caller didn’t compute)
-  if (Array.isArray(this.timeLogs)) {
-    for (const t of this.timeLogs) {
-      const mins = Number(t.timeSpent) || 0;
-      const rate = Number(t.laborRate) || 0;
-      t.laborCost = round2((mins / 60) * rate);
-    }
-  }
-
-  const labor = round2((this.timeLogs || []).reduce((sum, t) => sum + (Number(t.laborCost) || 0), 0));
-  const parts = round2((this.partsUsed || []).reduce((sum, p) => sum + (Number(p.extendedCost) || 0), 0));
-
-  this.costs = this.costs || {};
-  this.costs.labor = labor;
-  this.costs.parts = parts;
-  this.costs.total = round2(labor + parts);
-  this.costs.calculatedAt = new Date();
-
-  next();
-});
-
+  return false;
+}
+for (const operation of ['updateOne','updateMany','findOneAndUpdate','replaceOne','findOneAndReplace']) {
+  WorkOrderSchema.pre(operation, function () {
+    if (!economicContext.authorized() && (operation.includes('Replace') || operation === 'replaceOne' || economicUpdate(this.getUpdate())))
+      throw new Error('Economic changes require the canonical Work Order service');
+  });
+}
+WorkOrderSchema.pre('insertMany', function (next) { next(new Error('Use the sanctioned Work Order import service')); });
+WorkOrderSchema.pre('bulkWrite', function (next) { next(new Error('Use the sanctioned Work Order service')); });
+WorkOrderSchema.index({ facilityId: 1, importIdentity: 1 }, { unique: true, partialFilterExpression: { importIdentity: { $type: 'string' } } });
 module.exports = mongoose.model('WorkOrder', WorkOrderSchema);

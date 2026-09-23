@@ -931,8 +931,8 @@ export const getContractProfitability = async (req, res) => {
       return res.status(400).json({ error: "Profitability is intended for customer contracts" });
     }
 
-    const laborRate = Number(process.env.BLENDED_LABOR_RATE || 135);
-    const travelRate = Number(process.env.BLENDED_TRAVEL_RATE || laborRate);
+    const laborRate = null;
+    const travelRate = null;
 
     const now = req.query.asOf ? new Date(String(req.query.asOf)) : new Date();
     const ytdStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));
@@ -1012,10 +1012,13 @@ export const getContractProfitability = async (req, res) => {
     const revenue = calculateCalendarYearRevenueAsOf(contract, now);
     const revenueYTD = revenue.ytd;
 
-    const netYTD =
-      revenueYTD - vendorPayoutYTD - nonVendorAnalytics.performance.costToServeYTD;
+    // Coverage allocation is not redesigned here. With vendor links present,
+    // do not claim a complete margin until payout/direct-expense overlap is reconciled.
+    const economics=allAnalytics.performance.economics;
+    const profitabilityComplete=vendorLinks.length===0 && economics?.directMaintenance?.isComplete===true;
+    const netYTD=profitabilityComplete ? revenueYTD-vendorPayoutYTD-economics.directMaintenance.total : null;
 
-    const marginPct = revenueYTD > 0 ? (netYTD / revenueYTD) * 100 : 0;
+    const marginPct = netYTD !== null && revenueYTD > 0 ? (netYTD / revenueYTD) * 100 : null;
 
     return res.status(200).json({
       success: true,
@@ -1028,16 +1031,18 @@ export const getContractProfitability = async (req, res) => {
         vendorPayout: {
           ytd: Number(vendorPayoutYTD.toFixed(2)),
         },
+        economicScopes: economics,
+        profitabilityComplete,
+        incompleteReason: profitabilityComplete ? null : vendorLinks.length ? "vendor_payout_attribution_unreconciled" : "incomplete_direct_cost",
         internalCostToServe: {
-          ytd_allAssets: allAnalytics.performance.costToServeYTD,
-          ytd_nonVendorAssets: nonVendorAnalytics.performance.costToServeYTD,
-          leakage_onVendorAssets: Number(
-            (allAnalytics.performance.costToServeYTD - nonVendorAnalytics.performance.costToServeYTD).toFixed(2)
-          ),
+          ytd_allAssets: economics?.internal?.total ?? null,
+          ytd_nonVendorAssets: nonVendorAnalytics.performance.economics?.internal?.total ?? null,
+          leakage_onVendorAssets: economics?.internal?.isComplete && nonVendorAnalytics.performance.economics?.internal?.isComplete
+            ? economics.internal.total - nonVendorAnalytics.performance.economics.internal.total : null,
         },
         net: {
-          ytd: Number(netYTD.toFixed(2)),
-          marginPct: Number(marginPct.toFixed(1)),
+          ytd: netYTD === null ? null : Number(netYTD.toFixed(2)),
+          marginPct: marginPct === null ? null : Number(marginPct.toFixed(1)),
         },
         assets: {
           totalCovered: contractAssetIds.length,

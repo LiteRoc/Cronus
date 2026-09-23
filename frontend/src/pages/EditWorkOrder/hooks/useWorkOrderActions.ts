@@ -46,7 +46,7 @@ export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
   return {
     // ---- Time Logs ----
     addTimeLog: wrap(
-      (id: string, log: { userId: string; timeSpent: number; description: string }) =>
+      (id: string, log: { userId: string; timeSpent: number; description: string; workDate?: string }) =>
         addTimeLog(id, log),
       (current, _id, log) => ({
         ...current,
@@ -157,13 +157,13 @@ export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
 
     // ---- Delete Part ----
     deletePart: wrap(
-      (id, partId) => deletePartFromWorkOrder(id, partId),
-      (current, _id, partId) =>
+      (id, partId, usageId) => deletePartFromWorkOrder(id, partId, usageId),
+      (current, _id, partId, usageId) =>
         updateNestedField(
           current,
           "partsUsed",
           (current?.partsUsed || []).filter(
-            (p: any) => p.partId !== partId && p.partId?._id !== partId
+            (p: any) => usageId ? p._id !== usageId : p.partId !== partId && p.partId?._id !== partId
           )
         )
     ),

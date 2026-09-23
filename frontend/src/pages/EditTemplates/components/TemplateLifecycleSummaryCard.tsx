@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FormCard } from "@/components/ui/formCard";
-import type { TemplateLifecycleSummaryResponse } from "@/types/EquipmentTemplate";
+import type { TemplateLifecycleSummaryResponse, TemplateLifecycleBenchmarks } from "@/types/EquipmentTemplate";
 
 type Props = {
   summary?: TemplateLifecycleSummaryResponse;
@@ -102,7 +102,7 @@ const TemplateLifecycleSummaryCard: React.FC<Props> = ({
           <MetricTile
             label="Avg Annual Maintenance"
             value={formatCurrency(metrics.averageAnnualMaintenancePerAsset)}
-            helper={`${metrics.maintenanceSampleCount} asset sample`}
+            helper={`${metrics.maintenanceSampleCount} of ${metrics.totalAssets} assets complete; internal labor + parts`}
           />
 
           <MetricTile
@@ -136,7 +136,7 @@ const TemplateLifecycleSummaryCard: React.FC<Props> = ({
 
         <section className="rounded-lg border border-gray-200 p-4">
           <h4 className="font-semibold text-gray-800 mb-3">
-            Maintenance Benchmark Snapshot
+            Internal Labor + Parts Benchmark (complete records only)
           </h4>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -229,20 +229,13 @@ const BenchmarkBlock = ({
   benchmark,
 }: {
   title: string;
-  benchmark: {
-    sampleAssets: number;
-    avgAnnualMaintenance: number;
-    medianAnnualMaintenance: number;
-    sampleWOsAnnual: number;
-    avgLifetimeMaintenance: number;
-    sampleWOsLifetime: number;
-  };
+  benchmark: TemplateLifecycleBenchmarks;
 }) => (
   <div className="rounded-lg border border-gray-200 bg-white p-3">
     <h5 className="font-semibold text-gray-800 mb-2">{title}</h5>
 
     <div className="space-y-2 text-sm">
-      <InfoRow label="Sample Assets" value={benchmark.sampleAssets} />
+      <InfoRow label="Complete / Sample Assets" value={`${benchmark.completeAssetCount ?? "Unknown"} / ${benchmark.sampleAssets}`} />
       <InfoRow
         label="Avg Annual Maintenance"
         value={formatCurrency(benchmark.avgAnnualMaintenance)}

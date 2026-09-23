@@ -94,20 +94,20 @@ export const removeWorkOrder = async (id: string) => apiClient.delete(`/workorde
 
 export const addTimeLog = async (
   workOrderId: string,
-  timeLog: { userId: string, timeSpent: number; description: string }
+  timeLog: { userId: string, timeSpent: number; description: string; workDate?: string }
 ): Promise<void> => {
   console.log('Receiving time log:', timeLog);
   await apiClient.post(`/workorders/${workOrderId}/time-logs`, {
     //userId: "YOUR_USER_ID", // Replace with actual user ID (e.g., from context)
-    ...timeLog,
+    timeSpent: timeLog.timeSpent, description: timeLog.description, ...(timeLog.workDate ? {workDate:timeLog.workDate}:{}),
   });
 };
 
 export const addTravelLog = async (
   workOrderId: string,
-  travelLog: { userId: string; travelTime: number; /*timestamp: string*/ }
+  travelLog: { userId: string; travelTime: number; note?: string; workDate?: string }
 ) => {
-  const response = await apiClient.post(`/workorders/${workOrderId}/travel-logs`, travelLog);
+  const response = await apiClient.post(`/workorders/${workOrderId}/travel-logs`, {travelTime:travelLog.travelTime,note:travelLog.note,workDate:travelLog.workDate});
   return response.data;
 };
 
@@ -216,8 +216,8 @@ export const updatePartUsed = async (
   return data;
 };
 
-export const deletePartFromWorkOrder = async (workOrderId: string, partId: string) => {
-  const { data } = await apiClient.delete(`/workorders/${workOrderId}/parts/${partId}`);
+export const deletePartFromWorkOrder = async (workOrderId: string, partId: string, usageId?: string) => {
+  const { data } = await apiClient.delete(`/workorders/${workOrderId}/${usageId ? `part-usages/${usageId}` : `parts/${partId}`}`);
   return data;
 };
 

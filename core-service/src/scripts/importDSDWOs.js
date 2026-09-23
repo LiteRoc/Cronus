@@ -1,3 +1,4 @@
+throw new Error('Legacy Work Order importer blocked: review and use the canonical economic import service');
 // src/scripts/importWayneVendorWorkOrders.js
 
 const mongoose = require("mongoose");

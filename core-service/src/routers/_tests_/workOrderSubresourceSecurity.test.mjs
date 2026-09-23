@@ -220,11 +220,11 @@ test('fail-closed persistence refuses configured and unrelated MongoDB targets',
   await expect(mongoose.connect('mongodb://127.0.0.1:1/forbidden')).rejects.toThrow('not issued by MongoMemoryServer');
 });
 
-test('document save cannot mutate a parent moved out of scope after lookup', async () => {
-  const originalSave = WorkOrder.prototype.save;
-  jest.spyOn(WorkOrder.prototype, 'save').mockImplementationOnce(async function (...args) {
-    await WorkOrder.collection.updateOne({ _id: this._id }, { $set: { facilityId:b } });
-    return originalSave.apply(this, args);
+test('canonical atomic write cannot mutate a parent moved out of scope after lookup', async () => {
+  const originalUpdate = WorkOrder.collection.findOneAndUpdate.bind(WorkOrder.collection);
+  jest.spyOn(WorkOrder.collection, 'findOneAndUpdate').mockImplementationOnce(async (...args) => {
+    await WorkOrder.collection.updateOne({_id:wa._id},{$set:{facilityId:b}});
+    return originalUpdate(...args);
   });
   const response = await request(app).post(`/workorders/${wa._id}/parts`).set(headers()).send({partId:str(pa._id),quantity:2});
   expect([404,409]).toContain(response.status);
@@ -293,12 +293,13 @@ test('global admin write still checks that parent Facility did not change after 
   expect([404,409]).toContain(response.status);
   expect((await WorkOrder.findById(wa._id)).testEquipmentUsed).toHaveLength(1);
 });
-test('dedicated labor deletion retains existing cost behavior for deferred #7', async () => {
+test('dedicated labor deletion recalculates without certifying ambiguous legacy costs', async () => {
   await send(operations.find(op=>op.name==='time remove'),wa).expect(200);
   const wo=await WorkOrder.findById(wa._id);
   expect(wo.timeLogs).toHaveLength(0);
-  expect(wo.costs.labor).toBe(20);
-  expect(wo.costs.calculatedAt).toEqual(fixedDate);
+  expect(wo.costs.labor).toBeNull();
+  expect(wo.costs.inputRevision).toBe(wo.economics.revision);
+  expect(wo.costs.scopes.internal.isComplete).toBe(false);
 });
 test('procedure attachment retains existing unit behavior for deferred #9', async () => {
   await send(operations.find(op=>op.name==='procedure attach'),wa).expect(200);

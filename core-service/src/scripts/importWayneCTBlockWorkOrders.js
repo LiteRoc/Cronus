@@ -1,3 +1,4 @@
+throw new Error('Legacy Work Order importer blocked: review and use the canonical economic import service');
 const mongoose = require("mongoose");
 const WorkOrder = require("../models/WorkOrder");
 

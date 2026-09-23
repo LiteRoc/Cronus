@@ -79,6 +79,7 @@ app.use(express.static(path.join(__dirname, '/public')));
 // Routers
 app.use('/assets', assetRouter); // All asset-related routes, including nested work order routes
 app.use('/templates', templateRouter);
+app.use('/internal-cost-rates', require('./src/routers/internalCostRateRouter'));
 app.use('/workorders', workOrderRouter); // path to view all Work Orders
 app.use('/auth', authRouter); // All authentication routes will start with `/auth`
 app.use('/users', userRouter);

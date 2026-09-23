@@ -42,6 +42,13 @@ export async function getContractLifecycleIntelligence(req, res) {
     assets = Array.isArray(data) ? data : data?.assets ?? [];
     }
 
+    // Fetch current canonical lifecycle economics; Asset caches alone do not prove freshness.
+    assets = await Promise.all(assets.map(async asset => {
+      try { const {data}=await req.core.get(`/assets/${asset._id}/lifecycle`); return {...asset,metrics:data.metrics}; }
+      catch (_) { return {...asset,metrics:{currentBookValue:asset.metrics?.currentBookValue,projectedAnnualMaintenance:null,maintenanceScopes:null}}; }
+    }));
+    let maintenanceComplete = assets.length === assetIds.length;
+    let maintenanceKnownSubtotal = 0;
     let replacementRecommendedCount = 0;
     let projectedAnnualMaintenance = 0;
     let currentBookValue = 0;
@@ -54,7 +61,10 @@ export async function getContractLifecycleIntelligence(req, res) {
     for (const asset of assets) {
     const metrics = asset.metrics ?? {};
 
-    projectedAnnualMaintenance += Number(metrics.projectedAnnualMaintenance || 0);
+    const direct = metrics.maintenanceScopes?.last12Months?.directMaintenance;
+    maintenanceKnownSubtotal += direct?.knownSubtotal ?? 0;
+    maintenanceComplete = maintenanceComplete && direct?.isComplete === true;
+    if (typeof metrics.projectedAnnualMaintenance === 'number') projectedAnnualMaintenance += metrics.projectedAnnualMaintenance;
     currentBookValue += Number(metrics.currentBookValue || 0);
 
     const replacementValue =
@@ -80,7 +90,7 @@ export async function getContractLifecycleIntelligence(req, res) {
         replacementReason: metrics.replacementReason ?? null,
         yearsInService: metrics.yearsInService ?? null,
         currentBookValue: metrics.currentBookValue ?? 0,
-        projectedAnnualMaintenance: metrics.projectedAnnualMaintenance ?? 0,
+        projectedAnnualMaintenance: metrics.projectedAnnualMaintenance ?? null,
         estimatedReplacementValue: replacementValue,
         });
     }
@@ -114,7 +124,8 @@ export async function getContractLifecycleIntelligence(req, res) {
             Number(replacementRecommendedPercent.toFixed(1)),
 
             projectedAnnualMaintenance:
-            roundMoney(projectedAnnualMaintenance),
+            maintenanceComplete ? roundMoney(projectedAnnualMaintenance) : null,
+            directMaintenance: {knownSubtotal:roundMoney(maintenanceKnownSubtotal),total:maintenanceComplete?roundMoney(maintenanceKnownSubtotal):null,isComplete:maintenanceComplete},
 
             currentBookValue:
             roundMoney(currentBookValue),

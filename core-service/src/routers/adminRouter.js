@@ -6,6 +6,8 @@ const workOrders = require('../data/workorders.json');
 const adminRouter = express.Router();
 
 adminRouter.route('/').get(async (req, res) => {
+    return res.status(410).json({error:'Legacy direct Work Order loader disabled; use canonical import service'});
+    /* Retained historical implementation; never execute. */
     const url = process.env.MONGO_URI; // Use environment variable
     const dbName = 'Cronus';
 
