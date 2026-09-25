@@ -101,8 +101,27 @@ Frozen reproduction remains `cae8e991137fdbf5ebfe52658512b03a4085aa17`. Paused I
 
 Next steps require their own authorization:
 
-1. Governed organization/network-wide blended labor-rate publication.
+1. Governed organization/network-wide blended labor-rate publication remains deferred: no authoritative blended internal cost rate or effective date has been approved. Existing constants, planning rates, billing rates and historical data are not substitutes for approval.
 2. Authenticated business-path smoke checks using an approved existing session when available.
-3. Real-data aggregate-repair preview; any subsequent apply remains separately gated.
+3. Historical evidence review and any resulting reconciliation are separate follow-up work requiring authorization. The subsequent Mary Rutan preview below found no aggregate-only repair candidates; no apply is recommended.
+
+## Subsequent operational checkpoint — Mary Rutan aggregate-repair preview
+
+On 2026-09-25, a separately authorized preview assessed Mary Rutan Hospital Work Orders using the unchanged deployed repair tool at `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`. The query was restricted to the selected Facility; the single batch returned 91 records against a limit of 500, completing the scoped preview.
+
+| Classification | Count |
+| --- | ---: |
+| Assessed | 91 |
+| Legacy-ambiguous | 91 |
+| Repairable | 0 |
+| Unchanged | 0 |
+| Unsupported | 0 |
+| Conflicting snapshots | 0 |
+
+**No apply is recommended:** zero records qualify for aggregate-only repair, and all 91 remain legacy-ambiguous. No execution failures or conflicting snapshots were reported. This classification does not establish authoritative historical prices or rates; historical evidence review remains separately gated follow-up work.
+
+The invocation omitted `--apply`. A process-local guard rejected apply mode, disabled Mongoose automatic collection/index creation and blocked database write methods. No database writes occurred; no Work Orders were modified, and no missing historical rates or prices were inferred or populated. Restricted temporary preview evidence files were written, but individual Work Order economics are not reproduced here.
+
+No rates were published, schedulers enabled, runtime configuration changed or repairs applied. Labor-rate publication remains deferred pending an authoritative approved rate and effective date. This preview does not close the authenticated business-path smoke-test gap documented above.
 
 This journal entry is documentation only. It does not enable schedulers, authorize the next operational action, or alter the runtime checkout.
