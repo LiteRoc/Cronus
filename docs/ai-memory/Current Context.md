@@ -2,55 +2,42 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Current stabilization checkpoint — September 21, 2026
+## Week-ending handoff — September 25, 2026
 
-**P0 SECURITY/OWNERSHIP STABILIZATION GATE: PASS**
+**STOP: checkpoint only. Do not start #14 during this handoff.**
 
-The P0 security/ownership stabilization phase is complete at this checkpoint.
-A fresh read-only review of mounted application source at main
-`20f3d65ceea25f1fed8bcdb071be11ec4fc1af37`, after #16 closure, found no new
-credible mounted P0 candidate requiring reproduction. This is a focused source
-review supported by isolated regression evidence, not deployed-runtime assurance.
-The documentation-only commit containing this handoff records the stopping point.
+Authoritative state before this documentation-only handoff commit:
 
-Gitea #3, #4, #5, #6, #13 and #16 are verified closed. #16 fix
-`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01` entered main by fast-forward.
-Merged-main verification passed: safe core 919/919, frozen S2 security 11/11,
-picker 49/49, Supplier 59, Facility 45, Vendor 90, subresources 295, ownership
-215, authentication 31/31, frontend 16/16 and application TypeScript.
+- Main: `25eb2b84e026b00fcd997367793ed0df03750374`. This handoff advances documentation only, not runtime.
+- Deployed runtime: `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`, detached in `/home/thecapt/apps/cronus-main`. Core, Contract and frontend source mounts use the stable checkout.
+- #7 is closed as a completed software-remediation issue and deployed. Approved Decisions 1–9 remain authoritative.
+- Mary Rutan aggregate-repair preview: **91 assessed, 91 legacy-ambiguous, 0 repairable, 0 unchanged, 0 unsupported, 0 conflicts**. No apply is recommended. No database writes occurred during preview. Historical evidence review is separate follow-up work requiring authorization.
+- Labor-rate publication remains deferred because no authoritative organization/network-wide blended internal cost rate or effective date is approved. Do not infer approval from constants, planning/billing rates or historical data.
+- Core and Contract schedulers remain disabled (`CRON_ENABLED=false`); re-enablement requires separate authorization.
+- Authenticated business-path smoke testing remains unverified because no approved existing credential/session source was available. The preview does not resolve this gap.
+- Frozen reproduction remains unchanged at `cae8e991137fdbf5ebfe52658512b03a4085aa17`.
+- Interaction remains separate, paused and unmerged at `807bc38122e771dacccbc23fca4a66363dd58d55`; #7 compatibility passed at that checkpoint. CRM remains paused.
 
-Paused Interaction incorporated verified main at
-`45f19da5bc5572b9b35c3290559b3a585058af0b`, pushed to both remotes. Combined
-core passed 973/973 = main 919 + Interaction 54; original S2 security 11/11,
-authentication 31/31, frontend 16/16 and TypeScript passed. Only the existing
-interactionJsonErrorHandler export was added to each picker router mock;
-all other evidence/assertion/fixture bytes remain unchanged. Interaction has
-not entered main. Later documentation-only synchronization does not change
-this verified implementation checkpoint.
+### Planned continuation after usage resets
 
-#16 requires explicit authorized selected Facility for canonical admin and
-technician, personally assigned same-Facility active/nondeleted test equipment,
-and exactly _id, ctrlNumber, manufacturer, model. No global admin picker or
-assignment-only cross-Facility grant exists. #5 attachment protection remains
-independent. [Final #16 verification/closure](http://192.168.1.185:3000/LiteRoc/cronus/issues/16#issuecomment-103).
+This sequence records the plan, not authorization to begin work during this handoff:
 
-S3 reproduced no P0 operational removal effect. #14 Part/Manufacturer lifecycle
-and #15 Template lifecycle remain OPEN P1, with accepted policies unimplemented.
-Other deferred items: historical-reference isolation/ownership normalization,
-JWT configuration/test-mode hardening, customer identity mismatch, historical
-plaintext-password possibility, Part/Procedure/Task policy, role minimization,
-safe-error/logging consistency and deployed transaction capability. These were
-not promoted to P0 without new evidence and were not remediated.
+1. Gitea #14 — Part/Manufacturer lifecycle protection.
+2. Gitea #15 — Template lifecycle authorization.
+3. Gitea #9 — Procedure measurement units.
+4. Lifecycle/Contract reconciliation.
+5. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
 
-**STOP.** #7 (WorkOrder cost snapshots across every mutation path) is the next
-original business-correctness stabilization issue, recommended for a separately
-authorized investigation only. It has not started. #14/#15 remediation,
-Interaction frontend, Opportunity and other CRM work have not started; CRM
-remains paused pending human direction. No real databases, deployed services,
-Docker, scheduled jobs or dependencies were changed.
+Do not commit the AHA PDF to Git. Treat AHA useful lives as a benchmark/reference, not an automatic replacement rule. The uploaded guide may later support Template lifecycle benchmark mapping and source attribution. Its suitability and mapping were not evaluated in this handoff.
 
-See [the final read-only gate record](<../engineering-journal/2026-09-21 - Final P0 Security Ownership Gate.md>)
-and [the #16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
+Prior P0 security/ownership stabilization passed; #3, #4, #5, #6, #13 and #16 were closed. Preserve their authorization/ownership invariants during future work.
+
+Continuation records:
+
+- [#7 deployment and operational preview](<../engineering-journal/2026-09-25 - Work Order Cost Model Deployment.md>).
+- [Approved economic Decisions 1–9](<../engineering-journal/2026-09-25 - Work Order Cost Model Approved Decisions.md>).
+- [Prior P0 gate](<../engineering-journal/2026-09-21 - Final P0 Security Ownership Gate.md>).
+- [Open Threads](<Open Threads.md>) for unresolved and separately gated work.
 
 ## CRM Phase 1A Contact vertical slice — complete
 

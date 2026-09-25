@@ -2,55 +2,20 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Current stabilization checkpoint — September 21, 2026
+## Week-ending continuation — September 25, 2026
 
-**P0 SECURITY/OWNERSHIP STABILIZATION GATE: PASS**
+The [Current Context handoff](<Current Context.md>) records authoritative main/runtime refs and the planned continuation order: **#14, #15, #9, lifecycle/Contract reconciliation, then AHA 2023 benchmark evaluation**. Do not start #14 during the handoff. CRM/Interaction remains paused and separate.
 
-The P0 security/ownership stabilization phase is complete at this checkpoint.
-A fresh read-only review of mounted application source at main
-`20f3d65ceea25f1fed8bcdb071be11ec4fc1af37`, after #16 closure, found no new
-credible mounted P0 candidate requiring reproduction. This is a focused source
-review supported by isolated regression evidence, not deployed-runtime assurance.
-The documentation-only commit containing this handoff records the stopping point.
+#7 is closed and deployed; remaining operational work is separate from the completed software remediation:
 
-Gitea #3, #4, #5, #6, #13 and #16 are verified closed. #16 fix
-`2bbe4ba5af5a38ed6f5b06ad7b5131126495df01` entered main by fast-forward.
-Merged-main verification passed: safe core 919/919, frozen S2 security 11/11,
-picker 49/49, Supplier 59, Facility 45, Vendor 90, subresources 295, ownership
-215, authentication 31/31, frontend 16/16 and application TypeScript.
+- **Labor-rate publication deferred:** no authoritative blended internal cost rate/effective date is approved.
+- **Historical evidence review/reconciliation:** separate follow-up requiring authorization. Mary Rutan preview assessed 91 records, all 91 legacy-ambiguous; repairable, unchanged, unsupported and conflicts were all zero. No database writes occurred and no apply is recommended.
+- **Authenticated business-path smoke checks:** still unverified; require an approved existing session. Do not create, reset or extract credentials to fill the gap.
+- **Scheduler enablement:** separately gated; both application schedulers remain disabled.
 
-Paused Interaction incorporated verified main at
-`45f19da5bc5572b9b35c3290559b3a585058af0b`, pushed to both remotes. Combined
-core passed 973/973 = main 919 + Interaction 54; original S2 security 11/11,
-authentication 31/31, frontend 16/16 and TypeScript passed. Only the existing
-interactionJsonErrorHandler export was added to each picker router mock;
-all other evidence/assertion/fixture bytes remain unchanged. Interaction has
-not entered main. Later documentation-only synchronization does not change
-this verified implementation checkpoint.
+The uploaded AHA guide may later inform Template lifecycle benchmark mapping and source attribution. Do not commit the PDF to Git or treat useful lives as an automatic replacement rule. No benchmark evaluation or issue implementation was performed for this checkpoint.
 
-#16 requires explicit authorized selected Facility for canonical admin and
-technician, personally assigned same-Facility active/nondeleted test equipment,
-and exactly _id, ctrlNumber, manufacturer, model. No global admin picker or
-assignment-only cross-Facility grant exists. #5 attachment protection remains
-independent. [Final #16 verification/closure](http://192.168.1.185:3000/LiteRoc/cronus/issues/16#issuecomment-103).
-
-S3 reproduced no P0 operational removal effect. #14 Part/Manufacturer lifecycle
-and #15 Template lifecycle remain OPEN P1, with accepted policies unimplemented.
-Other deferred items: historical-reference isolation/ownership normalization,
-JWT configuration/test-mode hardening, customer identity mismatch, historical
-plaintext-password possibility, Part/Procedure/Task policy, role minimization,
-safe-error/logging consistency and deployed transaction capability. These were
-not promoted to P0 without new evidence and were not remediated.
-
-**STOP.** #7 (WorkOrder cost snapshots across every mutation path) is the next
-original business-correctness stabilization issue, recommended for a separately
-authorized investigation only. It has not started. #14/#15 remediation,
-Interaction frontend, Opportunity and other CRM work have not started; CRM
-remains paused pending human direction. No real databases, deployed services,
-Docker, scheduled jobs or dependencies were changed.
-
-See [the final read-only gate record](<../engineering-journal/2026-09-21 - Final P0 Security Ownership Gate.md>)
-and [the #16 journal](<../engineering-journal/2026-09-21 - Test Equipment Picker Facility Authorization Reproduction.md>).
+See the [#7 deployment/operations record](<../engineering-journal/2026-09-25 - Work Order Cost Model Deployment.md>) for verification and boundaries. Prior P0 security/ownership stabilization remains complete; other unresolved items below retain their existing scope.
 
 ## Completed baseline: core-service authentication hardening
 
