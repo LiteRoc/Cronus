@@ -1,6 +1,8 @@
+import type { WorkOrderCosts, EconomicPricing } from './WorkOrderCosts';
 // src/types/WorkOrders.ts
 
 export interface WorkOrder {
+  costs?: WorkOrderCosts;
   _id: string;
   workOrderNumber: number;
   assetId: {
@@ -62,6 +64,7 @@ export interface AssignedTo {
 };
 
 export interface NewTimeLog {
+  workDate?: string;
   timeSpent: number;
   description: string;
 };
@@ -72,6 +75,10 @@ export interface NewTravelLog {
 }
 
 export interface TimeLog {
+  workDate?: string | null;
+  laborRate?: number | null;
+  laborCost?: number | null;
+  pricing?: EconomicPricing | null;
   _id: string,
   userId: {
     _id: string;
@@ -84,6 +91,9 @@ export interface TimeLog {
 };
   
 export interface TravelLog {
+  workDate?: string | null;
+  travelCost?: number | null;
+  pricing?: EconomicPricing | null;
   userId: {
     _id: string;
     username: string;
@@ -101,6 +111,9 @@ export type PopulatedPart = {
 };
 
 export type PartsUsed = {
+  unitCost?: number | null;
+  extendedCost?: number | null;
+  pricing?: EconomicPricing | null;
   _id?: string;
   partId: string | PopulatedPart;
   quantity: number;

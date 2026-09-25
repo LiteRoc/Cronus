@@ -5,7 +5,7 @@ export interface ContractLifecycleSummary {
   hydratedAssetCount: number;
   replacementRecommendedCount: number;
   replacementRecommendedPercent: number;
-  projectedAnnualMaintenance: number;
+  projectedAnnualMaintenance: number | null;
   currentBookValue: number;
   estimatedReplacementValue: number;
   assetsMissingReplacementValue: number;
@@ -20,7 +20,7 @@ export interface ContractLifecycleReplacementCandidate {
   replacementReason?: string | null;
   yearsInService?: number | null;
   currentBookValue: number;
-  projectedAnnualMaintenance: number;
+  projectedAnnualMaintenance: number | null;
   estimatedReplacementValue: number;
 }
 

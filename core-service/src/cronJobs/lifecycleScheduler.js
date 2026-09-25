@@ -56,6 +56,7 @@ async function recomputeLifecycleForAllAssets() {
         template,
         lifetimeMaintenanceTotal: totals.lifetime.total,
         last12MonthMaintenanceTotal: totals.last12Months.total,
+      maintenanceScopes: {lifetime:totals.lifetime.scopes,last12Months:totals.last12Months.scopes},
       });
 
       ops.push({

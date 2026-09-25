@@ -1,5 +1,5 @@
 export function computeBenchmarkComparison(asset, template) {
-  const actualAnnual = asset.metrics?.projectedAnnualMaintenance ?? 0;
+  const actualAnnual = asset.metrics?.projectedAnnualMaintenance ?? null;
   const capitalValue =
     asset.purchase?.price ??
     asset.purchaseCost ??
@@ -10,13 +10,13 @@ export function computeBenchmarkComparison(asset, template) {
   const expectedCCR = template?.benchmark?.expectedCapitalCostRatio ?? null;
 
   const actualCCR =
-    capitalValue > 0 ? actualAnnual / capitalValue : null;
+    capitalValue > 0 && actualAnnual != null ? actualAnnual / capitalValue : null;
 
   const annualMaintenanceVariance =
-    expectedAnnual != null ? actualAnnual - expectedAnnual : null;
+    expectedAnnual != null && actualAnnual != null ? actualAnnual - expectedAnnual : null;
 
   const annualMaintenanceVariancePercent =
-    expectedAnnual > 0
+    expectedAnnual > 0 && actualAnnual != null
       ? ((actualAnnual - expectedAnnual) / expectedAnnual) * 100
       : null;
 

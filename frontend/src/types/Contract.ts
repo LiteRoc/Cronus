@@ -1,3 +1,4 @@
+import type { CostScope } from './WorkOrderCosts';
 // src/types/Contract.ts
 
 import { CoverageCode } from "./Coverage";
@@ -105,12 +106,12 @@ export type VendorLink = {
 export type AssetCost = {
   assetId: string;
   woCount: number;
-  partsCost: number;
+  partsCost: number | null;
   laborHours: number;
   travelHours: number;
-  laborCost: number;
-  travelCost: number;
-  totalCost: number;
+  laborCost: number | null;
+  travelCost: number | null;
+  totalCost: number | null;
 }
 
 export type ContractOverview = {
@@ -133,18 +134,20 @@ export type ContractOverview = {
 
   labor?: {
     hoursYTD: number;
-    costYTD: number;
-    blendedRate: number;
+    costYTD: number | null;
+    blendedRate: number | null;
   };
 
   travel?: {
     hoursYTD: number;
-    costYTD: number;
-    blendedRate: number;
+    costYTD: number | null;
+    blendedRate: number | null;
   };
 
   performance: {
-    costToServiceTYD: number;
+    costToServiceTYD?: number | null;
+    costToServeYTD?: number | null;
+    economics?: { internal: CostScope; vendorDirect: CostScope; directMaintenance: CostScope };
   };
 
   pmSummary: {
@@ -156,7 +159,7 @@ export type ContractOverview = {
 
   parts: {
     totalUsed: number;
-    totalPartCost: number;
+    totalPartCost: number | null;
     topParts?: Array<{ partNumber?: string; description?: string; qty: number; cost: number }>;
   };
 

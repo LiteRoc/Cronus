@@ -13,6 +13,7 @@ interface AddTimeLogModalProps {
 }
 
 const AddTimeLogModal: React.FC<AddTimeLogModalProps> = ({ onAddTime, onAddTravel, onClose }) => {
+  const [workDate, setWorkDate] = useState("");
   const [timeSpent, setTimeSpent] = useState<number>(0);
   const [description, setDescription] = useState<string>("");
   const [isTravelTimeModalOpen, setIsTravelTimeModalOpen] = useState<boolean>(false);
@@ -25,7 +26,7 @@ const AddTimeLogModal: React.FC<AddTimeLogModalProps> = ({ onAddTime, onAddTrave
       return;
     }
     
-    const timeLog = { timeSpent, description };
+    const timeLog = { timeSpent, description, ...(workDate ? {workDate} : {}) };
     await onAddTime(timeLog);
 
     // If travel time was entered, save travel log
@@ -51,6 +52,8 @@ const AddTimeLogModal: React.FC<AddTimeLogModalProps> = ({ onAddTime, onAddTrave
           />
         </div>
         <div>
+          <label htmlFor="workDate">Work date (leave blank for today at the facility)</label>
+          <input id="workDate" type="date" value={workDate} onChange={e=>setWorkDate(e.target.value)} className="block border p-2 rounded" />
           <label htmlFor="description">Description</label>
           <textarea
             id="description"

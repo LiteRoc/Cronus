@@ -1,3 +1,4 @@
+import {canonicalCosts} from './workOrderCostAdapter.js';
 // src/services/contractOverviewService.js
 import mongoose from "mongoose";
 import Contract from "../models/Contract.js";
@@ -48,7 +49,8 @@ async function fetchWorkOrdersAnalytics(coreClient, assetIds, startISO, endISO) 
       mode: "analytics",
     },
   });
-  return data?.items ?? [];
+  if (!Array.isArray(data?.items)) throw new Error('Canonical Work Order analytics unavailable');
+  return data.items;
 }
 
 async function fetchAssetsBatch(coreClient, assetIds) {
@@ -74,51 +76,10 @@ export async function buildAssetAnalyticsOverview({
     rangeEnd.toISOString()
   );
 
-  const byAsset = new Map();
-  const ensure = (assetId) => {
-    if (!byAsset.has(assetId)) {
-      byAsset.set(assetId, {
-        assetId,
-        woCount: 0,
-        partsCost: 0,
-        laborMinutes: 0,
-        travelMinutes: 0,
-      });
-    }
-    return byAsset.get(assetId);
-  };
-
-  let partsUsed = 0;
-  let partsCost = 0;
-  let laborHoursYTD = 0;
-  let travelHoursYTD = 0;
-
-  for (const wo of workOrders) {
-    const row = ensure(String(wo.assetId));
-    const parts = Array.isArray(wo.partsUsed) ? wo.partsUsed : [];
-    const internalPartsCost = parts.reduce(
-      (sum, part) => sum + asNumber(part.extendedCost || part.extendedPrice),
-      0
-    );
-    const internalLaborHours = laborHoursFromTimeLogs(wo.timeLogs);
-    const internalTravelHours = travelHoursFromTravelLogs(wo.travelLogs);
-    const vendorLaborHours = asNumber(wo.vendorService?.laborHours);
-    const vendorTravelHours = asNumber(wo.vendorService?.travelHours);
-    const vendorPartsCost =
-      asNumber(wo.vendorService?.partsCost) +
-      asNumber(wo.vendorService?.shippingCost);
-
-    row.woCount += 1;
-    row.partsCost += internalPartsCost + vendorPartsCost;
-    row.laborMinutes += (internalLaborHours + vendorLaborHours) * 60;
-    row.travelMinutes += (internalTravelHours + vendorTravelHours) * 60;
-
-    partsUsed += parts.length;
-    partsCost += internalPartsCost + vendorPartsCost;
-    laborHoursYTD += internalLaborHours + vendorLaborHours;
-    travelHoursYTD += internalTravelHours + vendorTravelHours;
-  }
-
+  const economic=canonicalCosts(workOrders);
+  const partsUsed=workOrders.reduce((n,w)=>n+(w.partsUsed||[]).length,0);
+  const laborHoursYTD=workOrders.reduce((n,w)=>n+laborHoursFromTimeLogs(w.timeLogs),0);
+  const travelHoursYTD=workOrders.reduce((n,w)=>n+travelHoursFromTravelLogs(w.travelLogs),0);
   const isClosed = (wo) => {
     const status = String(wo.status || "").trim().toLowerCase();
     return (
@@ -151,31 +112,11 @@ export async function buildAssetAnalyticsOverview({
   const pmCompliance =
     pmWOs.length > 0 ? Math.round((completedPMs / pmWOs.length) * 100) : 100;
 
-  const laborCostYTD = laborHoursYTD * laborRate;
-  const travelCostYTD = travelHoursYTD * travelRate;
-
-  const assetCosts = Array.from(byAsset.values())
-    .map((row) => {
-      const laborHours = row.laborMinutes / 60;
-      const travelHours = row.travelMinutes / 60;
-      const laborCost = laborHours * laborRate;
-      const travelCost = travelHours * travelRate;
-
-      return {
-        assetId: row.assetId,
-        woCount: row.woCount,
-        partsCost: Number(row.partsCost.toFixed(2)),
-        laborHours: Number(laborHours.toFixed(2)),
-        travelHours: Number(travelHours.toFixed(2)),
-        laborCost: Number(laborCost.toFixed(2)),
-        travelCost: Number(travelCost.toFixed(2)),
-        totalCost: Number((row.partsCost + laborCost + travelCost).toFixed(2)),
-      };
-    })
-    .sort((a, b) => b.totalCost - a.totalCost);
-
-  const costToServeYTD = partsCost + laborCostYTD + travelCostYTD;
-
+  const assetCosts=economic.assetCosts;
+  const partsCost=economic.components.internalParts.total;
+  const laborCostYTD=economic.components.internalLabor.total;
+  const travelCostYTD=economic.components.internalTravel.total;
+  const costToServeYTD=economic.scopes.directMaintenance.total;
   return {
     workOrders,
     assetCosts,
@@ -193,20 +134,21 @@ export async function buildAssetAnalyticsOverview({
     },
     parts: {
       totalUsed: partsUsed,
-      totalPartCost: Number(partsCost.toFixed(2)),
+      totalPartCost: partsCost,
     },
     labor: {
       hoursYTD: Number(laborHoursYTD.toFixed(2)),
-      costYTD: Number(laborCostYTD.toFixed(2)),
-      blendedRate: laborRate,
+      costYTD: laborCostYTD,
+      blendedRate: null,
     },
     travel: {
       hoursYTD: Number(travelHoursYTD.toFixed(2)),
-      costYTD: Number(travelCostYTD.toFixed(2)),
-      blendedRate: travelRate,
+      costYTD: travelCostYTD,
+      blendedRate: null,
     },
     performance: {
-      costToServeYTD: Number(costToServeYTD.toFixed(2)),
+      economics: economic.scopes,
+      costToServeYTD: costToServeYTD,
     },
   };
 }
@@ -245,7 +187,8 @@ export const getContractOverviewService = async ({
     },
   });
 
-  workOrders = data?.workOrders ?? [];
+  if (!Array.isArray(data?.workOrders)) throw new Error('Canonical Work Order analytics unavailable');
+  workOrders = data.workOrders;
 
   // 4) Fetch asset details from core-service (you already do this; keep it)
   let assets = [];
@@ -261,51 +204,10 @@ export const getContractOverviewService = async ({
 
   // 5) Metrics
 
-  // Asset Stats
-  const byAsset = new Map();
-
-  const ensure = (assetId) => {
-    if (!byAsset.has(assetId)) {
-      byAsset.set(assetId, {
-        assetId,
-        woCount: 0,
-        partsCost: 0,
-        vendorCost: 0,
-        laborMinutes: 0,
-        travelMinutes: 0,
-      });
-  }
-  return byAsset.get(assetId);
-  };
-
+  const economic=canonicalCosts(workOrders);
   // Work Order Stats
   const totalWOs = workOrders.length;
 
-  for (const wo of workOrders) {
-    const aId = String(wo.assetId);
-    const row = ensure(aId);
-    const vs = wo.vendorService;
-    row.woCount += 1;
-
-    if (vs) {
-      row.laborMinutes += Number(vs.laborHours || 0) * 60;
-      row.travelMinutes += Number(vs.travelHours || 0) * 60;
-      row.partsCost += Number(vs.partsCost || 0) + Number(vs.shippingCost || 0);
-      row.vendorCost += Number(wo.vendorService.totalCost || 0);
-    }
-
-    // Parts
-    const parts = Array.isArray(wo.partsUsed) ? wo.partsUsed : [];
-    row.partsCost += parts.reduce((s, p) => s + (p.extendedPrice || 0), 0);
-
-    // Labor minutes
-    const tls = Array.isArray(wo.timeLogs) ? wo.timeLogs : [];
-    row.laborMinutes += tls.reduce((s, t) => s + (t.timeSpent || 0), 0);
-
-    // Travel minutes
-    const trls = Array.isArray(wo.travelLogs) ? wo.travelLogs : [];
-    row.travelMinutes += trls.reduce((s, t) => s + (t.travelTime || 0), 0);
-  }
 
   const last30Days = workOrders.filter(
     (wo) => new Date(wo.requestDate || wo.createdAt) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -340,60 +242,14 @@ export const getContractOverviewService = async ({
   const pmCompliance =
     pmWOs.length > 0 ? Math.round((completedPMs / pmWOs.length) * 100) : 100;
 
-  // Parts Summary
-  const allParts = workOrders.flatMap((wo) => wo.partsUsed || []);
-  const partsUsed = allParts.length;
-  const partsCost = allParts.reduce((s, p) => s + (p.extendedPrice || 0), 0);
-
-  // Labor + travel
-
-  const laborRate = Number(process.env.BLENDED_LABOR_RATE || 135);
-  const travelRate = Number(process.env.BLENDED_TRAVEL_RATE || laborRate);
-
-  const assetCosts = Array.from(byAsset.values()).map((r) => {
-    const laborHours = r.laborMinutes / 60;
-    const travelHours = r.travelMinutes / 60;
-
-    const laborCost = laborHours * laborRate;
-    const travelCost = travelHours * travelRate;
-    const vendorCost = Number(r.vendorCost || 0);
-
-    return {
-      assetId: r.assetId,
-      woCount: r.woCount,
-      partsCost: Number(r.partsCost.toFixed(2)),
-      vendorCost: Number(vendorCost.toFixed(2)),
-      laborHours: Number(laborHours.toFixed(2)),
-      travelHours: Number(travelHours.toFixed(2)),
-      laborCost: Number(laborCost.toFixed(2)),
-      travelCost: Number(travelCost.toFixed(2)),
-
-      // estimated labor/travel + actual vendor invoice/parts cost
-      //totalCost: Number((r.partsCost + laborCost + travelCost + vendorCost).toFixed(2)), // <-- this method double counts
-      totalCost: Number(
-        (vendorCost > 0
-          ? vendorCost
-          : r.partsCost + laborCost + travelCost
-        ).toFixed(2)
-      ),
-    };
-  }).sort((a, b) => b.totalCost - a.totalCost);
-
-  const laborHoursYTD = workOrders.reduce(
-    (s, wo) => s + laborHoursFromTimeLogs(wo.timeLogs) + Number(wo.vendorService?.laborHours || 0),
-    0
-  );
-
-  const travelHoursYTD = workOrders.reduce(
-    (s, wo) => s + travelHoursFromTravelLogs(wo.travelLogs) + Number(wo.vendorService?.travelHours || 0),
-    0
-  );
-  
-  const laborCostYTD = laborHoursYTD * laborRate;
-  const travelCostYTD = travelHoursYTD * travelRate;
-
-  const costToServeYTD = partsCost + laborCostYTD + travelCostYTD;
-
+  const partsUsed=workOrders.reduce((n,w)=>n+(w.partsUsed||[]).length,0);
+  const partsCost=economic.components.internalParts.total;
+  const laborHoursYTD=workOrders.reduce((n,w)=>n+laborHoursFromTimeLogs(w.timeLogs),0);
+  const travelHoursYTD=workOrders.reduce((n,w)=>n+travelHoursFromTravelLogs(w.travelLogs),0);
+  const laborCostYTD=economic.components.internalLabor.total;
+  const travelCostYTD=economic.components.internalTravel.total;
+  const assetCosts=economic.assetCosts;
+  const costToServeYTD=economic.scopes.directMaintenance.total;
   // Asset Enrichment
   const enrichedAssets = assets.map((a) => ({
     _id: a._id,
@@ -526,23 +382,24 @@ export const getContractOverviewService = async ({
 
     parts: {
       totalUsed: partsUsed,
-      totalPartCost: Number(partsCost.toFixed(2)),
+      totalPartCost: partsCost,
     },
 
     labor: {
       hoursYTD: Number(laborHoursYTD.toFixed(2)),
-      costYTD: Number(laborCostYTD.toFixed(2)),
-      blendedRate: laborRate,
+      costYTD: laborCostYTD,
+      blendedRate: null,
     },
 
     travel: {
       hoursYTD: Number(travelHoursYTD.toFixed(2)),
-      costYTD: Number(travelCostYTD.toFixed(2)),
-      blendedRate: travelRate,
+      costYTD: travelCostYTD,
+      blendedRate: null,
     },
 
     performance: {
-      costToServeYTD: Number(costToServeYTD.toFixed(2)),
+      economics: economic.scopes,
+      costToServeYTD: costToServeYTD,
     },
 
     risk: {
@@ -571,8 +428,8 @@ export const getVendorLinkOverviewService = async ({
   const link = (contract.vendorLinks || []).find((vl) => String(vl._id) === String(linkId));
   if (!link) return { error: "Vendor link not found" };
 
-  const laborRate = Number(process.env.BLENDED_LABOR_RATE || 135);
-  const travelRate = Number(process.env.BLENDED_TRAVEL_RATE || laborRate);
+  const laborRate = null;
+  const travelRate = null;
 
   const now = new Date();
   const ytdStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));

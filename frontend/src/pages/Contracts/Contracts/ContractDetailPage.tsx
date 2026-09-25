@@ -641,11 +641,7 @@ export default function ContractDetailPage() {
     if (!open || !link) return null;
 
     const overview = data?.vendorLink ? data : data?.overview ?? data ?? {};
-    const costToServeYTD =
-      overview?.performance?.costToServeYTD ??
-      overview?.metrics?.costToServeYTD ??
-      link.metricsCache?.costToServeYTD ??
-      0;
+    const costToServeYTD = overview?.performance?.costToServeYTD ?? null;
     const woCountYTD =
       overview?.workOrders?.totalYTD ??
       overview?.metrics?.woCountYTD ??
@@ -662,7 +658,7 @@ export default function ContractDetailPage() {
     const allocatedRevenueYTD = assetCount
       ? revenueYTD * (vendorAssetCount / assetCount)
       : 0;
-    const estNetYTD = allocatedRevenueYTD - payoutYTD;
+    const estNetYTD = null; // Coverage/payment attribution is not yet reconciled.
 
     return (
       <div className="fixed inset-0 z-50">
@@ -1050,37 +1046,35 @@ export default function ContractDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-60">
               <div>
                 <div className="text-gray-500">Annual Revenue (as-of)</div>
-                <div className="text-lg font-semibold">{fmtMoney(0)}</div>
+                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
               </div>
               <div>
                 <div className="text-gray-500">Revenue YTD (prorated)</div>
-                <div className="text-lg font-semibold">{fmtMoney(0)}</div>
+                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
               </div>
               <div>
                 <div className="text-gray-500">Remaining Term Value</div>
-                <div className="text-lg font-semibold">{fmtMoney(0)}</div>
+                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
               </div>
             </div>
           </div>
         ) : (
           (() => {
             const assetCount = assets?.length ?? 0;
+
             const annualRevenue = value.annualValueAsOf ?? 0;
-            const frac = ytdFraction();
-            const revenueYTD = value.proratedRangeValue ?? annualRevenue * frac;
+            const revenueYTD = value.proratedRangeValue ?? annualRevenue * ytdFraction();
+            // Costs come from the core-service canonical scopes.
+            const partsCostYTD = parts?.totalPartCost ?? null;
+            const laborCostYTD = overview.labor?.costYTD ?? null;
+            const travelCostYTD = overview.travel?.costYTD ?? null;
+            const totalCostYTD = overview.performance?.costToServeYTD ?? null;
 
-            // NOTE: your overview parts cost is currently the only “hard” cost we have.
-            // Treat it as YTD cost (label it that way). If it’s lifetime, we’ll adjust later.
-            const partsCostYTD = parts?.totalPartCost ?? 0;
-            const laborCostYTD = overview.labor?.costYTD ?? 0;
-            const travelCostYTD = overview.travel?.costYTD ?? 0;
-            const totalCostYTD = partsCostYTD + laborCostYTD + travelCostYTD;
-
-            const grossMarginYTD = revenueYTD - totalCostYTD;
-            const grossMarginPercent = revenueYTD ? (grossMarginYTD / revenueYTD) * 100 : 0;
+            const grossMarginYTD = null; // Only the reconciled profitability endpoint may certify a margin.
+            const grossMarginPercent: number | null = null;
 
             const revenuePerAsset = safeDiv(annualRevenue, assetCount);
-            const partsCostPerAsset = safeDiv(partsCostYTD, assetCount);
+            const partsCostPerAsset = partsCostYTD === null ? null : safeDiv(partsCostYTD, assetCount);
             const wosPerAsset = safeDiv(workOrders.totalYTD ?? 0, assetCount);
 
             return (
@@ -1132,6 +1126,7 @@ export default function ContractDetailPage() {
                 <div>
                   <div className="text-gray-500">Cost-to-Serve YTD</div>
                   <div className="text-lg font-semibold">{fmtMoney(totalCostYTD)}</div>
+                  {totalCostYTD === null && <p>Incomplete direct costs. Known subtotal: {fmtMoney(overview.performance?.economics?.directMaintenance.knownSubtotal)}</p>}
                   <div className="text-xs text-gray-500">
                     Parts {fmtMoney(partsCostYTD)} · Labor {fmtMoney(laborCostYTD)} · Travel {fmtMoney(travelCostYTD)}
                   </div>
@@ -1140,7 +1135,7 @@ export default function ContractDetailPage() {
                 <div>
                   <div className="text-gray-500">Margin YTD</div>
                   <div className="text-lg font-semibold">{fmtMoney(grossMarginYTD)}</div>
-                  <div className="text-xs text-gray-500">{grossMarginPercent.toFixed(1)}%</div>
+                  <div className="text-xs text-gray-500">{(grossMarginPercent === null ? "Unknown" : Number(grossMarginPercent).toFixed(1))}%</div>
                 </div>
               </div>
             );
@@ -1165,10 +1160,7 @@ export default function ContractDetailPage() {
 
             const topCosts = (overview.assetCosts ?? []).slice(0, 5);
             const assetCount = overview.assets?.length ?? 0;
-            const annualRevenue = value.annualValueAsOf ?? 0;
-            const frac = ytdFraction();
-            const revenueYTD = value.proratedRangeValue ?? annualRevenue * frac;
-            const ytdPerAsset = assetCount ? revenueYTD / assetCount : 0;
+
             return (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -1190,7 +1182,7 @@ export default function ContractDetailPage() {
                         ? `${a.manufacturer ?? ""} ${a.model ?? ""} (${a.serialNumber ?? "SN?"})`
                         : row.assetId;
 
-                      const estMargin = ytdPerAsset - row.totalCost;
+                      const estMargin = null; // Do not imply reconciled per-asset profitability.
 
                       return (
                         <tr key={row.assetId} className="border-b last:border-b-0">
@@ -1294,7 +1286,7 @@ export default function ContractDetailPage() {
       {/* -------------------- Parts Summary -------------------- */}
       <FormCard title="Parts Summary">
         <p>Total parts used: {parts.totalUsed}</p>
-        <p>Total parts cost: ${parts.totalPartCost.toFixed(2)}</p>
+        <p>Internal parts cost: {fmtMoney(parts.totalPartCost)}</p>
       </FormCard>
 
       {/* -------------------- PM Summary -------------------- */}

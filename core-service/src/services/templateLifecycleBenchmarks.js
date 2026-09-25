@@ -1,216 +1,60 @@
-// src/services/templateLifecycleBenchmarks.js
-import mongoose from 'mongoose';
 import Asset from '../models/Asset.js';
-
-function asObjectId(id) {
-  return typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id;
+import { getMaintenanceTotalsBatch } from './lifecycleMaintenance.js';
+function median(a) {
+  const s = [...a].sort((x, y) => x - y),
+    n = s.length;
+  return n ? n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2 : null;
 }
-
-function median(nums) {
-  const arr = (nums || []).map(n => Number(n) || 0).sort((a, b) => a - b);
-  const n = arr.length;
-  if (!n) return 0;
-  const mid = Math.floor(n / 2);
-  return n % 2 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
-}
-
-function round2(n) {
-  return Math.round((Number(n) || 0) * 100) / 100;
-}
-
+const avg = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
 export async function getTemplateMaintenanceBenchmarks(templateId, opts = {}) {
-  const {
-    facilityId = null,
-    now = new Date(),
-    completedStatuses = ['Completed'],
-    includeRetired = false,
-  } = opts;
-
-  const templateObjectId = asObjectId(templateId);
-  const start12m = new Date(now);
-  start12m.setDate(start12m.getDate() - 365);
-
-  const assetMatch = {
-    templateId: templateObjectId,
-    deletedAt: null,
+  const filter = {
+    templateId,
+    deletedAt: null
   };
-
-  if (!includeRetired) assetMatch.status = { $ne: 'Retired' };
-
-  // Lookup workorders ONCE per asset (outside $facet)
-  // We compute annual + lifetime totals in a single $group using conditional sums.
-  const pipeline = [
-    { $match: assetMatch },
-
-    {
-      $lookup: {
-        from: 'workorders',
-        let: { assetId: '$_id' },
-        pipeline: [
-          {
-            $match: {
-              deletedAt: null,
-              status: { $in: completedStatuses },
-              $expr: { $eq: ['$assetId', '$$assetId'] },
-            },
-          },
-          {
-            $group: {
-              _id: null,
-
-              lifetimeTotal: { $sum: { $ifNull: ['$costs.total', 0] } },
-              lifetimeWOs: { $sum: 1 },
-
-              annualTotal: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $gte: ['$completionDate', start12m] },
-                        { $lte: ['$completionDate', now] },
-                      ],
-                    },
-                    { $ifNull: ['$costs.total', 0] },
-                    0,
-                  ],
-                },
-              },
-              annualWOs: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $gte: ['$completionDate', start12m] },
-                        { $lte: ['$completionDate', now] },
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              lifetimeTotal: 1,
-              lifetimeWOs: 1,
-              annualTotal: 1,
-              annualWOs: 1,
-            },
-          },
-        ],
-        as: 'woAgg',
-      },
-    },
-
-    { $unwind: { path: '$woAgg', preserveNullAndEmptyArrays: true } },
-
-    {
-      $addFields: {
-        annualMaintenance: { $ifNull: ['$woAgg.annualTotal', 0] },
-        annualWOs: { $ifNull: ['$woAgg.annualWOs', 0] },
-        lifetimeMaintenance: { $ifNull: ['$woAgg.lifetimeTotal', 0] },
-        lifetimeWOs: { $ifNull: ['$woAgg.lifetimeWOs', 0] },
-      },
-    },
-
-    // Now we can safely facet WITHOUT $lookup
-    {
-      $facet: {
-        tenant: [
-          ...(facilityId ? [{ $match: { facilityId: asObjectId(facilityId) } }] : []),
-          {
-            $group: {
-              _id: null,
-              sampleAssets: { $sum: 1 },
-
-              avgAnnualMaintenance: { $avg: '$annualMaintenance' },
-              annualValues: { $push: '$annualMaintenance' },
-              sampleWOsAnnual: { $sum: '$annualWOs' },
-
-              avgLifetimeMaintenance: { $avg: '$lifetimeMaintenance' },
-              sampleWOsLifetime: { $sum: '$lifetimeWOs' },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              sampleAssets: 1,
-              avgAnnualMaintenance: 1,
-              annualValues: 1,
-              sampleWOsAnnual: 1,
-              avgLifetimeMaintenance: 1,
-              sampleWOsLifetime: 1,
-            },
-          },
-        ],
-
-        global: [
-          {
-            $group: {
-              _id: null,
-              sampleAssets: { $sum: 1 },
-
-              avgAnnualMaintenance: { $avg: '$annualMaintenance' },
-              annualValues: { $push: '$annualMaintenance' },
-              sampleWOsAnnual: { $sum: '$annualWOs' },
-
-              avgLifetimeMaintenance: { $avg: '$lifetimeMaintenance' },
-              sampleWOsLifetime: { $sum: '$lifetimeWOs' },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              sampleAssets: 1,
-              avgAnnualMaintenance: 1,
-              annualValues: 1,
-              sampleWOsAnnual: 1,
-              avgLifetimeMaintenance: 1,
-              sampleWOsLifetime: 1,
-            },
-          },
-        ],
-      },
-    },
-
-    {
-      $project: {
-        tenant: { $ifNull: [{ $arrayElemAt: ['$tenant', 0] }, null] },
-        global: { $ifNull: [{ $arrayElemAt: ['$global', 0] }, null] },
-      },
-    },
-  ];
-
-  const [result] = await Asset.aggregate(pipeline);
-
-  const normalize = (obj) => {
-    if (!obj) {
-      return {
-        sampleAssets: 0,
-        avgAnnualMaintenance: 0,
-        medianAnnualMaintenance: 0,
-        sampleWOsAnnual: 0,
-        avgLifetimeMaintenance: 0,
-        sampleWOsLifetime: 0,
-      };
-    }
-
-    const annualValues = obj.annualValues || [];
+  if (!opts.includeRetired) filter.status = {
+    $ne: 'Retired'
+  };
+  const assets = await Asset.find(filter).select('_id facilityId').lean();
+  const totals = await getMaintenanceTotalsBatch(assets.map(a => a._id), {
+    now: opts.now,
+    completedStatuses: opts.completedStatuses
+  });
+  function summary(group) {
+    const rows = group.map(a => totals.get(String(a._id)));
+    const scopes = Object.fromEntries(['internal', 'vendorDirect', 'directMaintenance'].map(name => {
+      const annual = rows.map(r => r.last12Months.scopes[name]),
+        life = rows.map(r => r.lifetime.scopes[name]);
+      const complete = annual.filter(s => s.isComplete).map(s => s.total);
+      return [name, {
+        avgAnnualMaintenance: avg(complete),
+        medianAnnualMaintenance: median(complete),
+        avgLifetimeMaintenance: avg(life.filter(s => s.isComplete).map(s => s.total)),
+        completeAssetCount: complete.length,
+        sampleAssets: rows.length,
+        knownSubtotal: annual.reduce((s, r) => s + r.knownSubtotal, 0),
+        isComplete: annual.every(s => s.isComplete),
+        fullyPricedWorkOrderCount: annual.reduce((s, r) => s + r.fullyPricedCount, 0),
+        workOrderCount: annual.reduce((s, r) => s + r.workOrderCount, 0)
+      }];
+    }));
+    // Existing narrow benchmark aliases are kept distinct from the named scopes.
+    const annual = rows.map(r => r.last12Months.total).filter(v => v !== null),
+      life = rows.map(r => r.lifetime.total).filter(v => v !== null);
     return {
-      sampleAssets: Number(obj.sampleAssets || 0),
-      avgAnnualMaintenance: round2(obj.avgAnnualMaintenance || 0),
-      medianAnnualMaintenance: round2(median(annualValues)),
-      sampleWOsAnnual: Number(obj.sampleWOsAnnual || 0),
-      avgLifetimeMaintenance: round2(obj.avgLifetimeMaintenance || 0),
-      sampleWOsLifetime: Number(obj.sampleWOsLifetime || 0),
+      sampleAssets: rows.length,
+      avgAnnualMaintenance: avg(annual),
+      medianAnnualMaintenance: median(annual),
+      sampleWOsAnnual: rows.reduce((s, r) => s + r.last12Months.count, 0),
+      avgLifetimeMaintenance: avg(life),
+      sampleWOsLifetime: rows.reduce((s, r) => s + r.lifetime.count, 0),
+      completeAssetCount: annual.length,
+      scope: 'internal_labor_parts',
+      calculationVersion: 'wo-cost-v1',
+      scopes
     };
-  };
-
+  }
   return {
-    tenant: normalize(result?.tenant),
-    global: normalize(result?.global),
+    tenant: summary(opts.facilityId ? assets.filter(a => String(a.facilityId) === String(opts.facilityId)) : assets),
+    global: summary(assets)
   };
 }

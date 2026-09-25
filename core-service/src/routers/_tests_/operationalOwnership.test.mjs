@@ -52,7 +52,7 @@ beforeEach(async()=>{
  await WO.create([{_id:wa,facilityId:a,assetId:aa,description:'A work',workOrderNumber:1},{_id:wb,facilityId:b,assetId:ab,description:'PRIVATE-B-WORK',workOrderNumber:2}]);
  ticket=await Ticket.create({facilityId:a,departmentId:da,assetId:aa,type:'service',status:'Approved',subject:'Synthetic ticket',requestedBy:requester});
 });
-afterEach(async()=>{jest.restoreAllMocks();for(const M of Object.values(mongoose.models))await M.deleteMany({});});
+afterEach(async()=>{jest.restoreAllMocks();for(const M of Object.values(mongoose.models))await (M.modelName === 'InternalCostRateSchedule' ? M.collection : M).deleteMany({});});
 afterAll(async()=>{axios.defaults.adapter=adapter;if(harness)await harness.stop();});
 
 for(const route of ['assets','udi','workorders']) {

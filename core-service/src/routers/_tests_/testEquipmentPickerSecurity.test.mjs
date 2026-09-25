@@ -78,7 +78,7 @@ beforeEach(async()=>{
   for(const [label,facilityId] of [['A',a],['B',b]])assets['unassigned-'+label]=await Asset.create({ctrlNumber:'SYN-unassigned-'+label,manufacturer:'Synthetic maker',model:'Synthetic model',facilityId,templateId:template._id});
   wo=await WorkOrder.create({facilityId:a,assetId:assets['techA-A']._id,description:'Synthetic A work order'});
 });
-afterEach(async()=>{for(const m of Object.values(mongoose.models))await m.deleteMany({});jest.restoreAllMocks();});
+afterEach(async()=>{for(const m of Object.values(mongoose.models))await (m.modelName === 'InternalCostRateSchedule' ? m.collection : m).deleteMany({});jest.restoreAllMocks();});
 afterAll(async()=>{if(harness)await harness.stop();});
 
 test('configured and alternate persistence targets fail closed',async()=>{

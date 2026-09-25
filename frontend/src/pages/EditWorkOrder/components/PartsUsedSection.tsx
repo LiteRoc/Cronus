@@ -4,7 +4,7 @@ import { Button, FormCard } from "@/components/ui";
 
 interface Props {
   workOrder: WorkOrder;
-  onDeletePart?: (partId: string) => void;
+  onDeletePart?: (partId: string, usageId?: string) => void;
   onShowAddPartModal: () => void;
 }
 
@@ -74,7 +74,7 @@ const PartsUsedSection: React.FC<Props> = ({
                           typeof p.partId === "object"
                             ? p.partId._id // populated case
                             : p.partId;    // string ID case
-                        onDeletePart?.(id!);
+                        onDeletePart?.(id!, p._id);
                       }}
                     >
                       - Remove

@@ -1,4 +1,5 @@
 import React from 'react';
+import cronusLogo from '../assets/branding/cronus-logo.png';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiLogOut } from 'react-icons/fi';
 import { logoutUser } from '../services/authAPI';
@@ -47,9 +48,18 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-800 text-white flex flex-col justify-between p-4 h-screen overflow-hidden">
-        {/* Top section (welcome + nav) */}
-        <div>
+      <aside className="w-64 max-w-[75vw] shrink-0 bg-gray-800 text-white flex flex-col justify-between p-4 h-screen overflow-y-auto">
+        {/* Top section (branding + welcome + nav) */}
+        <div className="shrink-0">
+          <div className="mx-auto mb-4 w-full max-w-48 rounded bg-white p-2">
+            <img
+              src={cronusLogo}
+              alt="Cronus Clinical Asset Management"
+              width={1374}
+              height={1145}
+              className="block h-auto w-full"
+            />
+          </div>
           <h1 className="text-2xl font-bold mb-1">Welcome, {username}</h1>
 
           {(user?.role === "admin" || normalizedRole === "technician") && (
@@ -87,7 +97,7 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         {/* Bottom section (logout) */}
-        <div className="pt-6">
+        <div className="shrink-0 pt-6">
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-2 justify-center py-2 px-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded"
@@ -99,7 +109,7 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 
       {/* Main Content */}
-      <main className="flex-1 h-screen overflow-y-auto p-6 bg-gray-100">{children}</main>
+      <main className="min-w-0 flex-1 h-screen overflow-y-auto p-6 bg-gray-100">{children}</main>
     </div>
   );
 };

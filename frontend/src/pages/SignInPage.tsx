@@ -1,4 +1,5 @@
 import { useState } from "react";
+import cronusLogo from "../assets/branding/cronus-logo.png";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../services/authAPI";
 import axios from 'axios';
@@ -48,6 +49,13 @@ export default function SignInPage() {
         onSubmit={handleSignIn}
         className="bg-white shadow-md rounded p-6 w-full max-w-sm"
       >
+        <img
+          src={cronusLogo}
+          alt="Cronus Clinical Asset Management"
+          width={1374}
+          height={1145}
+          className="mx-auto mb-4 block h-auto w-full max-w-48"
+        />
         <h1 className="text-2xl font-bold text-center mb-6">Sign In</h1>
         {error && (
           <p className="text-red-500 text-sm text-center mb-4">{error}</p>

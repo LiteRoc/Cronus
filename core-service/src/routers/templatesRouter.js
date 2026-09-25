@@ -520,7 +520,7 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
 
     const assets = await Asset.find(assetQuery)
       .select(
-        '_id ctrlNumber manufacturer model serialNumber status facilityId departmentId purchaseDate purchaseCost metrics'
+        '_id ctrlNumber manufacturer model serialNumber status facilityId departmentId purchaseDate purchaseCost purchase acquisitionDate installationDate metrics'
       )
       .lean();
 
@@ -533,11 +533,16 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
     };
 
     let totalProjectedAnnualMaintenance = 0;
+    const liveMaintenance = await require('../services/lifecycleMaintenance').default.getMaintenanceTotalsBatch(assets.map(a=>a._id),{facilityId});
     let maintenanceSampleCount = 0;
     let replacementRecommendedCount = 0;
 
     for (const asset of assets) {
-      const years = asset.metrics?.yearsInService;
+      const totals=liveMaintenance.get(String(asset._id));
+      const currentMetrics=require('../utils/lifecycle').computeLifecycleMetrics({asset,template,
+        lifetimeMaintenanceTotal:totals.lifetime.total,last12MonthMaintenanceTotal:totals.last12Months.total,
+        maintenanceScopes:{lifetime:totals.lifetime.scopes,last12Months:totals.last12Months.scopes}});
+      const years = currentMetrics.yearsInService;
 
       if (typeof years !== 'number') {
         ageBuckets.unknown += 1;
@@ -551,12 +556,12 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
         ageBuckets['>8'] += 1;
       }
 
-      if (typeof asset.metrics?.projectedAnnualMaintenance === 'number') {
-        totalProjectedAnnualMaintenance += asset.metrics.projectedAnnualMaintenance;
+      if (typeof liveMaintenance.get(String(asset._id))?.last12Months.total === 'number') {
+        totalProjectedAnnualMaintenance += liveMaintenance.get(String(asset._id)).last12Months.total;
         maintenanceSampleCount += 1;
       }
 
-      if (asset.metrics?.replacementRecommended === true) {
+      if (currentMetrics.replacementRecommended === true) {
         replacementRecommendedCount += 1;
       }
     }
@@ -566,7 +571,7 @@ router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
     const averageAnnualMaintenancePerAsset =
       maintenanceSampleCount > 0
         ? totalProjectedAnnualMaintenance / maintenanceSampleCount
-        : 0;
+        : null;
 
     const replacementRecommendedPercent =
       totalAssets > 0

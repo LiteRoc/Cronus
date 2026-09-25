@@ -61,11 +61,13 @@ export interface TemplateListResponse {
 }
 
 export interface TemplateLifecycleBenchmarks {
+  completeAssetCount?: number;
+  scope?: string;
   sampleAssets: number;
-  avgAnnualMaintenance: number;
-  medianAnnualMaintenance: number;
+  avgAnnualMaintenance: number | null;
+  medianAnnualMaintenance: number | null;
   sampleWOsAnnual: number;
-  avgLifetimeMaintenance: number;
+  avgLifetimeMaintenance: number | null;
   sampleWOsLifetime: number;
 }
 
@@ -90,7 +92,7 @@ export interface TemplateLifecycleSummaryResponse {
       ">8": number;
       unknown: number;
     };
-    averageAnnualMaintenancePerAsset: number;
+    averageAnnualMaintenancePerAsset: number | null;
     maintenanceSampleCount: number;
     replacementRecommendedCount: number;
     replacementRecommendedPercent: number;

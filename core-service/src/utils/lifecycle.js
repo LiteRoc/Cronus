@@ -5,8 +5,9 @@ function round2(n) {
 function computeLifecycleMetrics({
   asset,
   template = null,
-  lifetimeMaintenanceTotal = 0,
-  last12MonthMaintenanceTotal = 0,
+  lifetimeMaintenanceTotal = null,
+  last12MonthMaintenanceTotal = null,
+  maintenanceScopes = null,
   now = new Date(),
 }) {
   // Resolve purchase values (support legacy fields)
@@ -57,7 +58,9 @@ function computeLifecycleMetrics({
   currentBookValue = round2(currentBookValue);
   annualDepreciation = round2(annualDepreciation);
 
-  const projectedAnnualMaintenance = round2(last12MonthMaintenanceTotal);
+  const projectedAnnualMaintenance = last12MonthMaintenanceTotal == null ? null : round2(last12MonthMaintenanceTotal);
+  const directAnnual = maintenanceScopes?.last12Months?.directMaintenance;
+  const costTrend = directAnnual ? directAnnual.total : projectedAnnualMaintenance;
 
   // Replacement logic
   let replacementRecommended = false;
@@ -70,8 +73,8 @@ function computeLifecycleMetrics({
 
   if (
     hasPurchaseValue &&
-    currentBookValue <= 1.5 * projectedAnnualMaintenance &&
-    projectedAnnualMaintenance > 0
+    costTrend !== null && currentBookValue <= 1.5 * costTrend &&
+    costTrend > 0
   ) {
     replacementRecommended = true;
     replacementReason = replacementReason
@@ -80,7 +83,10 @@ function computeLifecycleMetrics({
   }
 
   return {
-    totalMaintenanceCost: round2(lifetimeMaintenanceTotal),
+    totalMaintenanceCost: lifetimeMaintenanceTotal == null ? null : round2(lifetimeMaintenanceTotal),
+    maintenanceScopes,
+    calculationVersion: maintenanceScopes ? "wo-cost-v1" : null,
+    costRecommendationStatus: costTrend == null ? "insufficient_economic_data" : "evaluated",
     currentBookValue,
     projectedAnnualMaintenance,
     replacementRecommended,

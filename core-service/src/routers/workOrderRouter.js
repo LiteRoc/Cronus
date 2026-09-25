@@ -1,3 +1,5 @@
+const costMutations = require('../services/workOrderCosts/mutate');
+const costEngine = require('../services/workOrderCosts/calculate');
 const ownership = require('../services/operationalOwnership');
 //src/routers/workOrderRouter.js
 
@@ -18,6 +20,19 @@ const { deleteSubLog } = require ('../helpers/workOrderHelpers');
 const { attachContractClient } = require('../middleware/forwardContractHeaders');
 
 const router = express.Router();
+// All existing response shapes retain their operational fields; economic values
+// are serialized through the legacy-safe adapter, including mutation responses.
+router.use((req,res,next)=>{
+  const json=res.json.bind(res);
+  function adapt(value) {
+    if (!value || typeof value !== 'object') return value;
+    if (value.toObject) value=value.toObject();
+    if (Array.isArray(value)) return value.map(adapt);
+    if (value._id && (Array.isArray(value.timeLogs) || Array.isArray(value.partsUsed)) && value.assetId) return costEngine.serialize(value);
+    return Object.fromEntries(Object.entries(value).map(([k,v])=>[k, ['items','workOrders','workOrder'].includes(k)?adapt(v):v]));
+  }
+  res.json=value=>json(adapt(value)); next();
+});
 const isObjectId = (id) => mongoose.isValidObjectId(id);
 
 const CONTRACT = process.env.CONTRACT_SERVICE_URL || 'http://contract-servcie:5001';
@@ -51,6 +66,7 @@ async function ensureTenantOwnsWorkOrder(req, res, next) {
 }
 
 function subresourceError(res, error) {
+  if (error.status) return res.status(error.status).json({error:error.message});
   if (error.name === 'CastError' || error.name === 'ValidationError') {
     return res.status(400).json({ error: 'Invalid work order input' });
   }
@@ -151,7 +167,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, 
       } else {
         // keep the payload light for performance calculations
         woQuery = woQuery.select(
-          'assetId requestDate createdAt closedAt type workOrderType status partsUsed timeLogs travelLogs responseTimeHours dueDate'
+          'assetId requestDate createdAt closedAt type workOrderType status partsUsed timeLogs travelLogs vendorService economics costs responseTimeHours dueDate'
         );
       }
 
@@ -225,7 +241,7 @@ router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
 
     const workOrders = await WorkOrder.find(query)
       .select(
-        "assetId workOrderNumber type workOrderType status requestDate createdAt completionDate closedAt dueDate responseTimeHours resolutionTimeHours partsUsed timeLogs travelLogs vendorService"
+        "assetId workOrderNumber type workOrderType status requestDate createdAt completionDate closedAt dueDate responseTimeHours resolutionTimeHours partsUsed timeLogs travelLogs vendorService economics costs"
       )
         .sort({ requestDate: -1 })
         .lean();
@@ -245,7 +261,7 @@ router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
 const createFields = ['assetId','facilityId','departmentId','assignedTo','description','workOrderType',
   'priority','status','requestDate','scheduledDate','dueDate','completionDate','requestedBy','vendorService'];
 const protectedCreateFields = ['_id','ticketId','createdFrom','createdBy','updatedBy','createdAt','updatedAt',
-  'deletedAt','deletedBy','workOrderNumber','timeLogs','travelLogs','partsUsed','testEquipmentUsed','procedures','costs'];
+  'economics','importIdentity','importProvenance','costRepairHistory','deletedAt','deletedBy','workOrderNumber','timeLogs','travelLogs','partsUsed','testEquipmentUsed','procedures','costs'];
 router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
     ownership.object(req.body);
@@ -277,7 +293,7 @@ router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin'
       const response = await req.contract.get(`/contracts/active-for-asset/${asset._id}`, { params: { date: requestDate } });
       if (typeof response.data?.contractId === 'string' && /^[a-f\d]{24}$/i.test(response.data.contractId)) contractId = response.data.contractId;
     } catch (_) { /* Existing unavailable/no-contract behavior remains null. */ }
-    const wo = await WorkOrder.create({ ...input, assetId: asset._id, facilityId, assignedTo: input.assignedTo,
+    const wo = await costMutations.createNative({ ...input, assetId: asset._id, facilityId, assignedTo: input.assignedTo,
       status: statuses[status] || 'Open', priority: priorities[priority] || 'Normal', requestDate,
       contractId, createdFrom: 'manual', createdBy: req.user.id, updatedBy: req.user.id });
     res.status(201).json(wo);
@@ -352,14 +368,14 @@ router.post('/from-ticket/:ticketId', authenticateToken, authorizeRoles('admin',
       const asset = await ownership.reference(Asset, String(ticket.assetId), { facilityId }, session);
       const departmentId = ticket.departmentId
         ? await ownership.department(String(ticket.departmentId), facilityId, session) : undefined;
-      [created] = await WorkOrder.create([{
+      created = await costMutations.createNative({
         assetId: asset._id, facilityId, departmentId,
         description: ticket.description || ticket.subject,
         workOrderType: ticket.type === 'consumable' ? 'Consumable' : 'Corrective Maintenance',
         priority: ticket.priority || 'Normal', status: 'Open', requestDate: new Date(),
         createdFrom: 'ticket', ticketId: ticket._id, requestedBy: ticket.requestedBy,
         createdBy: req.user.id, updatedBy: req.user.id,
-      }], { session });
+      }, { session });
       ticket.status = 'Converted';
       ticket.workOrderId = created._id;
       ticket.updatedBy = req.user.id;
@@ -456,59 +472,37 @@ router.patch('/:id/schedule', authenticateToken, authorizeRoles('admin', 'tech')
   }
 });
 
-// ---------- Time logs (internal) ----------
-router.post('/:id/time-logs', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
-  try {
-    const { timeSpent, description } = req.body || {};
-    if (!timeSpent || timeSpent <= 0) return res.status(400).json({ error: 'timeSpent must be > 0' });
-
-    const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
-      { $push: { timeLogs: { userId: req.user.id, timeSpent, description, createdAt: new Date() } }, $set: { updatedBy: req.user.id } },
-      { new: true }
-    );
-    res.json({ message: 'Time logged', workOrder: updated });
-  } catch (err) {
-    console.error('Time log error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// ---------- Remove Time log (uses deleteSubLog helper) ---------
-router.delete(
-  "/:id/time-logs/:logId", 
-  authenticateToken, 
-  authorizeRoles("admin", "tech"), 
-  ensureTenantOwnsWorkOrder,
-  (req, res) => deleteSubLog(req, res, "timeLogs")
-);
-
-// ---------- Travel logs (internal) ----------
-router.post('/:id/travel-logs', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
-  try {
-    const { travelTime, note } = req.body || {};
-    if (!travelTime || travelTime <= 0) return res.status(400).json({ error: 'travelTime must be > 0' });
-
-    const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
-      { $push: { travelLogs: { userId: req.user.id, travelTime, note, createdAt: new Date() } }, $set: { updatedBy: req.user.id } },
-      { new: true }
-    );
-    res.json({ message: 'Travel logged', workOrder: updated });
-  } catch (err) {
-    console.error('Travel log error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// ---------- Remove Travel log (uses deleteSublog helper) --------
-router.delete(
-  "/:id/travel-logs/:logId", 
-  authenticateToken, 
-  authorizeRoles("admin", "tech"), 
-  ensureTenantOwnsWorkOrder,
-  (req, res) => deleteSubLog(req, res, "travelLogs")
-);
+// Economic log writes use one scoped compare-and-set path.
+for (const [path, field, allowed] of [
+  ['time-logs','timeLogs',['timeSpent','description','workDate']],
+  ['travel-logs','travelLogs',['travelTime','note','workDate']],
+]) {
+  router.post(`/:id/${path}`, authenticateToken, authorizeRoles('admin','tech'), ensureTenantOwnsWorkOrder, async(req,res)=>{
+    try {
+      const body=ownership.pick(req.body,allowed,true);
+      const {workOrder}=await costMutations.mutate(req.workOrderFilter,req.user,async w=>{
+        if(field==='timeLogs') w.timeLogs.push(await costMutations.labor(w,body,req.user));
+        else {
+          if(!costEngine.finite(body.travelTime)||body.travelTime<1) ownership.fail(400,'Invalid travel minutes');
+          const workDate=await require('../services/internalCostRates').workDate(w.facilityId,body.workDate);
+          w.travelLogs.push({_id:new mongoose.Types.ObjectId(),userId:req.user.id,travelTime:body.travelTime,note:body.note||'',createdAt:new Date(),workDate,travelCost:null,pricing:{basis:'unknown',unknownReason:'travel_policy_unapproved'}});
+        }
+      });
+      res.json({message:'Time logged',workOrder});
+    } catch(e){return subresourceError(res,e);}
+  });
+  router.delete(`/:id/${path}/:logId`, authenticateToken, authorizeRoles('admin','tech'), ensureTenantOwnsWorkOrder, async(req,res)=>{
+    try {
+      if(!isObjectId(req.params.logId)) ownership.fail(400,'Invalid log ID');
+      const {workOrder}=await costMutations.mutate(req.workOrderFilter,req.user,w=>{
+        const index=w[field].findIndex(e=>String(e._id)===req.params.logId);
+        if(index<0) ownership.fail(404,'Log not found');
+        w[field].splice(index,1);
+      });
+      res.json({message:'Log deleted',workOrder});
+    }catch(e){return subresourceError(res,e);}
+  });
+}
 
 // ---------- Attach procedure (internal) ----------
 router.patch('/:id/procedure', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
@@ -698,97 +692,49 @@ router.get('/:id/parts', authenticateToken, authorizeRoles('admin', 'technician'
   }
 });
 
-// =====================================================
-// POST /workorders/:id/parts
-// =====================================================
-router.post('/:id/parts', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
-  const { partId, quantity, note } = req.body || {};
-
-  if (!mongoose.Types.ObjectId.isValid(partId)) {
-    return res.status(400).json({ error: 'Invalid partId' });
-  }
-
+router.post('/:id/parts',authenticateToken,authorizeRoles('admin','tech'),ensureTenantOwnsWorkOrder,async(req,res)=>{
   try {
-    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
-    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
-
-    // Optionally verify part exists
-    const part = await Part.findById(partId);
-    if (!part) return res.status(404).json({ error: 'Part not found' });
-
-    // Add new part usage
-    const newUsage = {
-      partId,
-      quantity,
-      note: note || '',
-      usedBy: req.user.id,
-      usedAt: new Date(),
-    };
-
-    workOrder.partsUsed.push(newUsage);
-    await scopedSave(workOrder, req);
-
-    res.status(201).json({ message: 'Part added successfully', part: newUsage });
-  } catch (error) {
-    return subresourceError(res, error);
-  }
+    const body=ownership.pick(req.body,['partId','quantity','note'],true);
+    const {result}=await costMutations.mutate(req.workOrderFilter,req.user,async w=>{
+      const entry=await costMutations.part(w,body,req.user); w.partsUsed.push(entry); return entry;
+    });
+    res.status(201).json({message:'Part added successfully',part:result});
+  }catch(e){return subresourceError(res,e);}
 });
-
-// =====================================================
-// PUT /workorders/:id/parts/:partId
-// =====================================================
-router.put('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
-  const { quantity, note } = req.body || {};
-  if (!isObjectId(req.params.partId)) return res.status(400).json({ error: 'Invalid partId' });
-
+function partMutation(remove, byUsage) { return async(req,res)=>{
   try {
-    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
-    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
-
-    const partUsage = workOrder.partsUsed.find(
-      (pu) => pu.partId.toString() === req.params.partId
-    );
-
-    if (!partUsage) return res.status(404).json({ error: 'Part not found on this work order' });
-
-    if (quantity !== undefined) partUsage.quantity = quantity;
-    if (note !== undefined) partUsage.note = note;
-    partUsage.usedBy = req.user.id;
-    partUsage.usedAt = new Date();
-
-    await scopedSave(workOrder, req);
-
-    res.json({ message: 'Part updated successfully', part: partUsage });
-  } catch (error) {
-    return subresourceError(res, error);
-  }
-});
-
-// =====================================================
-// DELETE /workorders/:id/parts/:partId
-// =====================================================
-router.delete('/:id/parts/:partId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
-  if (!isObjectId(req.params.partId)) return res.status(400).json({ error: 'Invalid partId' });
-  try {
-    const workOrder = await WorkOrder.findOne(req.workOrderFilter);
-    if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
-
-    const beforeCount = workOrder.partsUsed.length;
-    workOrder.partsUsed = workOrder.partsUsed.filter(
-      (pu) => pu.partId.toString() !== req.params.partId
-    );
-
-    if (workOrder.partsUsed.length === beforeCount) {
-      return res.status(404).json({ error: 'Part not found on this work order' });
-    }
-
-    await scopedSave(workOrder, req);
-
-    res.json({ message: 'Part removed successfully' });
-  } catch (error) {
-    return subresourceError(res, error);
-  }
-});
+    const id=req.params.partId||req.params.usageId;
+    if(!isObjectId(id)) ownership.fail(400,'Invalid Part usage ID');
+    const body=remove?{}:ownership.pick(req.body,['quantity','note'],true);
+    const {result}=await costMutations.mutate(req.workOrderFilter,req.user,w=>{
+      const matches=w.partsUsed.map((p,i)=>({p,i})).filter(({p})=>String(byUsage?p._id:p.partId)===id);
+      if(!matches.length) ownership.fail(404,'Part not found on work order');
+      if(matches.length!==1) ownership.fail(409,'Multiple usages; address a usage ID');
+      const {p,i}=matches[0];
+      if(remove) {w.partsUsed.splice(i,1);return;}
+      const entry={...p};
+      if(body.quantity!==undefined) {
+        if(!costEngine.finite(body.quantity)||body.quantity<1) ownership.fail(400,'Invalid quantity');
+        entry.quantity=body.quantity;
+        if(body.quantity!==p.quantity) {
+          if(costEngine.trusted(p.pricing,p.unitCost)) entry.extendedCost=costEngine.amount(body.quantity,p.unitCost);
+          else {
+            entry.pricing={...p.pricing,basis:'unknown',unknownReason:'historical_authority_missing',
+              legacyOriginal:p.pricing?.legacyOriginal || {quantity:p.quantity,unitCost:p.unitCost,extendedCost:p.extendedCost}};
+            entry.extendedCost=null;
+          }
+        }
+      }
+      if(body.note!==undefined) entry.note=body.note;
+      w.partsUsed[i]=entry; return entry;
+    });
+    res.json({message:remove?'Part removed successfully':'Part updated successfully',...(remove?{}:{part:result})});
+  }catch(e){return subresourceError(res,e);}
+}; }
+for(const [path,usage] of [['parts/:partId',false],['part-usages/:usageId',true]]) {
+  router.put(`/:id/${path}`,authenticateToken,authorizeRoles('admin','tech'),ensureTenantOwnsWorkOrder,partMutation(false,usage));
+  router.delete(`/:id/${path}`,authenticateToken,authorizeRoles('admin','tech'),ensureTenantOwnsWorkOrder,partMutation(true,usage));
+}
 
 // POST: add test equipment to work order
 router.post("/:id/test-equipment", authenticateToken, authorizeRoles('admin', 'technician'), ensureTenantOwnsWorkOrder, async (req, res) => {

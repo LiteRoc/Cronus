@@ -1,3 +1,4 @@
+throw new Error('Legacy Work Order importer blocked: review and use the canonical economic import service');
 import { Types, connect, connection, disconnect } from "mongoose";
 import WorkOrder, { findOne } from "../models/WorkOrder";
 

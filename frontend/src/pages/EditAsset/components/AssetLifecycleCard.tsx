@@ -140,18 +140,26 @@ const AssetLifecycleCard: React.FC<Props> = ({
             value={formatCurrency(metrics?.currentBookValue)}
           />
           <MetricTile
-            label="Total Maintenance"
+            label="Internal labor + parts (lifetime)"
             value={formatCurrency(metrics?.totalMaintenanceCost)}
           />
           <MetricTile
-            label="Last 12 Months"
+            label="Internal labor + parts (12 months)"
             value={formatCurrency(metrics?.last12MonthsMaintenanceCost)}
           />
           <MetricTile
-            label="Projected Annual"
+            label="Internal labor + parts (annual)"
             value={formatCurrency(metrics?.projectedAnnualMaintenance)}
           />
         </div>
+
+        <section aria-label="Direct maintenance costs" className="text-sm space-y-2">
+          {([['internal', 'Internal'], ['vendorDirect', 'Vendor direct'], ['directMaintenance', 'Combined direct maintenance']] as const).map(([key, label]) => {
+            const scope = metrics?.maintenanceScopes?.lifetime?.[key];
+            return <p key={key}>{label}: {scope?.isComplete ? formatCurrency(scope.total) : `Incomplete — known subtotal ${formatCurrency(scope?.knownSubtotal)}`}</p>;
+          })}
+          {metrics?.costRecommendationStatus === 'insufficient_economic_data' && <p>Cost-based replacement assessment is unavailable. Age-based assessment remains separate.</p>}
+        </section>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <MetricTile
