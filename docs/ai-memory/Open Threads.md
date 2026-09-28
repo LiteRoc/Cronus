@@ -2,9 +2,17 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Week-ending continuation — September 25, 2026
+## Deployment continuation — September 28, 2026
 
-The [Current Context handoff](<Current Context.md>) records authoritative main/runtime refs and the planned continuation order: **#14, #15, #9, lifecycle/Contract reconciliation, then AHA 2023 benchmark evaluation**. Do not start #14 during the handoff. CRM/Interaction remains paused and separate.
+#14 is merged on both remotes at `1ead56c08174d26c899a47b002666f4e3c2a4bfa`, but runtime remains at `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`. The [Current Context handoff](<Current Context.md>) records the read-only deployment-readiness evidence and operational sequence.
+
+**Next: controlled #14 deployment, then #15, #9, lifecycle/Contract reconciliation, and AHA 2023 benchmark evaluation.** Deployment remains separately authorized; this documentation update does not deploy anything. CRM/Interaction remains paused and separate.
+
+- Use controlled stop/update/start; no rolling deployment or live checkout of the bind-mounted source. Fence/drain old writers and outstanding database requests before checkout advance.
+- `referenceoperations` create/write permissions are not a blocker in the observed authorization-disabled Mongo configuration. No database role query, business-record inspection, or write probe was performed.
+- No migration/backfill/topology/configuration change is required. Preserve both backends' `CRON_ENABLED=false`; no scheduler enablement or automatic recovery/cleanup.
+- After #14 writes begin, prefer roll-forward. Blind downgrade can bypass coordination and expose private metadata; rollback needs a separately reviewed safe procedure.
+- The [#14 runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) governs explicit recovery. Do not clear reservations or delete operation/fence evidence based on age.
 
 #7 is closed and deployed; remaining operational work is separate from the completed software remediation:
 

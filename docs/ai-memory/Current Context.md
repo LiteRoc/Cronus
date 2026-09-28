@@ -2,13 +2,13 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Week-ending handoff — September 25, 2026
+## Deployment-readiness handoff — September 28, 2026
 
-**STOP: checkpoint only. Do not start #14 during this handoff.**
+**#14 is merged and ready for controlled deployment; it is not deployed. This documentation update authorizes no runtime or data action.**
 
-Authoritative state before this documentation-only handoff commit:
+Authoritative state at this documentation-only handoff:
 
-- Main: `25eb2b84e026b00fcd997367793ed0df03750374`. This handoff advances documentation only, not runtime.
+- #14 main SHA, verified on Gitea and GitHub: `1ead56c08174d26c899a47b002666f4e3c2a4bfa`. This handoff changes documentation only, not runtime.
 - Deployed runtime: `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`, detached in `/home/thecapt/apps/cronus-main`. Core, Contract and frontend source mounts use the stable checkout.
 - #7 is closed as a completed software-remediation issue and deployed. Approved Decisions 1–9 remain authoritative.
 - Mary Rutan aggregate-repair preview: **91 assessed, 91 legacy-ambiguous, 0 repairable, 0 unchanged, 0 unsupported, 0 conflicts**. No apply is recommended. No database writes occurred during preview. Historical evidence review is separate follow-up work requiring authorization.
@@ -18,11 +18,20 @@ Authoritative state before this documentation-only handoff commit:
 - Frozen reproduction remains unchanged at `cae8e991137fdbf5ebfe52658512b03a4085aa17`.
 - Interaction remains separate, paused and unmerged at `807bc38122e771dacccbc23fca4a66363dd58d55`; #7 compatibility passed at that checkpoint. CRM remains paused.
 
-### Planned continuation after usage resets
+### #14 deployment-readiness conclusion
 
-This sequence records the plan, not authorization to begin work during this handoff:
+Read-only deployment-file/container-metadata review found all three app services using the clean stable checkout above via bind mounts and `npm run dev`. The recorded runtime SHA identifies deployed filesystem source; no independent in-memory module SHA attestation was obtained. Only #14 changes executable code between that runtime checkout and current main; intervening commits are documentation.
 
-1. Gitea #14 — Part/Manufacturer lifecycle protection.
+- **Deployment must be controlled stop/update/start, not rolling deployment or live checkout.** Fence incoming core/contract traffic, including directly published API ports and external callers; drain old requests and outstanding database writes. Stop all three application containers and verify old writers cannot resume BEFORE advancing the shared checkout. Container termination alone does not prove database-request drainage.
+- Advance the stopped stable checkout to the exact #14 SHA. Preserve existing deployment overrides and `CRON_ENABLED=false` for both backends. Start/verify core, then contract/frontend, and reopen access only after old writers are excluded. Do not restart MongoDB, enable schedulers, or run repair/import/recovery scripts as part of this sequence.
+- **`referenceoperations` collection permissions are not a blocker in the observed Mongo configuration.** App container URIs contain no credentials and target the Mongo service; the observed process is `mongod --bind_ip_all`, without auth/config-file arguments or configured root-user initialization variables. This is metadata evidence of authorization-disabled Mongo, not a database role query or write probe. No credentials or business records were inspected.
+- No migration, backfill, topology, or runtime configuration change is required. The new collection needs ordinary create/write permission and only its built-in unique `_id` index. Its model disables automatic collection/index initialization; first operation insertion creates the collection. #14 adds no startup cleanup or scheduler. Existing unrelated Mongoose initialization behavior is unchanged.
+- **After #14 writes begin, prefer roll-forward; blind downgrade is unsafe.** Old code ignores reservations and may expose private metadata through old read paths. Any rollback requires fencing/drainage, safe resolution of uncertain operations, and coordination/privacy protections. Do not delete operation records or replay fences as rollback cleanup.
+- Merge-readiness passed: 680 backend tests (including 134 #14 checks), nine frontend tests, syntax and Node TypeScript checks, whitespace checks, unchanged dependency manifests/locks, unchanged frozen evidence, and #7 pricing/snapshot regressions. Frontend app TypeScript TS5103 for `ignoreDeprecations: "6.0"` was reproduced identically on untouched main and remains a non-blocking pre-existing issue.
+
+### Planned continuation
+
+1. Controlled #14 deployment under separate explicit operational authorization.
 2. Gitea #15 — Template lifecycle authorization.
 3. Gitea #9 — Procedure measurement units.
 4. Lifecycle/Contract reconciliation.
@@ -33,6 +42,8 @@ Do not commit the AHA PDF to Git. Treat AHA useful lives as a benchmark/referenc
 Prior P0 security/ownership stabilization passed; #3, #4, #5, #6, #13 and #16 were closed. Preserve their authorization/ownership invariants during future work.
 
 Continuation records:
+
+- [#14 reservation/recovery runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>).
 
 - [#7 deployment and operational preview](<../engineering-journal/2026-09-25 - Work Order Cost Model Deployment.md>).
 - [Approved economic Decisions 1–9](<../engineering-journal/2026-09-25 - Work Order Cost Model Approved Decisions.md>).
