@@ -3,7 +3,22 @@ const mongoose = require('mongoose');
 const Part = require('../models/Part');
 const debug = require('debug')('app:partRouter');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
-const { buildTenantFilter } = require('../middleware/tenantScope');
+const Manufacturer = require('../models/Manufacturer');
+const lifecycle = require('../services/referenceLifecycle');
+const businessFields = ['partNumber', 'description', 'price', 'quantityOnHand', 'location',
+  'supplierId', 'manufacturerId', 'compatibleAssets', 'status'];
+
+async function withManufacturerReference(fields, previous, destinationId, write) {
+  if (fields.manufacturerId == null) return write(null);
+  lifecycle.id(fields.manufacturerId);
+  // Preserve historical references without letting a stale read restore a link.
+  if (previous?.manufacturerId?.toString() === fields.manufacturerId.toLowerCase()) {
+    delete fields.manufacturerId;
+    return write(null);
+  }
+  return lifecycle.withReservation(Manufacturer, fields.manufacturerId,
+    previous ? 'part-manufacturer-update' : 'part-create', destinationId, write);
+}
 
 const partRouter = express.Router();
 
@@ -13,15 +28,13 @@ partRouter.get('/', authenticateToken, async (req, res) => {
 
   try {
     const filter = {
-      ...buildTenantFilter(req),
+      deletedAt: null,
       ...(assetId && mongoose.Types.ObjectId.isValid(assetId)
         ? { compatibleAssets: assetId }
         : {}),
     };
-    console.log("🔎 Tenant filter:", filter);
 
     const parts = await Part.find(filter).lean();
-    console.log("🧩 Found parts:", parts.length);
     res.json(parts);
   } catch (error) {
     debug('Error fetching parts:', error);
@@ -31,26 +44,30 @@ partRouter.get('/', authenticateToken, async (req, res) => {
 
 // POST: Create a new part
 partRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
-  const { supplierId } = req.body;
   try {
+    const fields = lifecycle.businessFields(req.body, businessFields);
+    const { supplierId } = fields;
     if (supplierId && !mongoose.Types.ObjectId.isValid(supplierId)) {
       return res.status(400).json({ error: 'Invalid supplier ID' });
     }
 
-    const part = new Part({
-      ...req.body,
-      createdBy: req.user.id,
-      facilityId: req.user.facilityId
+    const destinationId = new mongoose.Types.ObjectId();
+    const created = new Part({ ...fields, _id: destinationId, createdBy: req.user.id, updatedBy: req.user.id });
+    await created.validate();
+    const part = await withManufacturerReference(fields, null, String(destinationId), async handle => {
+      if (handle) {
+        Object.assign(created, lifecycle.destinationStamp(handle));
+        handle.writeStarted = true;
+      }
+      return created.save(handle ? { w: 1, j: true } : {});
     });
-
-    await part.save();
     res.status(201).json({ message: 'Part created successfully', part });
   } catch (error) {
     debug('Error creating part:', error);
     if (error.code === 11000) {
       res.status(400).json({ error: 'Part number must be unique' });
     } else {
-      res.status(500).json({ error: 'Failed to create part' });
+      lifecycle.respond(res, error, 'Failed to create part');
     }
   }
 });
@@ -58,36 +75,25 @@ partRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (
 // PUT: Update a part
 partRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
-    const part = await Part.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user.id,
-      },
-      { new: true }
-    );
-
-    if (!part) return res.status(404).json({ error: 'Part not found' });
+    const fields = lifecycle.businessFields(req.body, businessFields);
+    const previous = await lifecycle.activeRecord(Part, req.params.id);
+    const part = await withManufacturerReference(fields, previous, req.params.id, handle =>
+      lifecycle.updateActive(Part, req.params.id, fields, req.user.id, handle));
     res.json({ message: 'Part updated successfully', part });
   } catch (error) {
     debug('Error updating part:', error);
-    res.status(500).json({ error: 'Failed to update part' });
+    lifecycle.respond(res, error, 'Failed to update part');
   }
 });
 
 // PATCH: Soft delete / archive part
 partRouter.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const archived = await Part.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req) },
-      { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Retired' } },
-      { new: true }
-    );
-    if (!archived) return res.status(404).json({ error: 'Part not found' });
+    const archived = await lifecycle.archive(Part, req.params.id, req.user.id, 'Retired');
     res.json({ message: 'Part archived', archived });
   } catch (error) {
     debug('Error archiving part:', error);
-    res.status(500).json({ error: 'Failed to archive part' });
+    lifecycle.respond(res, error, 'Failed to archive part');
   }
 });
 

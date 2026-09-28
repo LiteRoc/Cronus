@@ -22,4 +22,5 @@ const ManufacturerSchema = new Schema(
   { timestamps: true }
 );
 
+require('./referenceMetadata')(ManufacturerSchema, { reservable: true });
 module.exports = mongoose.model('Manufacturer', ManufacturerSchema);

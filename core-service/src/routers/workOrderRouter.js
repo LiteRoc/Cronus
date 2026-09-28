@@ -260,7 +260,7 @@ router.get("/by-contract/:contractId", authenticateToken, async (req, res) => {
 // ---------- Create (internal only) ----------
 const createFields = ['assetId','facilityId','departmentId','assignedTo','description','workOrderType',
   'priority','status','requestDate','scheduledDate','dueDate','completionDate','requestedBy','vendorService'];
-const protectedCreateFields = ['_id','ticketId','createdFrom','createdBy','updatedBy','createdAt','updatedAt',
+const protectedCreateFields = ['referenceReceipt','referenceFence','referenceReceipts','_id','ticketId','createdFrom','createdBy','updatedBy','createdAt','updatedAt',
   'economics','importIdentity','importProvenance','costRepairHistory','deletedAt','deletedBy','workOrderNumber','timeLogs','travelLogs','partsUsed','testEquipmentUsed','procedures','costs'];
 router.post('/', attachContractClient, authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
@@ -695,9 +695,7 @@ router.get('/:id/parts', authenticateToken, authorizeRoles('admin', 'technician'
 router.post('/:id/parts',authenticateToken,authorizeRoles('admin','tech'),ensureTenantOwnsWorkOrder,async(req,res)=>{
   try {
     const body=ownership.pick(req.body,['partId','quantity','note'],true);
-    const {result}=await costMutations.mutate(req.workOrderFilter,req.user,async w=>{
-      const entry=await costMutations.part(w,body,req.user); w.partsUsed.push(entry); return entry;
-    });
+    const {result}=await costMutations.addPart(req.workOrderFilter,body,req.user);
     res.status(201).json({message:'Part added successfully',part:result});
   }catch(e){return subresourceError(res,e);}
 });

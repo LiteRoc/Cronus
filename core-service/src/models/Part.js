@@ -26,4 +26,5 @@ const partSchema = new Schema({
     deletedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });
 
+require('./referenceMetadata')(partSchema, { reservable: true, destination: true });
 module.exports = mongoose.model('Part', partSchema);

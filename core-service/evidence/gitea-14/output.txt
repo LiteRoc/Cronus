@@ -1,0 +1,118 @@
+  console.warn
+    Using NodeJS below 20.19.0
+
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:28:11)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:16:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/index.ts:2:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server/index.js:4:20)
+
+(node:465561) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:465561) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+FAIL core-service/evidence/gitea-14/lifecycle.reproduction.mjs
+  ● parts SECURITY: ordinary update must preserve archive metadata
+
+    expect(received).not.toBeNull()
+
+    Received: null
+
+      108 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+      109 |   await send('put',`/${kind}/${d.id}`,{deletedAt:null,deletedBy:null,status:'Active'});
+    > 110 |   expect((await model(kind).findById(d.id)).deletedAt).not.toBeNull();
+          |                                                            ^
+      111 |  });
+      112 |  test(`${kind} SECURITY: normal list must exclude archived rows`,async()=>{
+      113 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:110:60)
+
+  ● parts SECURITY: normal list must exclude archived rows
+
+    expect(received).not.toContain(expected) // indexOf
+
+    Expected value: not "6abaa9a53cb8a7bad63cda23"
+    Received array:     ["6abaa9a53cb8a7bad63cda23"]
+
+      112 |  test(`${kind} SECURITY: normal list must exclude archived rows`,async()=>{
+      113 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+    > 114 |   const r=await send('get',`/${kind}`).expect(200);expect(r.body.map(x=>x._id)).not.toContain(d.id);
+          |                                                                                     ^
+      115 |  });
+      116 | }
+      117 | test('OBSERVATION: Part create and update accept archived Manufacturer; old reference still populates',async()=>{
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:114:85)
+
+  ● manufacturers SECURITY: ordinary update must preserve archive metadata
+
+    expect(received).not.toBeNull()
+
+    Received: null
+
+      108 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+      109 |   await send('put',`/${kind}/${d.id}`,{deletedAt:null,deletedBy:null,status:'Active'});
+    > 110 |   expect((await model(kind).findById(d.id)).deletedAt).not.toBeNull();
+          |                                                            ^
+      111 |  });
+      112 |  test(`${kind} SECURITY: normal list must exclude archived rows`,async()=>{
+      113 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:110:60)
+
+  ● manufacturers SECURITY: normal list must exclude archived rows
+
+    expect(received).not.toContain(expected) // indexOf
+
+    Expected value: not "6abaa9a53cb8a7bad63cda6d"
+    Received array:     ["6abaa9a53cb8a7bad63cda6d"]
+
+      112 |  test(`${kind} SECURITY: normal list must exclude archived rows`,async()=>{
+      113 |   const d=await seed(kind);await send('patch',`/${kind}/${d.id}/archive`,{},'admin').expect(200);
+    > 114 |   const r=await send('get',`/${kind}`).expect(200);expect(r.body.map(x=>x._id)).not.toContain(d.id);
+          |                                                                                     ^
+      115 |  });
+      116 | }
+      117 | test('OBSERVATION: Part create and update accept archived Manufacturer; old reference still populates',async()=>{
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:114:85)
+
+  ● SECURITY: archived Manufacturer must not gain new Part references
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 1
+
+      136 | test('SECURITY: archived Manufacturer must not gain new Part references',async()=>{
+      137 |  const d=await seed('manufacturers');await send('patch',`/manufacturers/${d.id}/archive`,{},'admin').expect(200);
+    > 138 |  await send('post','/parts',{...body('parts'),manufacturerId:d.id});expect(await P.countDocuments()).toBe(0);
+          |                                                                                                      ^
+      139 | });
+      140 | test('SECURITY: archived Part must not gain new workorder usages',async()=>{
+      141 |  const p=await seed('parts');await send('patch',`/parts/${p.id}/archive`,{},'admin').expect(200);
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:138:102)
+
+  ● SECURITY: archived Part must not gain new workorder usages
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 0
+    Received length: 1
+    Received array:  [{"_id": "6abaa9a53cb8a7bad63cdab2", "extendedCost": 12, "note": "", "partId": "6abaa9a53cb8a7bad63cdaa8", "pricing": {"basis": "catalog_default", "capturedAt": 2026-09-28T17:53:41.620Z, "capturedBy": "000000000000000000000001", "currency": "USD", "sourceId": "6abaa9a53cb8a7bad63cdaa8", "sourceKind": "part_catalog", "sourceRevision": "2026-09-28T17:53:41.611Z", "version": 1}, "quantity": 1, "unitCost": 12, "usedAt": 2026-09-28T17:53:41.620Z, "usedBy": "000000000000000000000001"}]
+
+      141 |  const p=await seed('parts');await send('patch',`/parts/${p.id}/archive`,{},'admin').expect(200);
+      142 |  const w=await mut.createNative({facilityId:facility,assetId:new m.Types.ObjectId(),description:'Synthetic',createdBy:actor});
+    > 143 |  await send('post',`/workorders/${w.id}/parts`,{partId:p.id,quantity:1});expect((await W.findById(w.id)).partsUsed).toHaveLength(0);
+          |                                                                                                                     ^
+      144 | });
+      145 |
+
+      at Object.<anonymous> (evidence/gitea-14/lifecycle.reproduction.mjs:143:117)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 19 passed, 25 total
+Snapshots:   0 total
+Time:        1.54 s, estimated 2 s
+Ran all test suites.
+Test results written to: core-service/evidence/gitea-14/results.json

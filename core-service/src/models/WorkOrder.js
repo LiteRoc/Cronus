@@ -217,4 +217,5 @@ for (const operation of ['updateOne','updateMany','findOneAndUpdate','replaceOne
 WorkOrderSchema.pre('insertMany', function (next) { next(new Error('Use the sanctioned Work Order import service')); });
 WorkOrderSchema.pre('bulkWrite', function (next) { next(new Error('Use the sanctioned Work Order service')); });
 WorkOrderSchema.index({ facilityId: 1, importIdentity: 1 }, { unique: true, partialFilterExpression: { importIdentity: { $type: 'string' } } });
+require('./referenceMetadata')(WorkOrderSchema, { destination: true });
 module.exports = mongoose.model('WorkOrder', WorkOrderSchema);

@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const WorkOrder = require('../../models/WorkOrder');
 const Part = require('../../models/Part');
+const referenceLifecycle = require('../referenceLifecycle');
 const rates = require('../internalCostRates');
 const context = require('./context');
 const engine = require('./calculate');
@@ -56,11 +57,12 @@ async function labor(w, body, actor) {
     pricing
   };
 }
-async function part(w, body, actor) {
+async function part(w, body, actor, handle) {
   if (!mongoose.isValidObjectId(body.partId) || !engine.finite(body.quantity) || body.quantity < 1) throw error(400, 'Invalid Part or quantity');
   // Preserve existing shared catalog ownership semantics; no new cross-service access.
-  const catalog = await Part.findById(body.partId).lean();
-  if (!catalog) throw error(404, 'Part not found');
+  if (!handle || handle.reservation.operation !== 'workorder-part-add' ||
+      String(handle.referenceId) !== String(body.partId)) throw error(409, 'Part reservation required');
+  const catalog = handle.catalog;
   const known = engine.finite(catalog.price) && catalog.price > 0;
   return {
     _id: new mongoose.Types.ObjectId(),
@@ -114,7 +116,7 @@ async function createNative(data, options = {}) {
     return doc.save(options);
   });
 }
-async function mutate(filter, actor, action) {
+async function mutate(filter, actor, action, handle = null) {
   const before = await WorkOrder.findOne(filter).lean();
   if (!before) throw error(404, 'Work order not found');
   if ((before.economics?.schemaVersion != null &&
@@ -166,25 +168,43 @@ async function mutate(filter, actor, action) {
     patch.costs = engine.calculate(next);
   }
   const authorizedFilter = WorkOrder.findOne(filter).cast(WorkOrder);
+  const update = { $set: patch };
+  if (handle) {
+    Object.assign(update.$set, referenceLifecycle.destinationStamp(handle));
+    handle.writeStarted = true;
+  }
   const updated = await WorkOrder.collection.findOneAndUpdate({
-    $and: [authorizedFilter, revisionPredicate(before), {
+    $and: [authorizedFilter, ...(handle ? [referenceLifecycle.destinationGuard(handle)] : []), revisionPredicate(before), {
       facilityId: before.facilityId ?? {
         $exists: false
       }
     }]
-  }, {
-    $set: patch
-  }, {
+  }, update, {
     returnDocument: 'after',
-    includeResultMetadata: false
+    includeResultMetadata: false,
+    ...(handle ? { writeConcern: { w: 1, j: true } } : {})
   });
-  if (!updated) throw error(409, 'Work order economics changed; retry');
+  if (!updated) referenceLifecycle.notWritten(409, 'Work order economics changed; retry');
+  delete updated.referenceReceipt; delete updated.referenceFence; // Raw collection result is sent to API callers.
   return {
     workOrder: updated,
     result
   };
 }
+// Reservation and archive compete on the Part; the destination receipt is
+// appended in the same atomic WorkOrder CAS as the usage and cost snapshots.
+async function addPart(filter, body, actor) {
+  if (!mongoose.isValidObjectId(body.partId) || !engine.finite(body.quantity) || body.quantity < 1) throw error(400, 'Invalid Part or quantity');
+  return referenceLifecycle.withReservation(Part, body.partId, 'workorder-part-add', String(filter._id),
+    handle => mutate(filter, actor, async w => {
+      const entry = await part(w, body, actor, handle);
+      w.partsUsed.push(entry);
+      return entry;
+    }, handle));
+}
+
 module.exports = {
+  addPart,
   mutate,
   createNative,
   labor,

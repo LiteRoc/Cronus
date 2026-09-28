@@ -1,9 +1,9 @@
 // routes/manufacturerRouter.js
 const express = require('express');
-const mongoose = require('mongoose');
 const Manufacturer = require('../models/Manufacturer');
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware');
-const { buildTenantFilter } = require('../middleware/tenantScope');
+const lifecycle = require('../services/referenceLifecycle');
+const businessFields = ['name', 'contactName', 'email', 'phone', 'address', 'website', 'status'];
 const debug = require('debug')('app:manufacturerRouter');
 
 const router = express.Router();
@@ -13,8 +13,7 @@ const router = express.Router();
 // =====================================================
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const tf = buildTenantFilter(req);
-    const manufacturers = await Manufacturer.find(tf).lean();
+    const manufacturers = await Manufacturer.find({ deletedAt: null }).lean();
     res.json(manufacturers);
   } catch (error) {
     debug('Error fetching manufacturers:', error);
@@ -27,9 +26,11 @@ router.get('/', authenticateToken, async (req, res) => {
 // =====================================================
 router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
+    const fields = lifecycle.businessFields(req.body, businessFields);
     const manufacturer = new Manufacturer({
-      ...req.body,
+      ...fields,
       createdBy: req.user.id,
+      updatedBy: req.user.id,
     });
     await manufacturer.save();
     res.status(201).json({ message: 'Manufacturer created successfully', manufacturer });
@@ -38,7 +39,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req,
     if (error.code === 11000) {
       res.status(400).json({ error: 'Manufacturer name must be unique' });
     } else {
-      res.status(500).json({ error: 'Failed to create manufacturer' });
+      lifecycle.respond(res, error, 'Failed to create manufacturer');
     }
   }
 });
@@ -48,19 +49,12 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req,
 // =====================================================
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
   try {
-    const manufacturer = await Manufacturer.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        updatedBy: req.user.id,
-      },
-      { new: true }
-    );
-    if (!manufacturer) return res.status(404).json({ error: 'Manufacturer not found' });
+    const fields = lifecycle.businessFields(req.body, businessFields);
+    const manufacturer = await lifecycle.updateActive(Manufacturer, req.params.id, fields, req.user.id);
     res.json({ message: 'Manufacturer updated successfully', manufacturer });
   } catch (error) {
     debug('Error updating manufacturer:', error);
-    res.status(500).json({ error: 'Failed to update manufacturer' });
+    lifecycle.respond(res, error, 'Failed to update manufacturer');
   }
 });
 
@@ -69,16 +63,11 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (re
 // =====================================================
 router.patch('/:id/archive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const archived = await Manufacturer.findByIdAndUpdate(
-      req.params.id,
-      { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Inactive' } },
-      { new: true }
-    );
-    if (!archived) return res.status(404).json({ error: 'Manufacturer not found' });
+    const archived = await lifecycle.archive(Manufacturer, req.params.id, req.user.id, 'Inactive');
     res.json({ message: 'Manufacturer archived', archived });
   } catch (error) {
     debug('Error archiving manufacturer:', error);
-    res.status(500).json({ error: 'Failed to archive manufacturer' });
+    lifecycle.respond(res, error, 'Failed to archive manufacturer');
   }
 });
 

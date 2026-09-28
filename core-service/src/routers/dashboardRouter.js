@@ -34,7 +34,7 @@ dashboardRouter.get('/', authenticateToken, async (req, res) => {
       WorkOrder.countDocuments(tf),
       WorkOrder.countDocuments({ ...tf, status: { $in: ['Open', 'In Progress', 'Requested'] } }),
       WorkOrder.countDocuments({ ...tf, status: { $in: ['Open', 'In Progress'] }, dueDate: { $lt: now } }),
-      Part.countDocuments({ ...tf, quantityOnHand: { $lt: 10 } }),
+      Part.countDocuments({ deletedAt: null, quantityOnHand: { $lt: 10 } }),
       Consumable.countDocuments({ ...tf, expiresAt: { $gte: now, $lte: in30d } }),
     ]);
 
