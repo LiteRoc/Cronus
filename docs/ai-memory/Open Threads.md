@@ -4,6 +4,12 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Post-deployment verification — September 29, 2026
 
+#15 deployed successfully at `a62c96686bcaad74bba00fa64fc5fba31996b8b4`. Controlled stop/update/start and startup/runtime verification passed; Mongo remained continuous and both schedulers remain disabled. No migration, backfill, topology, dependency or configuration change was required. Browser reload is required because frontend Archive behavior changed; backend protections remain authoritative. See the [#15 deployment journal](<../engineering-journal/2026-09-29-gitea-15-template-lifecycle-deployment.md>).
+
+**Authenticated #15 production smoke remains pending:** no approved session/source was available, and no authenticated production writes were performed. Verify active-reference creation, archived-reference/edit rejection, historical resolution and supported Archive behavior only with an approved existing session and authorized write scope. Do not create or extract credentials to fill the gap. After #15-aware writes begin, prefer roll-forward; do not delete lifecycle/audit/reservation metadata as rollback cleanup. Template uncertain-write recovery remains separately controlled; the #14 recovery tool does not govern Template reservations.
+
+### Prior #14 operational item — still open
+
 #14 deployed successfully at `7c3080305aa741805b68c09c38257578bda3bc4c`, containing code checkpoint `1ead56c08174d26c899a47b002666f4e3c2a4bfa`. Controlled stop/update/start completed and startup/runtime verification passed. Mongo remained continuous; both schedulers remain disabled. The [Current Context handoff](<Current Context.md>) and [#14 journal](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) record the evidence and limitations.
 
 **Open operational item, not a code blocker:** authenticated operational smoke was not performed because no approved admin session/credential source was available. No production lifecycle/reference writes were performed for smoke testing. `referenceoperations` first-use creation/use remains unverified in production; the collection was absent at deployment verification.
@@ -14,7 +20,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 - After #14 writes begin, prefer roll-forward. Blind downgrade can bypass coordination and expose private metadata; rollback needs a separately reviewed safe procedure.
 - The [#14 runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) governs explicit recovery. Do not clear reservations or delete operation/fence evidence based on age.
 
-**Next development item: #15 — Template lifecycle authorization**, followed by #9, lifecycle/Contract reconciliation and AHA 2023 benchmark evaluation. This documentation update starts none of that work. CRM/Interaction remains paused and separate.
+**Next development item: #9 — Procedure measurement units**, followed by lifecycle/Contract reconciliation and AHA 2023 benchmark evaluation. This documentation update starts none of that work. CRM/Interaction remains paused and separate.
 
 #7 is closed and deployed; remaining operational work is separate from the completed software remediation:
 

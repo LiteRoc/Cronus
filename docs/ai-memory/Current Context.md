@@ -4,12 +4,12 @@
 
 ## Post-deployment handoff — September 29, 2026
 
-**#14 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated first-use verification remains an open operational item, not a code blocker. This documentation update authorizes no runtime or data action.**
+**#15 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated #15 production smoke remains pending because no approved session was available. Next development item: #9 — Procedure measurement units. This documentation-only handoff starts no development, runtime or data action.**
 
 Authoritative state at this documentation-only handoff:
 
-- #14 code checkpoint: `1ead56c08174d26c899a47b002666f4e3c2a4bfa`, included in the approved deployed main SHA. This handoff changes documentation only, not runtime.
-- Deployed runtime: `7c3080305aa741805b68c09c38257578bda3bc4c`, clean and detached in `/home/thecapt/apps/cronus-main` at verification. Core, Contract and frontend source mounts use the stable checkout.
+- #15 checkpoint and deployed runtime: `a62c96686bcaad74bba00fa64fc5fba31996b8b4`. This handoff changes documentation only; it does not advance the runtime checkout.
+- The stable checkout `/home/thecapt/apps/cronus-main` was clean at deployment verification. Core, Contract and frontend source mounts all match the deployed SHA.
 - #7 is closed as a completed software-remediation issue and deployed. Approved Decisions 1–9 remain authoritative.
 - Mary Rutan aggregate-repair preview: **91 assessed, 91 legacy-ambiguous, 0 repairable, 0 unchanged, 0 unsupported, 0 conflicts**. No apply is recommended. No database writes occurred during preview. Historical evidence review is separate follow-up work requiring authorization.
 - Labor-rate publication remains deferred because no authoritative organization/network-wide blended internal cost rate or effective date is approved. Do not infer approval from constants, planning/billing rates or historical data.
@@ -18,31 +18,32 @@ Authoritative state at this documentation-only handoff:
 - Frozen reproduction remains unchanged at `cae8e991137fdbf5ebfe52658512b03a4085aa17`.
 - Interaction remains separate, paused and unmerged at `807bc38122e771dacccbc23fca4a66363dd58d55`; #7 compatibility passed at that checkpoint. CRM remains paused.
 
-### #14 deployment verification
+### #15 deployment verification
 
-The authorized private maintenance window completed controlled stop/update/start. All three application containers stopped together before checkout advancement. Old processes were confirmed gone and two read-only Mongo checks found zero old-backend connections and zero active client operations. Core, Contract and frontend started in order; normal access was released after verification.
+All three application containers stopped before the shared checkout advanced. Old processes and backend operations drained; Core, Contract and frontend started in order. Mongo remained continuously running and both schedulers remain disabled (`CRON_ENABLED=false`). Existing Compose overrides were preserved.
 
-- Source mounts and selected fingerprints, Mongo connectivity, disabled schedulers and protected endpoint 401 checks passed. Frontend shell and ten modules returned 200. Existing Compose overrides were preserved; Mongo remained continuously running. No startup errors, credential-leak markers or unexpected Mongo structural events were observed. Core's duplicate `workOrderId` schema-index warning predates deployment.
-- The #14 model loaded against authorization-disabled standalone WiredTiger Mongo. No transaction/replica-set errors appeared during startup. `referenceoperations` was absent at verification; no write probe forced its creation. Model loading and observed permissions do not establish successful production first use.
-- Database-free #7 checks passed for captured-price preservation, quantity calculations and non-mutating reads. Authenticated production pricing/snapshot verification remains open with the other smoke checks.
-- No migration, backfill, topology, or runtime configuration change is required. The new collection needs ordinary create/write permission and only its built-in unique `_id` index. Its model disables automatic collection/index initialization; first operation insertion creates the collection. #14 adds no startup cleanup or scheduler. Existing unrelated Mongoose initialization behavior is unchanged.
-- **After #14 writes begin, prefer roll-forward; blind downgrade is unsafe.** Old code ignores reservations and may expose private metadata through old read paths. Any rollback requires fencing/drainage, safe resolution of uncertain operations, and coordination/privacy protections. Do not delete operation records or replay fences as rollback cleanup.
-- Merge-readiness passed: 680 backend tests (including 134 #14 checks), nine frontend tests, syntax and Node TypeScript checks, whitespace checks, unchanged dependency manifests/locks, unchanged frozen evidence, and #7 pricing/snapshot regressions. Frontend app TypeScript TS5103 for `ignoreDeprecations: "6.0"` was reproduced identically on untouched main and remains a non-blocking pre-existing issue.
+- Source fingerprints, Mongo connectivity and startup/runtime checks passed. Twelve unauthenticated protected-route probes returned 401; frontend shell and ten modules returned 200. No new startup/index/topology errors or Mongo structural events appeared in the checked logs. The existing duplicate `workOrderId` index warning remains unchanged.
+- **Browser reload is required before normal use resumes:** Archive now uses the supported PATCH API, while old tabs may retain pre-#15 code. Backend protections remain authoritative for stale clients.
+- No authenticated production writes were performed. Authenticated #15 production smoke remains pending because no approved session/source was available; #14's authenticated first-use item also remains open.
+- No migration, backfill, topology, dependency or configuration change was required. No new transaction/replica-set or startup/index requirement was introduced.
+- **After #15-aware writes begin, prefer roll-forward; blind rollback is unsafe.** Preserve lifecycle/audit/reservation metadata. Old writers bypass the protections; any rollback/recovery requires controlled fencing and separate review.
+- Fresh-main verification passed 1,001 tests, including #14/#7 compatibility, plus syntax and TypeScript with the documented baseline workaround. Deployed database-free #7 pricing checks also passed; they do not replace authenticated production smoke.
 
 ### Planned continuation
 
-Authenticated #14 first-use verification remains an open operational item when an approved existing admin session and Facility context are available; it is not a code blocker.
+Authenticated #15 production smoke and #14 first-use verification remain open operational items when an approved existing admin session and Facility context are available; they are not code blockers.
 
-1. Gitea #15 — Template lifecycle authorization (next development item; not started by this handoff).
-2. Gitea #9 — Procedure measurement units.
-3. Lifecycle/Contract reconciliation.
-4. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
+1. Gitea #9 — Procedure measurement units (next development item; not started by this handoff).
+2. Lifecycle/Contract reconciliation.
+3. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
 
 Do not commit the AHA PDF to Git. Treat AHA useful lives as a benchmark/reference, not an automatic replacement rule. The uploaded guide may later support Template lifecycle benchmark mapping and source attribution. Its suitability and mapping were not evaluated in this handoff.
 
 Prior P0 security/ownership stabilization passed; #3, #4, #5, #6, #13 and #16 were closed. Preserve their authorization/ownership invariants during future work.
 
 Continuation records:
+
+- [#15 deployment and operational handoff](<../engineering-journal/2026-09-29-gitea-15-template-lifecycle-deployment.md>).
 
 - [#14 reservation/recovery runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>).
 
