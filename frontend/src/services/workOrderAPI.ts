@@ -140,26 +140,9 @@ export const updateProcedureResults = async (
   procedureId: string,
   taskResults: TaskResult[]
 ): Promise<void> => {
-    const payload = {
-      taskResults: taskResults.map((result) => ({
-          taskId: result.taskId,
-          label: result.label,
-          type: result.type,
-          value: result.value ?? null,
-          passed: result.passed ?? null,
-          comment: result.comment ?? '',
-          unitOfMeasure: result.unitOfMeasure,
-          submittedBy: result.submittedBy,
-          submittedAt: new Date(),
-          ...(result.timestamp && { timestamp: result.timestamp }),
-      })),
-  };
-
-  console.log("Payload to API:", payload);
-
   const response = await apiClient.patch(
     `/workorders/${workOrderId}/procedure/${procedureId}/task-results`,
-    { taskResults }
+    { taskResults: taskResults.map(({ taskId, type, value, comment }) => ({ taskId, type, value, comment })) }
   );
   return response.data;
 };

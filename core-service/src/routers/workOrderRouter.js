@@ -10,6 +10,8 @@ const WorkOrder = require('../models/WorkOrder');
 const Asset = require('../models/Asset');
 const Procedure = require('../models/Procedure');
 const TaskResult = require('../models/TaskResults');
+const measurements = require('../services/procedureMeasurements');
+const procedureResults = require('../services/procedureResults');
 const Task = require('../models/Task');
 const Ticket = require('../models/Tickets');
 const Part = require('../models/Part');
@@ -400,11 +402,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), ensureTen
     }
     const patch = Object.fromEntries(Object.entries(body));
 
-    const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
-      { $set: { ...patch, updatedBy: req.user.id } },
-      { new: true, runValidators: true }
-    );
+    const updated = await procedureResults.mutate(req.workOrderFilter, req.user.id, () => patch);
     if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Work order updated', workOrder: updated });
   } catch (err) {
@@ -442,16 +440,11 @@ router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'tech'), 
     const patch = { status, updatedBy: req.user.id };
     if (status === 'Completed') patch.completionDate = new Date();
 
-    const updated = await WorkOrder.findOneAndUpdate(
-      { _id: req.params.id, ...buildTenantFilter(req), deletedAt: null },
-      patch,
-      { new: true }
-    );
+    const updated = await procedureResults.mutate(req.workOrderFilter, req.user.id, () => patch);
     if (!updated) return res.status(404).json({ error: 'Work order not found' });
     res.json({ message: 'Status updated', workOrder: updated });
   } catch (err) {
-    console.error('Status WO error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    return subresourceError(res, err);
   }
 });
 
@@ -507,111 +500,64 @@ for (const [path, field, allowed] of [
 // ---------- Attach procedure (internal) ----------
 router.patch('/:id/procedure', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { id } = req.params;
     const { procedureId } = req.body || {};
     if (!isObjectId(procedureId)) return res.status(400).json({ error: 'Invalid procedureId' });
-
-    const proc = await Procedure.findById(procedureId).populate('tasks', 'description type unitOfMeasure');
-    if (!proc) return res.status(404).json({ error: 'Procedure not found' });
-
-    // Initialize blank taskResults from procedure.tasks
-    const taskResults = (proc.tasks || []).map(t => ({
-      taskId: t._id,
-      label: t.description,
-      type: t.type.toLowerCase(),           // "pass/fail" | "measurement" | "comment"
-      unitOfMeasure: t.unitOfMeasure || null,
-      value: null,
-      passed: null,
-      comment: '',
-    }));
-
-    // Create new procedure subdoc
-    const procedureEntry = {
-      _id: proc._id,
-      name: proc.name,
-      taskResults,
-    };
-
-    // Use $addToSet to prevent duplicates
-    const updated = await WorkOrder.findOneAndUpdate(
-      { _id: id, ...buildTenantFilter(req) },
-      {
-        $addToSet: { procedures: { _id: proc._id, name: proc.name, taskResults } },
-        $set: { updatedBy: req.user.id }
-      },
-      { new: true }
-    );
-
+    const updated = await procedureResults.mutate(req.workOrderFilter, req.user.id, async workOrder => {
+      if ((workOrder.procedures || []).some(p => String(p._id) === String(procedureId))) {
+        procedureResults.findProcedure(workOrder, procedureId);
+        return {}; // Retrying attachment cannot replace its snapshots or readings.
+      }
+      const proc = await Procedure.findById(procedureId).lean();
+      if (!proc) procedureResults.fail(404, 'Procedure not found');
+      const definitions = await Task.find({ _id: { $in: proc.tasks || [] } }).lean();
+      const byId = new Map(definitions.map(task => [String(task._id), task]));
+      const taskResults = (proc.tasks || []).map(id => {
+        const definition = byId.get(String(id));
+        if (!definition) procedureResults.fail(404, 'Procedure task definition not found');
+        return measurements.attachment(definition);
+      });
+      if (new Set(taskResults.map(t => String(t.taskId))).size !== taskResults.length) {
+        procedureResults.fail(400, 'Procedure has duplicate task references');
+      }
+      const entry = { _id: proc._id, name: proc.name, taskResults };
+      return { procedures: [...(workOrder.procedures || []), entry], procedureUpdate: { $push: { procedures: entry } } };
+    });
     res.json({ message: 'Procedure attached', workOrder: updated });
-  } catch (err) {
-    console.error('Attach procedure error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+  } catch (err) { return subresourceError(res, err); }
+});
+
+// Current results are projected from the authorized parent. Untouched legacy
+// collection rows remain separate evidence, never current measurement authority.
+router.get('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { procedureId } = req.params;
+    if (!isObjectId(procedureId)) return res.status(400).json({ error: 'Invalid procedureId' });
+    const workOrder = await WorkOrder.findOne({ ...req.workOrderFilter, deletedAt: null }).lean();
+    if (!workOrder) procedureResults.fail(404, 'Work order not found');
+    const procedure = procedureResults.findProcedure(workOrder, procedureId);
+    const legacyIds = (procedure.taskResults || []).filter(t => t.resultVersion !== 1).map(t => t.taskId);
+    const legacyTaskResults = legacyIds.length ? await TaskResult.find({
+      workOrderId: workOrder._id, procedureId, taskId: { $in: legacyIds },
+    }).lean() : [];
+    res.json({ taskResults: TaskResult.fromWorkOrder(workOrder, procedureId), legacyTaskResults });
+  } catch (err) { return subresourceError(res, err); }
 });
 
 // ---------- Update task results (internal) ----------
-router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, 
-  async (req, res) => {
+router.patch('/:id/procedure/:procedureId/task-results', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {
-    const { id, procedureId } = req.params;
+    const { procedureId } = req.params;
     const { taskResults } = req.body || {};
     if (!Array.isArray(taskResults)) return res.status(400).json({ error: 'taskResults array required' });
-
     if (!isObjectId(procedureId) || taskResults.some(tr =>
       !tr || typeof tr !== 'object' || Array.isArray(tr) || !isObjectId(tr.taskId))) {
       return res.status(400).json({ error: 'Invalid procedure or task ID' });
     }
-    if (!await Procedure.exists({ _id: procedureId })) {
-      return res.status(404).json({ error: 'Procedure not found' });
-    }
-    const taskIds = [...new Set(taskResults.map(tr => String(tr.taskId)))];
-    if (await Task.countDocuments({ _id: { $in: taskIds } }) !== taskIds.length) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
-
-    const normalizeType = (t) => {
-      if (!t) return null;
-      const val = t.toString().toLowerCase();
-      if (val.includes("pass")) return "pass/fail";
-      if (val.includes("measure")) return "measurement";
-      if (val.includes("comment")) return "comment";
-      return val;
-    };
-
-    const cleanedResults = taskResults.map((tr) => ({
-        ...tr,
-        type: normalizeType(tr.type),
-        submittedBy: req.user.id,
-        submittedAt: new Date(),
-      }));
-
-    const updated = await WorkOrder.findOneAndUpdate(
-      { 
-        _id: new mongoose.Types.ObjectId(id), 
-        'procedures._id': new mongoose.Types.ObjectId(procedureId), 
-        ...buildTenantFilter(req) },
-      { $set: { 'procedures.$.taskResults': cleanedResults, updatedBy: req.user.id } },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Work order or procedure not found' });
-
-    // Sync results into TaskResult collection
-      for (const tr of cleanedResults) {
-        await TaskResult.findOneAndUpdate(
-          { workOrderId: id, taskId: tr.taskId },
-          {
-            ...tr,
-            workOrderId: id,
-            procedureId,
-          },
-          { upsert: true, new: true }
-        );
-      }
-
-    res.json({ message: 'Task results updated', workOrder: updated });
-  } catch (err) {
-    return subresourceError(res, err);
-  }
+    const updated = await procedureResults.mutate(req.workOrderFilter, req.user.id,
+      workOrder => procedureResults.submit(workOrder, procedureId, taskResults, req.user.id));
+    res.json({ message: 'Task results updated', workOrder: updated,
+      taskResults: TaskResult.fromWorkOrder(updated, procedureId) });
+  } catch (err) { return subresourceError(res, err); }
 });
 
 // ---------- Soft delete (archive) — admin only ----------
@@ -643,27 +589,15 @@ router.delete('/:id/procedure/:procedureId',
         return res.status(400).json({ error: 'Invalid procedureId' });
       }
 
-      const updated = await WorkOrder.findOneAndUpdate(
-        {
-          _id: id,
-          ...buildTenantFilter(req),
-          'procedures._id': procedureId, // make sure the work order has this procedure
-        },
-        {
-          $pull: { procedures: { _id: new mongoose.Types.ObjectId(procedureId) } },
-          $set: { updatedBy: req.user.id },
-        },
-        { new: true }
-      );
-
-      if (!updated) {
-        return res.status(404).json({ error: 'Work order or procedure not found' });
-      }
+      const updated = await procedureResults.mutate(req.workOrderFilter, req.user.id, workOrder => {
+        procedureResults.findProcedure(workOrder, procedureId);
+        return { procedures: (workOrder.procedures || []).filter(p => String(p._id) !== String(procedureId)),
+          procedureUpdate: { $pull: { procedures: { _id: new mongoose.Types.ObjectId(procedureId) } } } };
+      });
 
       res.json({ message: 'Procedure removed', workOrder: updated });
     } catch (err) {
-      console.error('Remove procedure error:', err);
-      res.status(500).json({ error: 'Internal Server Error' });
+      return subresourceError(res, err);
     }
   }
 );

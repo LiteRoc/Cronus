@@ -7,6 +7,11 @@ const { authenticateToken, authorizeRoles } = require('../middleware/authMiddlew
 const { buildTenantFilter } = require('../middleware/tenantScope');
 
 const taskRouter = express.Router();
+const measurements = require('../services/procedureMeasurements');
+
+taskRouter.get('/measurement-units', authenticateToken, authorizeRoles('admin', 'tech'), (req, res) => {
+    res.json({ units: measurements.UNITS });
+});
 
 // GET: Fetch Tasks
 taskRouter.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
@@ -24,6 +29,7 @@ taskRouter.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (r
 taskRouter.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
 
     try {
+        if (req.body.type === 'measurement') measurements.snapshot(req.body);
         const task = new Task({
             ...req.body,
             createdBy: req.user.id,
@@ -33,6 +39,9 @@ taskRouter.post('/', authenticateToken, authorizeRoles('admin'), async (req, res
         res.status(201).json({ message: 'Task created successfully', task });
     } catch (error) {
         debug('Error creating task:', error);
+        if (error.status === 400 || error.name === 'ValidationError') {
+            return res.status(400).json({ error: error.status === 400 ? error.message : 'Invalid task definition' });
+        }
         res.status(500).json({ error: 'Failed to create task' });
     }
 });
@@ -80,5 +89,4 @@ taskRouter.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), asyn
 });
 
 module.exports = taskRouter;
-
 

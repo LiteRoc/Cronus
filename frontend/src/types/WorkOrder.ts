@@ -136,13 +136,24 @@ export interface TaskResult {
   type: "pass/fail" | "measurement" | "comment"; // Task type
   value: boolean | number | string | null; // Either Pass/Fail (boolean) or a measurement (number)
   unitOfMeasure?: string | null,
+  measurementSnapshot?: {
+    version: 1;
+    type: 'measurement';
+    unit: string;
+    customUnitLabel: string | null;
+    minValue: number | null;
+    maxValue: number | null;
+    required: boolean;
+  };
+  resultVersion?: 1;
+  completed?: boolean;
   passed?: boolean | null,
   comment?: string,
   minValue?: number; // Optional minimum value (for measurement)
   maxValue?: number; // Optional maximum value (for measurement)
-  submittedBy: string;
-  submittedAt: string,
-  timestamp: string; // Timestamp of when the result was recorded
+  submittedBy?: string | null;
+  submittedAt?: string | null,
+  timestamp?: string; // Legacy TaskResult timestamp
   _id?: string; // Optional MongoDB ID for the task result
 };
 
@@ -160,4 +171,3 @@ export type TestEquipmentUsed = {
   usedAt?: string;
   note?: string;
 };
-

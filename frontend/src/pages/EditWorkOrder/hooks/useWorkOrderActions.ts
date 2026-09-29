@@ -113,8 +113,8 @@ export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
     updateTaskResults: wrap(
       (id: string, procedureId: string, results: any[]) =>
         updateProcedureResults(id, procedureId, results),
-      (current, _id, _procedureId, results) =>
-        updateNestedField(current, "procedure.taskResults", results)
+      // Preserve snapshots until the canonical response is revalidated.
+      (current) => current
     ),
 
     // ---- Delete Procedure ----
@@ -194,4 +194,3 @@ export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
     ),
   };
 }
-

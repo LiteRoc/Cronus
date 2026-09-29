@@ -212,7 +212,7 @@ test('shared references remain usable without invented Facility fields or member
   expect(Task.schema.path('facilityId')).toBeUndefined();
   await request(app).post(`/workorders/${wa._id}/parts`).set(headers()).send({ partId:str(pb._id), quantity:1 }).expect(201);
   await request(app).patch(`/workorders/${wa._id}/procedure`).set(headers()).send({ procedureId:str(procB._id) }).expect(200);
-  await request(app).patch(`/workorders/${wa._id}/procedure/${procA._id}/task-results`).set(headers())
+  await request(app).patch(`/workorders/${wa._id}/procedure/${procB._id}/task-results`).set(headers())
     .send({ taskResults:[{taskId:str(taskB._id),type:'measurement',value:1}] }).expect(200);
 });
 test('fail-closed persistence refuses configured and unrelated MongoDB targets', async () => {
@@ -301,9 +301,9 @@ test('dedicated labor deletion recalculates without certifying ambiguous legacy 
   expect(wo.costs.inputRevision).toBe(wo.economics.revision);
   expect(wo.costs.scopes.internal.isComplete).toBe(false);
 });
-test('procedure attachment retains existing unit behavior for deferred #9', async () => {
+test('procedure attachment captures the Task unit under approved #9 policy', async () => {
   await send(operations.find(op=>op.name==='procedure attach'),wa).expect(200);
   const wo=await WorkOrder.findById(wa._id);
   expect(taskB.unit).toBe('V');
-  expect(wo.procedures.find(p=>p._id.equals(procB._id)).taskResults[0].unitOfMeasure).toBeNull();
+  expect(wo.procedures.find(p=>p._id.equals(procB._id)).taskResults[0].unitOfMeasure).toBe('V');
 });

@@ -3,6 +3,7 @@
 import React from "react";
 import { TaskResult } from "@/types";
 import Modal from "@/components/Modal";
+import { measurementContext, measurementDisplay, measurementEvaluation } from '@/utils/procedureMeasurements';
 
 interface ViewTaskModalProps {
   onClose: () => void;
@@ -23,7 +24,6 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({ onClose, taskResults }) =
     );
   }
 
-  console.log("🧪 Results being rendered:", taskResults);
 
   return (
     <Modal isOpen={true} onClose={onClose} title="View Procedure Results">
@@ -45,9 +45,7 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({ onClose, taskResults }) =
                                 result.value === false ? "❌ Fail" :
                                 "Pending";
               } else if (normalizedType === "measurement" || normalizedType === "measure") {
-                displayResult = result.value != null
-                  ? `${result.value}${result.unitOfMeasure ? ' ' + result.unitOfMeasure : ''}`
-                  : "Pending";
+                displayResult = measurementDisplay(result);
               } else if (normalizedType === "comment") {
                 displayResult = result.value != null ? String(result.value) : "Pending";
               }
@@ -55,7 +53,13 @@ const ViewTaskModal: React.FC<ViewTaskModalProps> = ({ onClose, taskResults }) =
               return (
                 <tr key={result.taskId}>
                   <td className="align-top pr-4">{result.label}</td>
-                  <td className="align-top pr-4">{displayResult}</td>
+                  <td className="align-top pr-4">
+                    {displayResult}
+                    {(normalizedType === 'measurement' || normalizedType === 'measure') && <>
+                      <p className="text-sm text-gray-600">{measurementContext(result)}</p>
+                      <p>{measurementEvaluation(result, result.value)}</p>
+                    </>}
+                  </td>
                   <td className="align-top pr-4">
                     <div className="text-xs text-gray-600 mt-1">
                       by <strong>{result.submittedBy || "Unknown"}</strong><br />

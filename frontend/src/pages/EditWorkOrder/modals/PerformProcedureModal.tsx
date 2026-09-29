@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import Modal from "@/components/Modal";
-import { TaskResult, WorkOrderProcedure } from "@/types";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import Modal from '@/components/Modal';
+import { TaskResult, WorkOrderProcedure } from '@/types';
+import { Button } from '@/components/ui/button';
+import { measurementContext, measurementEvaluation, measurementUnit } from '@/utils/procedureMeasurements';
 
 interface PerformProcedureModalProps {
   procedure: WorkOrderProcedure;
@@ -11,123 +12,86 @@ interface PerformProcedureModalProps {
   userName: string;
 }
 
-type DraftTaskResult = {
-  taskId?: string;
-  type: "pass/fail" | "measurement" | "comment";
-  label: string;
-  value: boolean | number | string | null;
-};
-
-const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({
-  procedure,
-  onSubmitResults,
-  onClose,
-  userName,
-}) => {
-  const [results, setResults] = useState<DraftTaskResult[]>([]);
+const PerformProcedureModal: React.FC<PerformProcedureModalProps> = ({ procedure, onSubmitResults, onClose }) => {
+  const [values, setValues] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  console.log("🧪 Incoming procedure:", procedure);
-  console.log("🧪 procedure.taskResults:", procedure?.taskResults);
-
+  const [error, setError] = useState('');
+  const tasks = procedure.taskResults ?? [];
 
   useEffect(() => {
-    if (procedure?.taskResults) {
-      setResults(
-        procedure.taskResults.map((task) => ({
-          taskId: task.taskId,
-          type: task.type,
-          label: task.label,
-          value: "",
-        }))
-      );
-    }
+    setValues((procedure.taskResults || []).map(task => {
+      if (task.type === 'pass/fail') return task.value === true ? 'pass' : task.value === false ? 'fail' : '';
+      if (task.type === 'measurement') return typeof task.value === 'number' && Number.isFinite(task.value) ? String(task.value) : '';
+      return task.value == null ? '' : String(task.value);
+    }));
+    setError('');
   }, [procedure]);
 
-  const handleResultChange = (index: number, value: string) => {
-    setResults((prev) => {
-      const updated = [...prev];
-      if (updated[index].type === "pass/fail") {
-        updated[index].value = value === "pass" ? true : value === "fail" ? false : null;
-      } else {
-        updated[index].value = value;
-      }
-      return updated;
-    });
-  };
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      const formatted: TaskResult[] = results
-        .filter((r): r is typeof r & { taskId: string } => !!r.taskId)
-        .map((r) => ({
-          taskId: r.taskId,
-          type: r.type,
-          label: r.label,
-          value: r.value,
-          submittedBy: userName,
-          submittedAt: new Date().toISOString(),
-          timestamp: new Date().toISOString(),
-        }));
-
-      await onSubmitResults(formatted);
-      onClose();
-    } catch (err) {
-      console.error("Failed to submit results:", err);
-      alert("Error saving procedure results.");
-    } finally {
-      setIsSubmitting(false);
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    const results: TaskResult[] = [];
+    for (const [index, task] of tasks.entries()) {
+      const text = values[index] ?? '';
+      let value: TaskResult['value'] = text;
+      if (task.type === 'measurement') {
+        if (!text.trim()) {
+          if (task.measurementSnapshot?.required !== false) {
+            setError(`${task.label}: a numeric reading is required.`); return;
+          }
+          value = null;
+        } else {
+          value = Number(text);
+          if (!Number.isFinite(value)) { setError(`${task.label}: enter a valid number.`); return; }
+        }
+      } else if (task.type === 'pass/fail') value = text === 'pass' ? true : text === 'fail' ? false : null;
+      results.push({ taskId: task.taskId, type: task.type, label: task.label, value });
     }
+    setIsSubmitting(true);
+    try { await onSubmitResults(results); onClose(); }
+    catch { setError('Results could not be saved. Reload the work order and retry.'); }
+    finally { setIsSubmitting(false); }
   };
-
-  const tasks = procedure?.taskResults ?? [];
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Perform Procedure">
-      <div className="space-y-6">
-        {tasks.map((task, index) => (
-          <div key={task.taskId} className="border rounded p-4">
-            <p className="font-semibold">{task.label}</p>
-            {task.type === "pass/fail" ? (
-              <select
-                value={
-                  results[index]?.value === true
-                    ? "pass"
-                    : results[index]?.value === false
-                    ? "fail"
-                    : ""
-                }
-                onChange={(e) => handleResultChange(index, e.target.value)}
-                className="border p-2 rounded w-full mt-2"
-                disabled={isSubmitting}
-              >
-                <option value="">-- Select --</option>
-                <option value="pass">Pass</option>
-                <option value="fail">Fail</option>
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        {tasks.map((task, index) => {
+          const id = `procedure-reading-${index}`;
+          const unit = task.type === 'measurement' ? measurementUnit(task) : '';
+          const numeric = values[index]?.trim() ? Number(values[index]) : null;
+          return <div key={task.taskId} className="border rounded p-4">
+            <label htmlFor={id} className="font-semibold">{task.label}</label>
+            {task.type === 'pass/fail' ? (
+              <select id={id} value={values[index] ?? ''} disabled={isSubmitting}
+                onChange={e => setValues(previous => previous.map((v, i) => i === index ? e.target.value : v))}
+                className="border p-2 rounded w-full mt-2">
+                <option value="">-- Select --</option><option value="pass">Pass</option><option value="fail">Fail</option>
               </select>
-            ) : (
-              <input
-                type="text"
-                value={String(results[index]?.value ?? "")}
-                onChange={(e) => handleResultChange(index, e.target.value)}
-                className="border p-2 rounded w-full mt-2"
-                placeholder="Enter measurement or comment"
-                disabled={isSubmitting}
-              />
-            )}
-          </div>
-        ))}
-
+            ) : <div className="flex items-center gap-2 mt-2">
+              <input id={id} type={task.type === 'measurement' ? 'number' : 'text'}
+                step={task.type === 'measurement' ? 'any' : undefined}
+                required={task.type === 'measurement' && task.measurementSnapshot?.required !== false}
+                aria-describedby={task.type === 'measurement' ? `${id}-context ${id}-evaluation` : undefined}
+                value={values[index] ?? ''} disabled={isSubmitting}
+                onChange={e => setValues(previous => previous.map((v, i) => i === index ? e.target.value : v))}
+                className="border p-2 rounded w-full" />
+              {unit && <span>{unit}</span>}
+            </div>}
+            {task.type === 'measurement' && <>
+              <p id={`${id}-context`} className="text-sm text-gray-600">{measurementContext(task)}</p>
+              <p id={`${id}-evaluation`} role="status">{measurementEvaluation({ ...task, completed: false }, numeric)}</p>
+              {task.value != null && typeof task.value !== 'number' &&
+                <p>Previous reading: {String(task.value)}. Enter a numeric reading to replace it.</p>}
+            </>}
+          </div>;
+        })}
+        {error && <p role="alert">{error}</p>}
         <div className="flex space-x-4 pt-2">
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            Submit Results
-          </Button>
-          <Button onClick={onClose} variant="ghost" disabled={isSubmitting}>
-            Cancel
-          </Button>
+          <Button type="submit" disabled={isSubmitting}>Submit Results</Button>
+          <Button type="button" onClick={onClose} variant="ghost" disabled={isSubmitting}>Cancel</Button>
         </div>
-      </div>
+      </form>
     </Modal>
   );
 };

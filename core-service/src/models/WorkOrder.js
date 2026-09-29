@@ -34,6 +34,20 @@ const TaskResultSchema = new mongoose.Schema({
   type: { type: String, enum: ['pass/fail', 'measurement', 'comment'], required: true },
   value: { type: mongoose.Schema.Types.Mixed, default: null },
   unitOfMeasure: { type: String, default: null },
+  measurementSnapshot: {
+    type: new Schema({
+      version: { type: Number, enum: [1], required: true },
+      type: { type: String, enum: ['measurement'], required: true },
+      unit: { type: String, required: true },
+      customUnitLabel: { type: String, default: null },
+      minValue: { type: Number, default: null },
+      maxValue: { type: Number, default: null },
+      required: { type: Boolean, required: true },
+    }, { _id: false }),
+    default: undefined,
+  },
+  resultVersion: { type: Number, enum: [1] },
+  completed: { type: Boolean },
   passed: { type: Boolean, default: null },
   comment: { type: String, default: '' },
   submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -110,6 +124,7 @@ const WorkOrderSchema = new Schema({
     name:        { type: String }, // denormalize for fast display
     taskResults: [TaskResultSchema],
   }],
+  procedureResultsRevision: { type: Number },
 
   // logs
   timeLogs:   { type: [TimeLogSchema], default: [] },
