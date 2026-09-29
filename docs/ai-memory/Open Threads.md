@@ -2,17 +2,19 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Deployment continuation — September 28, 2026
+## Post-deployment verification — September 29, 2026
 
-#14 is merged on both remotes at `1ead56c08174d26c899a47b002666f4e3c2a4bfa`, but runtime remains at `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`. The [Current Context handoff](<Current Context.md>) records the read-only deployment-readiness evidence and operational sequence.
+#14 deployed successfully at `7c3080305aa741805b68c09c38257578bda3bc4c`, containing code checkpoint `1ead56c08174d26c899a47b002666f4e3c2a4bfa`. Controlled stop/update/start completed and startup/runtime verification passed. Mongo remained continuous; both schedulers remain disabled. The [Current Context handoff](<Current Context.md>) and [#14 journal](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) record the evidence and limitations.
 
-**Next: controlled #14 deployment, then #15, #9, lifecycle/Contract reconciliation, and AHA 2023 benchmark evaluation.** Deployment remains separately authorized; this documentation update does not deploy anything. CRM/Interaction remains paused and separate.
+**Open operational item, not a code blocker:** authenticated operational smoke was not performed because no approved admin session/credential source was available. No production lifecycle/reference writes were performed for smoke testing. `referenceoperations` first-use creation/use remains unverified in production; the collection was absent at deployment verification.
 
-- Use controlled stop/update/start; no rolling deployment or live checkout of the bind-mounted source. Fence/drain old writers and outstanding database requests before checkout advance.
-- `referenceoperations` create/write permissions are not a blocker in the observed authorization-disabled Mongo configuration. No database role query, business-record inspection, or write probe was performed.
-- No migration/backfill/topology/configuration change is required. Preserve both backends' `CRON_ENABLED=false`; no scheduler enablement or automatic recovery/cleanup.
+- Follow-up requires an approved existing admin session and Facility context: active references, archived-reference and edit rejection, historical-reference readability, standalone operation journaling and unchanged #7 pricing snapshots. These authenticated production checks have not passed or failed; they were not performed. Do not create, reset or extract credentials to fill the gap.
+- The model loaded against authorization-disabled standalone WiredTiger Mongo without startup transaction/replica-set errors. No production write probe was performed.
+- No migration/backfill/topology/configuration change was required. Preserve both backends' `CRON_ENABLED=false`; no scheduler enablement or automatic recovery/cleanup.
 - After #14 writes begin, prefer roll-forward. Blind downgrade can bypass coordination and expose private metadata; rollback needs a separately reviewed safe procedure.
 - The [#14 runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) governs explicit recovery. Do not clear reservations or delete operation/fence evidence based on age.
+
+**Next development item: #15 — Template lifecycle authorization**, followed by #9, lifecycle/Contract reconciliation and AHA 2023 benchmark evaluation. This documentation update starts none of that work. CRM/Interaction remains paused and separate.
 
 #7 is closed and deployed; remaining operational work is separate from the completed software remediation:
 

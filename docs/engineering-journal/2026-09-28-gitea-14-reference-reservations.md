@@ -1,6 +1,8 @@
 # Gitea #14: standalone reference reservations and explicit recovery
 
-Base: a8aea6fbe593840b4cbccead0a6565ccc2d9ede0. Implementation pending checkpoint review; no deployment or real-data operation performed.
+Implementation base: a8aea6fbe593840b4cbccead0a6565ccc2d9ede0. Code checkpoint: `1ead56c08174d26c899a47b002666f4e3c2a4bfa`.
+
+Current status: **#14 deployed successfully at `7c3080305aa741805b68c09c38257578bda3bc4c`; startup/runtime verification passed. Authenticated first-use verification remains an open operational item, not a code blocker.** See the September 29 deployment record below.
 
 ## Accepted policy and coordination
 
@@ -58,7 +60,7 @@ After the dependent write, its receipt is journaled into the operation's committ
 
 Part and WorkOrder retain only a single constant-size replay fence after cleanup; Part/Manufacturer retain at most the current source reservation. No business document accumulates receipt or audit arrays. Operation document count grows with operations, intentionally: terminal records remain durable tombstones for deterministic repeat recovery. This change does NOT claim bounded total collection size, implement deletion/compaction, or infer safety from age. Any future pruning requires a separately reviewed protocol preserving recovery/idempotency. Unresolved records are always retained.
 
-There is no backfill or migration, including for documents without metadata. #14 has not deployed, so the superseded synthetic array format needs no compatibility migration. The collection is created on the first operation insert; application database credentials need ordinary collection creation/write permissions (or separately approved pre-provisioning). The model disables automatic collection/index initialization; preview cannot create it. No startup cleanup, TTL, transaction, replica set, or application configuration is introduced. Operational storage/backup planning must include this collection. Deployment still requires fencing old non-participating writers.
+There is no backfill or migration, including for documents without metadata. The superseded synthetic array format was never deployed, so it needs no compatibility migration. The collection is created on the first operation insert; application database credentials need ordinary collection creation/write permissions (or separately approved pre-provisioning). The model disables automatic collection/index initialization; preview cannot create it. No startup cleanup, TTL, transaction, replica set, or application configuration is introduced. Operational storage/backup planning must include this collection. Deployment still requires fencing old non-participating writers.
 
 ## Compatibility and rollout boundary
 
@@ -66,6 +68,34 @@ The #14 paths require no transactions or replica set. Existing independent trans
 
 Frozen reproduction evidence remains untouched. Permanent standalone tests cover competing requests, both race orders, lost acquisition/write/cleanup acknowledgements, retained receipts, no expiry, exact-token/repeated recovery, quiescence refusal, safe explicit abandonment, privacy and unchanged pricing. Broader compatibility verification is recorded in the task handoff.
 
-## Verified test results
+## Verified pre-deployment test results
 
-Focused lifecycle/retention/recovery: 134 tests passed. Backend compatibility: 680 tests across six suites, including those 134 #14 checks and 546 existing ownership/security/compatibility/cost regressions. Frontend compatibility: nine tests across two suites. Total unique tests: 689. No real-data access or deployment occurred. Frozen reproduction checksums and diff-whitespace checks are verified at handoff.
+Focused lifecycle/retention/recovery: 134 tests passed. Backend compatibility: 680 tests across six suites, including those 134 #14 checks and 546 existing ownership/security/compatibility/cost regressions. Frontend compatibility: nine tests across two suites. Total unique tests: 689. No real-data access or deployment occurred during that test phase. Frozen reproduction checksums and diff-whitespace checks were verified at the implementation handoff.
+
+## September 29, 2026 — deployment and operational verification handoff
+
+**Controlled deployment completed successfully** at runtime SHA `7c3080305aa741805b68c09c38257578bda3bc4c`, verified on Gitea and GitHub before deployment. The stable checkout `/home/thecapt/apps/cronus-main` was clean before and after advancement from `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`.
+
+The user authorized a private maintenance window. Three samples found no active application connections and the preceding five minutes of app logs contained no requests. All three application containers stopped together before the shared checkout advanced. Old Node/watch processes were confirmed gone; two read-only Mongo checks found zero old-backend connections and zero active client operations. Core, Contract and frontend then started in order. Normal access was released after verification. No firewall, reverse-proxy, published-port or networking configuration changed.
+
+Existing application containers were reused, with new process start times (UTC):
+
+| Service | Unchanged container ID (short) | Previous start | New start |
+| --- | --- | --- | --- |
+| Core | `efb934aa68e7` | 2026-09-25 12:35:53 | 2026-09-29 09:10:21 |
+| Contract | `86d58510ae99` | 2026-09-25 12:37:13 | 2026-09-29 09:11:21 |
+| Frontend | `c2cfb3b6debe` | 2026-09-25 12:39:21 | 2026-09-29 09:12:01 |
+
+Mongo remained `eb448adced26`, continuously running since 2026-08-13 09:58:17 UTC. All four restart counts remained zero. Compose override hashes were unchanged; both backends retained `CRON_ENABLED=false` and logged disabled schedulers. No migration, backfill, topology or configuration change was required.
+
+Startup/runtime verification passed: source mounts and selected source fingerprints matched, both backends connected to Mongo, protected endpoints returned 401, and the frontend shell plus ten modules returned 200. No startup errors, credential-leak markers, transaction/replica-set errors or unexpected Mongo structural events were observed in the checked logs. Core's duplicate `workOrderId` schema-index warning was confirmed to predate deployment.
+
+The #14 model loaded against authorization-disabled standalone WiredTiger Mongo. Read-only metadata checks confirmed automatic collection/index creation was disabled, no custom model indexes were declared, and `referenceoperations` was absent. No write probe forced collection creation. **First-use creation/use of `referenceoperations` remains unverified in production.** Startup compatibility does not establish a successful protected write.
+
+Database-free synthetic checks against the deployed #7 calculation module passed: captured prices remained unchanged by catalog prices, quantities used captured unit prices, and reads preserved revision and timestamp. The calculation module was unchanged from the previous deployment. These checks do not replace authenticated production pricing/snapshot verification.
+
+Authenticated operational smoke was not performed because no approved admin session/credential source was available. No credentials were created, extracted or exposed, and no production lifecycle/reference writes were performed for smoke testing. Active-reference creation, archived-reference and ordinary-edit rejection, historical-reference readability, operation journaling and authenticated pricing/snapshot checks remain unverified in production. No authenticated API outcomes were recorded.
+
+Authenticated first-use verification remains an **open operational item, not a code blocker**. Follow-up requires an approved existing admin session and Facility context, minimum safe application writes and cleanup only through supported application behavior. After #14-aware writes begin, prefer roll-forward; blind rollback remains unsafe. Do not delete reservation/operation metadata as rollback cleanup.
+
+The next development item is **#15 — Template lifecycle authorization**. This documentation handoff does not start #15 or #9, change rates or CRM, run migration/backfill/repair/recovery/import scripts, or enable schedulers. The deployed runtime remains at the SHA above.

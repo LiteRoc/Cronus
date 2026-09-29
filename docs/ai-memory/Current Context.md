@@ -2,40 +2,41 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Deployment-readiness handoff — September 28, 2026
+## Post-deployment handoff — September 29, 2026
 
-**#14 is merged and ready for controlled deployment; it is not deployed. This documentation update authorizes no runtime or data action.**
+**#14 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated first-use verification remains an open operational item, not a code blocker. This documentation update authorizes no runtime or data action.**
 
 Authoritative state at this documentation-only handoff:
 
-- #14 main SHA, verified on Gitea and GitHub: `1ead56c08174d26c899a47b002666f4e3c2a4bfa`. This handoff changes documentation only, not runtime.
-- Deployed runtime: `c3f0966df5c3d9ccbdb57af5f968bd6d0f77f639`, detached in `/home/thecapt/apps/cronus-main`. Core, Contract and frontend source mounts use the stable checkout.
+- #14 code checkpoint: `1ead56c08174d26c899a47b002666f4e3c2a4bfa`, included in the approved deployed main SHA. This handoff changes documentation only, not runtime.
+- Deployed runtime: `7c3080305aa741805b68c09c38257578bda3bc4c`, clean and detached in `/home/thecapt/apps/cronus-main` at verification. Core, Contract and frontend source mounts use the stable checkout.
 - #7 is closed as a completed software-remediation issue and deployed. Approved Decisions 1–9 remain authoritative.
 - Mary Rutan aggregate-repair preview: **91 assessed, 91 legacy-ambiguous, 0 repairable, 0 unchanged, 0 unsupported, 0 conflicts**. No apply is recommended. No database writes occurred during preview. Historical evidence review is separate follow-up work requiring authorization.
 - Labor-rate publication remains deferred because no authoritative organization/network-wide blended internal cost rate or effective date is approved. Do not infer approval from constants, planning/billing rates or historical data.
 - Core and Contract schedulers remain disabled (`CRON_ENABLED=false`); re-enablement requires separate authorization.
-- Authenticated business-path smoke testing remains unverified because no approved existing credential/session source was available. The preview does not resolve this gap.
+- Authenticated #14 operational smoke was not performed because no approved admin session/credential source was available. No production lifecycle/reference writes were performed for smoke testing. `referenceoperations` first-use creation/use remains unverified in production.
 - Frozen reproduction remains unchanged at `cae8e991137fdbf5ebfe52658512b03a4085aa17`.
 - Interaction remains separate, paused and unmerged at `807bc38122e771dacccbc23fca4a66363dd58d55`; #7 compatibility passed at that checkpoint. CRM remains paused.
 
-### #14 deployment-readiness conclusion
+### #14 deployment verification
 
-Read-only deployment-file/container-metadata review found all three app services using the clean stable checkout above via bind mounts and `npm run dev`. The recorded runtime SHA identifies deployed filesystem source; no independent in-memory module SHA attestation was obtained. Only #14 changes executable code between that runtime checkout and current main; intervening commits are documentation.
+The authorized private maintenance window completed controlled stop/update/start. All three application containers stopped together before checkout advancement. Old processes were confirmed gone and two read-only Mongo checks found zero old-backend connections and zero active client operations. Core, Contract and frontend started in order; normal access was released after verification.
 
-- **Deployment must be controlled stop/update/start, not rolling deployment or live checkout.** Fence incoming core/contract traffic, including directly published API ports and external callers; drain old requests and outstanding database writes. Stop all three application containers and verify old writers cannot resume BEFORE advancing the shared checkout. Container termination alone does not prove database-request drainage.
-- Advance the stopped stable checkout to the exact #14 SHA. Preserve existing deployment overrides and `CRON_ENABLED=false` for both backends. Start/verify core, then contract/frontend, and reopen access only after old writers are excluded. Do not restart MongoDB, enable schedulers, or run repair/import/recovery scripts as part of this sequence.
-- **`referenceoperations` collection permissions are not a blocker in the observed Mongo configuration.** App container URIs contain no credentials and target the Mongo service; the observed process is `mongod --bind_ip_all`, without auth/config-file arguments or configured root-user initialization variables. This is metadata evidence of authorization-disabled Mongo, not a database role query or write probe. No credentials or business records were inspected.
+- Source mounts and selected fingerprints, Mongo connectivity, disabled schedulers and protected endpoint 401 checks passed. Frontend shell and ten modules returned 200. Existing Compose overrides were preserved; Mongo remained continuously running. No startup errors, credential-leak markers or unexpected Mongo structural events were observed. Core's duplicate `workOrderId` schema-index warning predates deployment.
+- The #14 model loaded against authorization-disabled standalone WiredTiger Mongo. No transaction/replica-set errors appeared during startup. `referenceoperations` was absent at verification; no write probe forced its creation. Model loading and observed permissions do not establish successful production first use.
+- Database-free #7 checks passed for captured-price preservation, quantity calculations and non-mutating reads. Authenticated production pricing/snapshot verification remains open with the other smoke checks.
 - No migration, backfill, topology, or runtime configuration change is required. The new collection needs ordinary create/write permission and only its built-in unique `_id` index. Its model disables automatic collection/index initialization; first operation insertion creates the collection. #14 adds no startup cleanup or scheduler. Existing unrelated Mongoose initialization behavior is unchanged.
 - **After #14 writes begin, prefer roll-forward; blind downgrade is unsafe.** Old code ignores reservations and may expose private metadata through old read paths. Any rollback requires fencing/drainage, safe resolution of uncertain operations, and coordination/privacy protections. Do not delete operation records or replay fences as rollback cleanup.
 - Merge-readiness passed: 680 backend tests (including 134 #14 checks), nine frontend tests, syntax and Node TypeScript checks, whitespace checks, unchanged dependency manifests/locks, unchanged frozen evidence, and #7 pricing/snapshot regressions. Frontend app TypeScript TS5103 for `ignoreDeprecations: "6.0"` was reproduced identically on untouched main and remains a non-blocking pre-existing issue.
 
 ### Planned continuation
 
-1. Controlled #14 deployment under separate explicit operational authorization.
-2. Gitea #15 — Template lifecycle authorization.
-3. Gitea #9 — Procedure measurement units.
-4. Lifecycle/Contract reconciliation.
-5. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
+Authenticated #14 first-use verification remains an open operational item when an approved existing admin session and Facility context are available; it is not a code blocker.
+
+1. Gitea #15 — Template lifecycle authorization (next development item; not started by this handoff).
+2. Gitea #9 — Procedure measurement units.
+3. Lifecycle/Contract reconciliation.
+4. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
 
 Do not commit the AHA PDF to Git. Treat AHA useful lives as a benchmark/reference, not an automatic replacement rule. The uploaded guide may later support Template lifecycle benchmark mapping and source attribution. Its suitability and mapping were not evaluated in this handoff.
 
