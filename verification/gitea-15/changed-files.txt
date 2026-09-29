@@ -1,0 +1,16 @@
+core-service/src/models/Asset.js
+core-service/src/models/EquipmentTemplate.js
+core-service/src/routers/_tests_/templateLifecycle.test.mjs
+core-service/src/routers/assetsRouter.js
+core-service/src/routers/templatesRouter.js
+core-service/src/services/operationalOwnership.js
+core-service/src/services/templateArchiveState.js
+core-service/src/services/templateLifecycle.js
+frontend/src/pages/AddTemplate/TemplateCreatePage.tsx
+frontend/src/pages/EditTemplates/TemplateEditPage.tsx
+frontend/src/pages/EditTemplates/templateLifecycle.test.tsx
+frontend/src/pages/ListTemplates/TemplateListPage.tsx
+frontend/src/services/templateAPI.ts
+frontend/src/services/templateLifecycle.test.ts
+frontend/src/services/templatePolicy.ts
+frontend/src/types/EquipmentTemplate.ts

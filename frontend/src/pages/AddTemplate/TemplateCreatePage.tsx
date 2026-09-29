@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { EquipmentTemplate } from "../../types";
 import { createTempleteFromDI, createTemplate } from "../../services/templateAPI";
+import { useUser } from '@/context/UserContext';
+import { canReadTemplates } from '@/services/templatePolicy';
 
 type TemplateFormData = Partial<Omit<EquipmentTemplate, '_id' | 'verified'>> & {
   manufacturer: string;
@@ -13,6 +15,7 @@ type TemplateFormData = Partial<Omit<EquipmentTemplate, '_id' | 'verified'>> & {
 const equipmentClassOptions = ["Class I", "Class II", "Class III", "Other"];
 
 const TemplateCreatePage: React.FC = () => {
+  const { user } = useUser();
   const [formData, setFormData] = useState<TemplateFormData>({
     manufacturer: "",
     model: "",
@@ -20,7 +23,7 @@ const TemplateCreatePage: React.FC = () => {
     equipmentClass: "",
     alarm: false,
     hipaa: false,
-    autoAddPMProcedure: false,
+    autoAddPmProcedure: false,
     requirePmPlan: false,
     excludeFromLifecycle: false,
     excludeFromAEM: false,
@@ -34,6 +37,7 @@ const TemplateCreatePage: React.FC = () => {
   };
 
   const handleSyncFromFDA = async () => {
+    if (!canReadTemplates(user?.role)) return;
     try {
       if (formData.di) {
         setIsSyncing(true);
@@ -57,6 +61,7 @@ const TemplateCreatePage: React.FC = () => {
   };
 
   const handleCreate = async () => {
+    if (user?.role !== 'admin') return;
     const { manufacturer, model, description, equipmentClass } = formData;
 
     if (!manufacturer || !model || !description || !equipmentClass) {
@@ -65,16 +70,14 @@ const TemplateCreatePage: React.FC = () => {
     }
 
     try {
-      const payload = {
-        ...formData,
-        verified: false, // manually created
-      };
-      const res = await createTemplate(payload);
-      navigate(`/templates/edit/${res._id}`);
+      const res = await createTemplate(formData);
+      navigate(`/templates/edit/${res.template._id}`);
     } catch (err) {
       console.error("Template creation failed", err);
     }
   };
+
+  if (!canReadTemplates(user?.role)) return <div role="alert">You do not have access to Templates.</div>;
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -161,7 +164,7 @@ const TemplateCreatePage: React.FC = () => {
         {[
           { label: "Alarm", key: "alarm" },
           { label: "HIPAA", key: "hipaa" },
-          { label: "Auto Add PM Procedure", key: "autoAddPMProcedure" },
+          { label: "Auto Add PM Procedure", key: "autoAddPmProcedure" },
           { label: "Require PM Plan", key: "requirePmPlan" },
           { label: "Exclude from Lifecycle", key: "excludeFromLifecycle" },
           { label: "Exclude from AEM", key: "excludeFromAEM" },
@@ -178,12 +181,12 @@ const TemplateCreatePage: React.FC = () => {
       </div>
 
       <div className="flex gap-4 mt-6">
-        <button
+        {user?.role === 'admin' && <button
           onClick={handleCreate}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           ➕ Create
-        </button>
+        </button>}
         <button
           onClick={() => navigate("/templates")}
           className="px-4 py-2 border rounded hover:bg-gray-100"

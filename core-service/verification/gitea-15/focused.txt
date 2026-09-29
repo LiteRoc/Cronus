@@ -1,0 +1,22 @@
+
+> core-services@1.0.0 test
+> NODE_ENV=test node --experimental-vm-modules --experimental-specifier-resolution=node node_modules/jest/bin/jest.js --runInBand src/routers/_tests_/templateLifecycle.test.mjs --json --outputFile=verification/gitea-15/focused.json
+
+(node:483276) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  console.warn
+    Using NodeJS below 20.19.0
+
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:28:11)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:16:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/index.ts:2:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server/index.js:4:20)
+
+(node:483276) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:483276) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+Test Suites: 1 passed, 1 total
+Tests:       152 passed, 152 total
+Snapshots:   0 total
+Time:        4.777 s
+Ran all test suites matching src/routers/_tests_/templateLifecycle.test.mjs.
+Test results written to: verification/gitea-15/focused.json

@@ -1,0 +1,1 @@
+../cronus-facility-query-isolation/frontend/tsconfig.app.json(6,27): error TS5103: Invalid value for '--ignoreDeprecations'.

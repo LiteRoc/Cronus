@@ -1,0 +1,719 @@
+
+ RUN  v2.1.9 /tmp/cronus-gitea-15/frontend
+
+stderr | src/pages/EditTemplates/templateLifecycle.test.tsx > admin archive action invokes supported helper and navigates after success
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+ ❯ src/pages/EditTemplates/templateLifecycle.test.tsx (13 tests | 1 failed) 401ms
+   × provider sync unwraps the Template response and keeps the editor usable 94ms
+     → Unable to find an accessible element with the role "button" and name `/^Sync$/`
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Edit Template":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-2xl font-bold"[39m
+  [36m/>[39m
+
+  Name "Template Details":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-lg font-semibold text-gray-800"[39m
+  [36m/>[39m
+
+  Name "Sync Template with FDA":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-lg font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-sm text-gray-500"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Back to Templates":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center text-blue-600 hover:text-blue-800"[39m
+  [36m/>[39m
+
+  Name "💾 Save":
+  [36m<button[39m
+    [33mclass[39m=[32m"bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cancel":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "🔄 Sync from FDA":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-yellow-600 hover:underline"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Archive":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-red-600 hover:underline ml-auto"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cancel":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+  [36m/>[39m
+
+  Name "🔄 Sync":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"Synthetic"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"Device"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<textarea[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 w-full rounded"[39m
+    [33mplaceholder[39m=[32m"Enter DI or UDI"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"00000000000001"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"max-w-5xl mx-auto p-6 space-y-6"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-start justify-between gap-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold"[39m
+          [36m>[39m
+            [0mEdit Template[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-sm text-gray-500"[39m
+          [36m>[39m
+            [0mSynthetic[0m
+            [0m — [0m
+            [0mDevice[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"fixed top-4 right-4 z-50"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"flex items-center text-blue-600 hover:text-blue-800"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"mr-2"[39m
+              [33mfill[39m=[32m"currentColor"[39m
+              [33mheight[39m=[32m"1em"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-width[39m=[32m"0"[39m
+              [33mviewBox[39m=[32m"0 0 448 512"[39m
+              [33mwidth[39m=[32m"1em"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M257.5 445.1l-22.2 22.2c-9.4 9.4-24.6 9.4-33.9 0L7 273c-9.4-9.4-9.4-24.6 0-33.9L201.4 44.7c9.4-9.4 24.6-9.4 33.9 0l22.2 22.2c9.5 9.5 9.3 25-.4 34.3L136.6 216H424c13.3 0 24 10.7 24 24v32c0 13.3-10.7 24-24 24H136.6l120.5 114.8c9.8 9.3 10 24.8.4 34.3z"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mBack to Templates[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-lg font-semibold text-gray-800"[39m
+        [36m>[39m
+          [0mTemplate Details[0m
+        [36m</h2>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mManufacturer[0m
+          [36m</label>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"Synthetic"[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mModel[0m
+          [36m</label>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"Device"[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mDescription[0m
+          [36m</label>[39m
+          [36m<textarea[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+          [36m>[39m
+            [0mOriginal[0m
+          [36m</textarea>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700 border-t pt-4"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mDI[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mBrand[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mFDA Code[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mIssuing Agency[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mGMDN[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mClass[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mClass II[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</fieldset>[39m
+      [36m<div>[39m
+        [0mLifecycle history[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-4 mt-6"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m💾 Save[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mCancel[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-yellow-600 hover:underline"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m🔄 Sync from FDA[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-red-600 hover:underline ml-auto"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mArchive[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"bg-white p-6 rounded-lg shadow-md max-w-sm w-full space-y-4"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0mSync Template with FDA[0m
+          [36m</h2>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 w-full rounded"[39m
+            [33mplaceholder[39m=[32m"Enter DI or UDI"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"00000000000001"[39m
+          [36m/>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-end gap-2"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+            [36m>[39m
+              [0mCancel[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"[39m
+            [36m>[39m
+              [0m🔄 Sync[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ✓ src/services/templateLifecycle.test.ts (11 tests) 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/EditTemplates/templateLifecycle.test.tsx > provider sync unwraps the Template response and keeps the editor usable
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name `/^Sync$/`
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Edit Template":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-2xl font-bold"[39m
+  [36m/>[39m
+
+  Name "Template Details":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-lg font-semibold text-gray-800"[39m
+  [36m/>[39m
+
+  Name "Sync Template with FDA":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-lg font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-sm text-gray-500"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Back to Templates":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center text-blue-600 hover:text-blue-800"[39m
+  [36m/>[39m
+
+  Name "💾 Save":
+  [36m<button[39m
+    [33mclass[39m=[32m"bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cancel":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "🔄 Sync from FDA":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-yellow-600 hover:underline"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Archive":
+  [36m<button[39m
+    [33mclass[39m=[32m"text-red-600 hover:underline ml-auto"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cancel":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+  [36m/>[39m
+
+  Name "🔄 Sync":
+  [36m<button[39m
+    [33mclass[39m=[32m"px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  group:
+
+  Name "":
+  [36m<fieldset[39m
+    [33mclass[39m=[32m"bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"Synthetic"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"Device"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<textarea[39m
+    [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<input[39m
+    [33mclass[39m=[32m"border p-2 w-full rounded"[39m
+    [33mplaceholder[39m=[32m"Enter DI or UDI"[39m
+    [33mtype[39m=[32m"text"[39m
+    [33mvalue[39m=[32m"00000000000001"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  Name "":
+  [36m<strong />[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"max-w-5xl mx-auto p-6 space-y-6"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-start justify-between gap-4"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold"[39m
+          [36m>[39m
+            [0mEdit Template[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-sm text-gray-500"[39m
+          [36m>[39m
+            [0mSynthetic[0m
+            [0m — [0m
+            [0mDevice[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"fixed top-4 right-4 z-50"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"flex items-center text-blue-600 hover:text-blue-800"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"mr-2"[39m
+              [33mfill[39m=[32m"currentColor"[39m
+              [33mheight[39m=[32m"1em"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-width[39m=[32m"0"[39m
+              [33mviewBox[39m=[32m"0 0 448 512"[39m
+              [33mwidth[39m=[32m"1em"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M257.5 445.1l-22.2 22.2c-9.4 9.4-24.6 9.4-33.9 0L7 273c-9.4-9.4-9.4-24.6 0-33.9L201.4 44.7c9.4-9.4 24.6-9.4 33.9 0l22.2 22.2c9.5 9.5 9.3 25-.4 34.3L136.6 216H424c13.3 0 24 10.7 24 24v32c0 13.3-10.7 24-24 24H136.6l120.5 114.8c9.8 9.3 10 24.8.4 34.3z"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mBack to Templates[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-lg font-semibold text-gray-800"[39m
+        [36m>[39m
+          [0mTemplate Details[0m
+        [36m</h2>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mManufacturer[0m
+          [36m</label>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"Synthetic"[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mModel[0m
+          [36m</label>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"Device"[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"block text-sm font-medium"[39m
+          [36m>[39m
+            [0mDescription[0m
+          [36m</label>[39m
+          [36m<textarea[39m
+            [33mclass[39m=[32m"border p-2 rounded w-full"[39m
+          [36m>[39m
+            [0mOriginal[0m
+          [36m</textarea>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700 border-t pt-4"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mDI[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mBrand[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mFDA Code[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mIssuing Agency[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mGMDN[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mN/A[0m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<strong>[39m
+              [0mClass[0m
+              [0m:[0m
+            [36m</strong>[39m
+            [0m [0m
+            [0mClass II[0m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</fieldset>[39m
+      [36m<div>[39m
+        [0mLifecycle history[0m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex gap-4 mt-6"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m💾 Save[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mCancel[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-yellow-600 hover:underline"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0m🔄 Sync from FDA[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"text-red-600 hover:underline ml-auto"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mArchive[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"bg-white p-6 rounded-lg shadow-md max-w-sm w-full space-y-4"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"text-lg font-semibold"[39m
+          [36m>[39m
+            [0mSync Template with FDA[0m
+          [36m</h2>[39m
+          [36m<input[39m
+            [33mclass[39m=[32m"border p-2 w-full rounded"[39m
+            [33mplaceholder[39m=[32m"Enter DI or UDI"[39m
+            [33mtype[39m=[32m"text"[39m
+            [33mvalue[39m=[32m"00000000000001"[39m
+          [36m/>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-end gap-2"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 border rounded hover:bg-gray-100"[39m
+            [36m>[39m
+              [0mCancel[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"[39m
+            [36m>[39m
+              [0m🔄 Sync[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../../home/thecapt/apps/cronus/frontend/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../../home/thecapt/apps/cronus/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../../home/thecapt/apps/cronus/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../../home/thecapt/apps/cronus/frontend/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/EditTemplates/templateLifecycle.test.tsx:76:26
+     74|   const inputs = screen.getAllByRole('textbox');
+     75|   fireEvent.change(inputs[inputs.length - 1], { target: { value: '0000…
+     76|   fireEvent.click(screen.getByRole('button', { name: /^Sync$/ }));
+       |                          ^
+     77|   await waitFor(() => expect(api.syncTemplate).toHaveBeenCalledWith('t…
+     78|   await waitFor(() => expect(screen.getByDisplayValue('Provider data')…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 23 passed (24)
+   Start at  11:39:55
+   Duration  2.34s (transform 234ms, setup 239ms, collect 340ms, tests 411ms, environment 787ms, prepare 194ms)
+

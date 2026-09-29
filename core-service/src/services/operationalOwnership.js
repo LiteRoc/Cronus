@@ -77,9 +77,15 @@ async function department(value, facilityId, session = null) {
 }
 const assetCreateFields = ['templateId','ctrlNumber','departmentId','locationNote','notes','manufacturer','model','description','serialNumber','parentAsset','relationToParent','maintenanceSchedule','attributes'];
 const assetEditFields = [...assetCreateFields, 'revisionNumber','status','purchase','acquisitionDate','installationDate','retirementDate','purchaseDate','purchaseCost','budgetValue','contractValue','manufacturerRecommendedPMFrequency','equipmentClass','classificationName','regulationNumber','panel','recordStatus','prescriptionRequired','otc','submissionNumber','manufacturerDUNS','gmdnDefinition','riskLevel','isHIPAARelevant','isAlarmed','isSecuritySensitive','isAEMExcluded','documents','images'];
-async function assetReferences(payload, facilityId, ownId = null) {
+async function assetReferences(payload, facilityId, ownId = null, existingTemplateId = null) {
   if (Object.hasOwn(payload, 'departmentId')) payload.departmentId = await department(payload.departmentId, facilityId);
-  if (payload.templateId) payload.templateId = (await reference(Template, payload.templateId))._id;
+  if (payload.templateId) {
+    const template = await reference(Template, payload.templateId);
+    if (String(template._id) !== String(existingTemplateId) && require('./templateLifecycle').isArchived(template)) {
+      fail(409, 'Template is archived');
+    }
+    payload.templateId = template._id;
+  }
   if (payload.parentAsset) {
     if (String(payload.parentAsset) === String(ownId)) fail(400, 'Invalid parent relationship');
     await reference(Asset, payload.parentAsset, { facilityId });

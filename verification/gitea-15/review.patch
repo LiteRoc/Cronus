@@ -1,0 +1,1751 @@
+diff --git a/core-service/src/models/Asset.js b/core-service/src/models/Asset.js
+--- a/core-service/src/models/Asset.js
++++ b/core-service/src/models/Asset.js
+@@ -168,10 +168,17 @@
+ AssetSchema.index({ templateId: 1 });
+ 
+ /** Guard rails (no self/loop) */
+-AssetSchema.pre('save', async function (next) {
+-  if (!this.isModified('parentAsset')) return next();
++AssetSchema.methods.validateParentRelationship = async function () {
++  if (!this.isModified('parentAsset')) return;
++  const reject = message => {
++    const error = new mongoose.Error.ValidationError(this);
++    error.addError('parentAsset', new mongoose.Error.ValidatorError({ path: 'parentAsset', message }));
++    // This business rejection is raised before save issues a persistence write.
++    error.templateNotWritten = true;
++    throw error;
++  };
+   if (this.parentAsset && this.parentAsset.equals(this._id)) {
+-    return next(new Error('An asset cannot be its own parent.'));
++    reject('An asset cannot be its own parent.');
+   }
+   if (this.parentAsset) {
+     const Asset = this.constructor;
+@@ -179,13 +186,15 @@
+     let hops = 0;
+     while (cursor?.parentAsset && hops < 20) {
+       if (String(cursor.parentAsset) === String(this._id)) {
+-        return next(new Error('Cyclic relationship detected.'));
++        reject('Cyclic relationship detected.');
+       }
+       cursor = await Asset.findById(cursor.parentAsset).select('parentAsset').lean();
+       hops++;
+     }
+   }
+-  next();
++};
++AssetSchema.pre('save', async function () {
++  await this.validateParentRelationship();
+ });
+ 
+ module.exports = mongoose.model('Asset', AssetSchema, 'assets');
+\ No newline at end of file
+diff --git a/core-service/src/models/EquipmentTemplate.js b/core-service/src/models/EquipmentTemplate.js
+--- a/core-service/src/models/EquipmentTemplate.js
++++ b/core-service/src/models/EquipmentTemplate.js
+@@ -67,7 +67,29 @@
+   mrSafetyStatus: { type: String, default: '' },
+   issuingAgency: { type: String, default: '' }, // GS1/HIBCC/ICCBBA
+   verified: { type: Boolean, default: false },
++  verifiedAt: { type: Date, default: null },
++  verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
++  verificationSource: { type: String, default: null },
+   status: { type: String, default: 'Active' },
++  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
++  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
++  deletedAt: { type: Date, default: null },
++  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
++  // Read compatibility only. New archives use deletedAt/deletedBy and Archived.
++  archivedAt: { type: Date },
++  archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
++  isArchived: { type: Boolean },
++  // No expiry: an uncertain dependent write must continue to block archive.
++  templateReferenceReservation: {
++    type: new mongoose.Schema({
++      token: { type: String, required: true },
++      acquiredAt: { type: Date, required: true },
++      operation: { type: String, required: true },
++      destinationId: { type: mongoose.Schema.Types.ObjectId, required: true },
++    }, { _id: false }),
++    default: undefined,
++    select: false,
++  },
+ 
+   // Extra fields
+   classificationName: { type: String, default: '' },
+@@ -90,6 +112,17 @@
+ 
+ }, { timestamps: true });
+ 
++EquipmentTemplateSchema.pre('init', function (raw) {
++  require('../services/templateArchiveState').remember(this, raw);
++});
++
++for (const method of ['toJSON', 'toObject']) EquipmentTemplateSchema.set(method, {
++  transform(_doc, result) {
++    delete result.templateReferenceReservation;
++    return result;
++  },
++});
++
+ // Fast filtering and distincts
+ EquipmentTemplateSchema.index(
+   { manufacturer: 1, model: 1 },
+@@ -102,4 +135,4 @@
+ // Optional: product code lookups / admin searches
+ EquipmentTemplateSchema.index({ fdaProductCode: 1 });
+ 
+-module.exports = mongoose.model('EquipmentTemplate', EquipmentTemplateSchema);
+\ No newline at end of file
++module.exports = mongoose.model('EquipmentTemplate', EquipmentTemplateSchema);
+diff --git a/core-service/src/routers/_tests_/templateLifecycle.test.mjs b/core-service/src/routers/_tests_/templateLifecycle.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/core-service/src/routers/_tests_/templateLifecycle.test.mjs
+@@ -0,0 +1,389 @@
++import { createRequire } from 'node:module';
++import { readFileSync } from 'node:fs';
++import path from 'node:path';
++import vm from 'node:vm';
++import express from 'express';
++import request from 'supertest';
++import jwt from 'jsonwebtoken';
++import { jest } from '@jest/globals';
++import { createIsolatedMongoHarness } from '../../test/mongoMemoryHarness.mjs';
++const requireCore = createRequire(new URL('../../../package.json', import.meta.url));
++const m = requireCore('mongoose'), axios = requireCore('axios');
++const actor = '000000000000000000000001', spoof = '000000000000000000000002', facility = '000000000000000000000003';
++const old = '2001-02-03T04:05:06.000Z', secret = 'synthetic-template-lifecycle';
++let h, app, T, A, F, W, lifecycle, adapter, providerCalls, providerReply;
++const oid = () => new m.Types.ObjectId();
++const payload = (extra = {}) => ({ manufacturer: 'Synthetic maker', model: 'Synthetic model', description: 'Synthetic', equipmentClass: 'Class II', ...extra });
++const seed = (extra = {}) => T.create(payload(extra));
++const stored = d => T.collection.findOne({ _id: d._id });
++const snapshot = async d => JSON.stringify(await stored(d));
++const headers = (role = 'technician', context = true) => role === 'anonymous' ? {} : ({
++  Authorization: `Bearer ${jwt.sign({ sub: actor, ...(role === 'missing' ? {} : { role }), ...(context ? { facilityId: facility, facilities: [facility] } : {}) }, secret, { issuer: 'cronus.api', audience: 'cronus.app', expiresIn: '10m' })}`,
++  ...(context ? { 'x-facility-id': facility } : {}),
++});
++const send = (method, url, data, role = 'technician', context = true) => request(app)[method](url).set(headers(role, context)).send(data);
++const archive = d => send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(200);
++const asset = (extra = {}) => A.create({ ctrlNumber: 'SYNTHETIC', manufacturer: 'Synthetic', model: 'Device', facilityId: facility, ...extra });
++
++// Evaluate real mount declarations without executing deployment startup or cron.
++function mountedApp() {
++  const captured = express(); captured.listen = () => {};
++  const routers = Object.fromEntries(['templates', 'assets', 'workOrder', 'dashboard'].map(n => [`./src/routers/${n}Router`, requireCore(`./src/routers/${n}Router`)]));
++  const fakeRequire = name => {
++    if (name === 'express') return Object.assign(() => captured, express);
++    if (name === 'path') return path;
++    if (name === 'process') return { title: 'synthetic' };
++    if (name === 'dotenv') return { config() {} };
++    if (name === 'debug') return () => () => {};
++    if (routers[name]) return routers[name];
++    if (name === './src/middleware/authMiddleware') return requireCore(name);
++    if (name === './src/middleware/forwardContractHeaders') return { attachContractClient: (_q, _s, next) => next() };
++    if (name.includes('/routers/')) {
++      const r = express.Router(); r.vendorJsonErrorHandler = r.supplierJsonErrorHandler = r.contactJsonErrorHandler = r.followUpJsonErrorHandler = (_q, _s, next) => next(); return r;
++    }
++    if (name.includes('/models/')) return {};
++    if (name === './src/config/db') return () => {};
++    if (name === './src/cronJobs/index') return {};
++    if (['morgan', 'cors'].includes(name)) return () => (_q, _s, next) => next();
++    if (name === 'express-ejs-layouts') return (_q, _s, next) => next();
++    throw Error(`Unexpected startup dependency ${name}`);
++  };
++  vm.runInNewContext(readFileSync(new URL('../../../app.js', import.meta.url), 'utf8'), { require: fakeRequire, __dirname: '/synthetic-no-public-files', process: { env: {} }, console: { log() {} } });
++  return captured;
++}
++jest.setTimeout(120000);
++beforeAll(async () => {
++  process.env.NODE_ENV = 'test'; process.env.JWT_SECRET = secret; process.env.JWT_ISS = 'cronus.api'; process.env.JWT_AUD = 'cronus.app'; process.env.FDA_GUDID_BASE = 'http://synthetic-provider.invalid';
++  // Baseline has an unsupported partial index. Do not change deployed indexes;
++  // explicitly install the supported DI uniqueness index in this isolated DB.
++  m.set('autoIndex', false);
++  h = await createIsolatedMongoHarness(m);
++  T = requireCore('./src/models/EquipmentTemplate'); A = requireCore('./src/models/Asset'); F = requireCore('./src/models/Facility'); W = requireCore('./src/models/WorkOrder');
++  lifecycle = requireCore('./src/services/templateLifecycle');
++  await T.collection.createIndex({ di: 1 }, { unique: true, sparse: true });
++  adapter = axios.defaults.adapter;
++  axios.defaults.adapter = async config => {
++    if (config.url !== 'http://synthetic-provider.invalid/devices/lookup.json') throw Error('Unexpected external request refused');
++    providerCalls++;
++    return { data: providerReply || { device: { di: config.params.di, companyName: 'Synthetic provider', versionModelNumber: 'Synthetic provider model', deviceDescription: 'Synthetic refreshed description' } }, status: 200, statusText: 'OK', headers: {}, config };
++  };
++  app = mountedApp();
++});
++beforeEach(async () => {
++  for (const method of ['log', 'warn', 'error', 'dir']) jest.spyOn(console, method).mockImplementation(() => {});
++  providerCalls = 0; providerReply = null;
++  await F.collection.insertOne({ _id: new m.Types.ObjectId(facility), name: 'Synthetic Facility' });
++});
++afterEach(async () => {
++  jest.restoreAllMocks();
++  if (h) await Promise.all([T, A, F, W].map(Model => Model.deleteMany({})));
++});
++afterAll(async () => { axios.defaults.adapter = adapter; if (h) await h.stop(); });
++
++test('configured and alternate MongoDB targets are refused', async () => {
++  await expect(m.connect(process.env.MONGO_URI)).rejects.toThrow('not issued');
++  await expect(m.connect('mongodb://127.0.0.1:1/forbidden')).rejects.toThrow('not issued');
++});
++for (const role of ['anonymous', 'customer', 'viewer', 'tech', 'missing', 'unknown']) test(`${role}: all Template reads and writes enforce the canonical role boundary`, async () => {
++  const d = await seed({ di: '00000000000001' }), before = await snapshot(d), expected = role === 'anonymous' ? 401 : 403;
++  for (const [method, url, body] of [
++    ['get', '/templates'], ['get', `/templates/${d.id}`], ['get', '/templates/distinct/manufacturers'],
++    ['get', '/templates/distinct/models?manufacturer=Synthetic'], ['get', `/templates/${d.id}/lifecycle`],
++    ['post', '/templates', payload()], ['put', `/templates/${d.id}`, { description: 'Changed' }],
++    ['patch', `/templates/${d.id}/archive`, {}], ['patch', `/templates/${d.id}/achive`, {}],
++    ['patch', `/templates/${d.id}/sync-gudid`, {}], ['post', '/templates/from-di', { di: d.di }],
++    ['post', '/templates/from-di-or-udi', { di: d.di }],
++  ]) await send(method, url, body, role).expect(expected);
++  expect(await snapshot(d)).toBe(before); expect(providerCalls).toBe(0);
++});
++for (const role of ['admin', 'technician']) test(`${role}: active shared reads and ordinary business updates work without Facility context`, async () => {
++  const d = await seed();
++  await send('get', '/templates', undefined, role, false).expect(200);
++  await send('get', `/templates/${d.id}`, undefined, role, false).expect(200);
++  await send('get', '/templates/distinct/manufacturers', undefined, role, false).expect(200);
++  await send('get', `/templates/distinct/models?manufacturer=${encodeURIComponent(d.manufacturer)}`, undefined, role, false).expect(200);
++  const r = await send('put', `/templates/${d.id}`, { description: 'Changed', lifecycleDefaults: { expectedLifeYears: 10 }, benchmark: { confidence: 'high' }, isTestEquipment: true }, role, false).expect(200);
++  expect(r.body.template.description).toBe('Changed'); expect(r.body.template.updatedBy).toBe(actor);
++  expect((await stored(d)).lifecycleDefaults.expectedLifeYears).toBe(10);
++});
++test('manual create remains admin-only and assigns server provenance', async () => {
++  await send('post', '/templates', payload()).expect(403);
++  const r = await send('post', '/templates', payload(), 'admin', false).expect(201);
++  expect(r.body.template).toMatchObject({ status: 'Active', verified: false, createdBy: actor, updatedBy: actor, deletedAt: null, deletedBy: null });
++  expect(r.body.template.createdAt).toBeTruthy(); expect(r.body.template).not.toHaveProperty('templateReferenceReservation');
++});
++const protectedFields = ['_id', '__v', 'status', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'deletedAt', 'deletedBy', 'archivedAt', 'archivedBy', 'isArchived', 'verified', 'verifiedAt', 'verifiedBy', 'verificationSource', 'duplicateOf', 'templateReferenceReservation', 'facilityId'];
++for (const key of protectedFields) for (const role of ['admin', 'technician']) test(`${role}: protected ${key} rejected on ordinary create/update without writes`, async () => {
++  const d = await seed(), before = await snapshot(d);
++  const value = key.endsWith('At') ? old : key === 'status' ? 'Archived' : key === 'verified' || key === 'isArchived' ? true : spoof;
++  await send('post', '/templates', payload({ [key]: value }), role).expect(role === 'admin' ? 400 : 403);
++  await send('put', `/templates/${d.id}`, { [key]: value }, role).expect(400);
++  expect(await T.countDocuments()).toBe(1); expect(await snapshot(d)).toBe(before);
++});
++for (const body of [[], [{ $set: { status: 'Active', deletedAt: null, createdBy: spoof } }], { $unset: { status: 1 } }, { $set: { deletedAt: null } }, { 'benchmark.confidence': 'high' }, { benchmark: { $set: { confidence: 'high' } } }, { lifecycleDefaults: { deletedAt: old } }, { constructor: { prototype: {} } }]) test(`operators, pipelines and nested protected input rejected: ${JSON.stringify(body)}`, async () => {
++  const d = await seed(); await archive(d); const before = await snapshot(d);
++  await send('put', `/templates/${d.id}`, body).expect(400);
++  await send('post', '/templates', body, 'admin').expect(400);
++  expect(await snapshot(d)).toBe(before); expect(await T.countDocuments()).toBe(1);
++});
++for (const body of [{ manufacturer: null }, { lifecycleDefaults: { expectedLifeYears: -1 } }, { benchmark: { confidence: 'UNDECLARED' } }, { benchmark: { expectedUsefulLifeYears: -1 } }, { eolYears: 'not-a-number' }]) test(`business update validates ${JSON.stringify(body)}`, async () => {
++  const d = await seed(), before = await snapshot(d);
++  await send('put', `/templates/${d.id}`, body).expect(400); expect(await snapshot(d)).toBe(before);
++});
++for (const archived of [{ status: 'Archived' }, { deletedAt: new Date(old) }, { deletedBy: new m.Types.ObjectId(spoof) }, { archivedAt: new Date(old) }, { archivedBy: new m.Types.ObjectId(spoof) }, { isArchived: true }]) test(`legacy archive marker ${Object.keys(archived)[0]} blocks every new reference and mutation but retains history`, async () => {
++  const d = await seed({ di: '00000000000001', isTestEquipment: true, lifecycleDefaults: { expectedLifeYears: 9 }, ...archived });
++  const history = await asset({ templateId: d._id, assignedTo: actor }), unrelated = await asset({ ctrlNumber: 'UNRELATED' });
++  const before = await snapshot(d);
++  for (const role of ['admin', 'technician']) {
++    await send('put', `/templates/${d.id}`, { description: 'Forbidden' }, role).expect(409);
++    await send('put', `/templates/${d.id}`, { status: 'Active' }, role).expect(400);
++    await send('patch', `/templates/${d.id}/sync-gudid`, {}, role).expect(409);
++    await send('post', '/templates/from-di', { di: d.di }, role).expect(409);
++    await send('post', '/templates/from-di-or-udi', { udi: `(01)${d.di}` }, role).expect(409);
++    await send('post', '/templates/from-di-or-udi', { di: d.di, createAsset: true, asset: { ctrlNumber: 'NEW' } }, role).expect(409);
++    await send('post', '/assets', { ctrlNumber: 'NEW', templateId: d.id }, role).expect(409);
++    await send('put', `/assets/${unrelated.id}`, { templateId: d.id }, role).expect(409);
++  }
++  expect(providerCalls).toBe(0); expect(await snapshot(d)).toBe(before); expect(await A.countDocuments()).toBe(2);
++  const list = await send('get', '/templates').expect(200); expect(list.body.templates).toEqual([]); expect(list.body.totalCount).toBe(0);
++  expect((await send('get', '/templates/distinct/manufacturers').expect(200)).body).toEqual([]);
++  expect((await send('get', `/templates/distinct/models?manufacturer=${encodeURIComponent(d.manufacturer)}`).expect(200)).body).toEqual([]);
++  await send('get', `/templates/${d.id}`).expect(200);
++  expect((await send('get', `/assets/${history.id}`).expect(200)).body.templateId._id).toBe(d.id);
++  expect((await send('post', '/assets/batch', { assetIds: [history.id] }).expect(200)).body.assets[0].templateId._id).toBe(d.id);
++  expect((await send('get', `/assets/${history.id}/lifecycle`).expect(200)).body.templateId).toBe(d.id);
++  expect((await send('get', `/templates/${d.id}/lifecycle`).expect(200)).body.summary.totalAssets).toBe(1);
++  expect((await send('get', '/assets/test-equipment').expect(200)).body.map(x => x._id)).toContain(history.id);
++  await send('put', `/assets/${history.id}`, { templateId: d.id, description: 'Unchanged historical link' }).expect(200);
++  await archive(d); expect(await snapshot(d)).toBe(before); // Never invent legacy provenance.
++  const created = await send('post', '/templates', payload({ di: '00000000000002' }), 'admin').expect(201);
++  expect(created.body.template.duplicateOf).toBeNull(); // Archived duplicate candidates excluded.
++});
++test('archive is admin-only, consistent, idempotent through canonical and legacy paths', async () => {
++  const d = await seed();
++  for (const suffix of ['archive', 'achive']) await send('patch', `/templates/${d.id}/${suffix}`, {}).expect(403);
++  await archive(d); const s = await stored(d);
++  expect(s.status).toBe('Archived'); expect(String(s.deletedBy)).toBe(actor); expect(s.deletedAt).toBeInstanceOf(Date); expect(String(s.updatedBy)).toBe(actor);
++  const before = await snapshot(d);
++  await send('patch', `/templates/${d.id}/achive`, {}, 'admin').expect(200); await archive(d);
++  expect(await snapshot(d)).toBe(before);
++  await send('delete', `/templates/${d.id}`, {}, 'admin').expect(404);
++});
++test('legacy missing status/metadata remains shared and usable', async () => {
++  const id = oid(); await T.collection.insertOne({ _id: id, manufacturer: 'Legacy', model: 'Synthetic' });
++  const r = await send('post', '/assets', { ctrlNumber: 'LEGACY', templateId: String(id) }).expect(201); expect(r.body.asset.templateId).toBe(String(id));
++});
++for (const route of ['from-di', 'from-di-or-udi']) test(`${route}: provider-only verification, valid create/update and no resurrection`, async () => {
++  const r = await send('post', `/templates/${route}`, { di: '00000000000001' }, 'technician', false).expect(201);
++  const d = await T.findById(r.body.template._id);
++  expect(r.body.template).toMatchObject({ verified: true, verifiedBy: actor, verificationSource: 'AccessGUDID', status: 'Active' });
++  expect(r.body.template.verifiedAt).toBeTruthy(); expect(r.body.template).not.toHaveProperty('facilityId');
++  await send('post', `/templates/${route}`, { di: d.di }).expect(201); expect(await T.countDocuments()).toBe(1);
++  await archive(d); const before = await snapshot(d); await send('post', `/templates/${route}`, { di: d.di }).expect(409); expect(await snapshot(d)).toBe(before);
++});
++for (const route of ['from-di', 'from-di-or-udi']) for (const key of ['status', 'verified', 'verifiedBy', 'createdBy', 'deletedAt', 'duplicateOf']) test(`${route}: rejects caller ${key} before provider`, async () => {
++  await send('post', `/templates/${route}`, { di: '00000000000001', [key]: spoof }).expect(400); expect(providerCalls).toBe(0); expect(await T.countDocuments()).toBe(0);
++});
++test('provider refresh preserves verification; ordinary changed FDA data invalidates it, benchmark edits do not', async () => {
++  const d = await seed({ di: '00000000000001' });
++  await send('patch', `/templates/${d.id}/sync-gudid`, {}).expect(200);
++  const verified = await stored(d);
++  await send('put', `/templates/${d.id}`, { benchmark: { confidence: 'high' } }).expect(200);
++  expect((await stored(d)).verifiedAt).toEqual(verified.verifiedAt);
++  await send('put', `/templates/${d.id}`, { description: 'Manual correction' }).expect(200);
++  const edited = await stored(d); expect(edited.verified).toBe(false); expect(edited.verifiedAt).toBeNull(); expect(edited.verifiedBy).toBeNull(); expect(edited.verificationSource).toBeNull();
++  await send('patch', `/templates/${d.id}/sync-gudid`, { verifiedBy: spoof }).expect(400);
++});
++test('duplicate references are server-derived and historical duplicate remains resolvable', async () => {
++  const d = await seed({ di: '00000000000001' });
++  const r = await send('post', '/templates', payload({ di: '00000000000002' }), 'admin').expect(201);
++  expect(r.body.template.duplicateOf).toBe(d.id); expect(await stored(d)).not.toHaveProperty('templateReferenceReservation');
++  await archive(d);
++  expect((await T.findById(r.body.template._id).populate('duplicateOf')).duplicateOf.id).toBe(d.id);
++  await send('post', '/templates', payload({ di: '00000000000003', duplicateOf: d.id }), 'admin').expect(400);
++  await send('put', `/templates/${r.body.template._id}`, { duplicateOf: d.id }).expect(400);
++});
++test('established archived-Template test equipment remains usable on a WorkOrder', async () => {
++  const d = await seed({ isTestEquipment: true });
++  const a = await asset({ templateId: d._id, assignedTo: actor });
++  const w = await W.create({ facilityId: facility, assetId: a._id, description: 'Synthetic', workOrderNumber: 1 });
++  await archive(d);
++  await send('post', `/workorders/${w.id}/test-equipment`, { equipmentId: a.id }).expect(200);
++  expect(String((await W.findById(w.id)).testEquipmentUsed[0].equipmentId)).toBe(a.id);
++});
++test('lifecycle selected Facility requirement remains enforced for authorized roles', async () => {
++  const d = await seed();
++  await send('get', `/templates/${d.id}/lifecycle`, undefined, 'technician', false).expect(400);
++  await request(app).get(`/templates/${d.id}/lifecycle`).set(headers()).set('x-facility-id', String(oid())).expect(403);
++});
++test('invalid and absent mutation IDs fail safely', async () => {
++  for (const [value, status] of [['bad-id', 400], [String(oid()), 404]]) {
++    await send('put', `/templates/${value}`, { description: 'Synthetic' }).expect(status);
++    await send('patch', `/templates/${value}/archive`, {}, 'admin').expect(status);
++    await send('patch', `/templates/${value}/sync-gudid`, {}).expect(status);
++  }
++});
++
++test('archive wins between ordinary update read and write', async () => {
++  const d = await seed(); const validate = T.prototype.validate;
++  jest.spyOn(T.prototype, 'validate').mockImplementationOnce(async function (...args) { await archive(d); return validate.apply(this, args); });
++  await send('put', `/templates/${d.id}`, { description: 'Forbidden stale edit' }).expect(409);
++  expect((await stored(d)).description).toBe('Synthetic');
++});
++for (const op of ['create', 'update', 'udi']) test(`archive wins before ${op} new reference reservation`, async () => {
++  const d = await seed({ di: '00000000000001' }), a = await asset();
++  const original = lifecycle.withReference;
++  jest.spyOn(lifecycle, 'withReference').mockImplementationOnce(async (...args) => { await archive(d); return original(...args); });
++  if (op === 'create') await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW' }).expect(409);
++  if (op === 'update') await send('put', `/assets/${a.id}`, { templateId: d.id }).expect(409);
++  if (op === 'udi') await send('post', '/templates/from-di-or-udi', { di: d.di, createAsset: true, asset: { ctrlNumber: 'NEW' } }).expect(409);
++  expect(await A.countDocuments({ templateId: d._id })).toBe(0);
++});
++test('new reference reservation blocks archive until the write completes; no metadata leaks', async () => {
++  const d = await seed(), create = A.create.bind(A);
++  jest.spyOn(A, 'create').mockImplementationOnce(async (...args) => {
++    await send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(409);
++    expect((await send('get', `/templates/${d.id}`).expect(200)).body).not.toHaveProperty('templateReferenceReservation');
++    return create(...args);
++  });
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW' }).expect(201);
++  expect(await stored(d)).not.toHaveProperty('templateReferenceReservation'); await archive(d);
++});
++test('uncertain dependent write retains reservation and blocks archive and new reference', async () => {
++  const d = await seed(); jest.spyOn(A, 'create').mockRejectedValueOnce(Error('Synthetic uncertain acknowledgement'));
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW' }).expect(500);
++  const token = (await stored(d)).templateReferenceReservation.token;
++  await send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(409);
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'RETRY' }).expect(409);
++  expect((await stored(d)).templateReferenceReservation.token).toBe(token);
++});
++test('definitive validation failure releases reservation without changing Template audit', async () => {
++  const d = await seed(), before = await snapshot(d);
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW', relationToParent: 'invalid-enum' }).expect(400);
++  expect(await snapshot(d)).toBe(before); await archive(d);
++});
++test('stale unchanged historical Asset reference cannot undo concurrent unlink', async () => {
++  const d = await seed(), a = await asset({ templateId: d._id }); await archive(d);
++  const save = A.prototype.save;
++  jest.spyOn(A.prototype, 'save').mockImplementationOnce(async function (...args) {
++    await A.collection.updateOne({ _id: a._id }, { $set: { templateId: null } });
++    return save.apply(this, args);
++  });
++  await send('put', `/assets/${a.id}`, { templateId: d.id, description: 'Stale' }).expect(409);
++  expect((await A.findById(a.id)).templateId).toBeNull();
++});
++
++test('archive during provider lookup prevents stale refresh and DI resurrection', async () => {
++  const d = await seed({ di: '00000000000001' }), get = axios.get.bind(axios);
++  jest.spyOn(axios, 'get').mockImplementationOnce(async (...args) => { await archive(d); return get(...args); });
++  await send('post', '/templates/from-di', { di: d.di }).expect(409);
++  expect((await stored(d)).status).toBe('Archived'); expect((await stored(d)).manufacturer).toBe('Synthetic maker');
++});
++test('provider duplicate discovery skips archives and preserves an unchanged historical duplicate', async () => {
++  const d = await seed({ di: '00000000000002', manufacturer: 'Synthetic provider', model: 'Synthetic provider model' }); await archive(d);
++  const created = await send('post', '/templates/from-di', { di: '00000000000001' }).expect(201);
++  expect(created.body.template.duplicateOf).toBeNull();
++  await T.collection.updateOne({ _id: new m.Types.ObjectId(created.body.template._id) }, { $set: { duplicateOf: d._id } });
++  const synced = await send('patch', `/templates/${created.body.template._id}/sync-gudid`, {}).expect(200);
++  expect(synced.body.template.duplicateOf).toBe(d.id);
++});
++test('duplicate reference reservation blocks archive until manual Template creation finishes', async () => {
++  const d = await seed({ di: '00000000000001' }), save = T.prototype.save;
++  jest.spyOn(T.prototype, 'save').mockImplementationOnce(async function (...args) {
++    await send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(409);
++    return save.apply(this, args);
++  });
++  const r = await send('post', '/templates', payload({ di: '00000000000002' }), 'admin').expect(201);
++  expect(r.body.template.duplicateOf).toBe(d.id); expect(await stored(d)).not.toHaveProperty('templateReferenceReservation'); await archive(d);
++});
++test('archive between duplicate discovery and reservation blocks new duplicate reference', async () => {
++  const d = await seed({ di: '00000000000001' }), validate = T.prototype.validate;
++  jest.spyOn(T.prototype, 'validate').mockImplementationOnce(async function (...args) { await archive(d); return validate.apply(this, args); });
++  await send('post', '/templates', payload({ di: '00000000000002' }), 'admin').expect(409);
++  expect(await T.countDocuments()).toBe(1);
++});
++test('lost reference acquisition acknowledgement retains reservation before any dependent write', async () => {
++  const d = await seed(), update = T.findOneAndUpdate.bind(T);
++  jest.spyOn(T, 'findOneAndUpdate').mockImplementationOnce(async (...args) => { await update(...args); throw Error('Synthetic lost acquire acknowledgement'); });
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW' }).expect(500);
++  expect(await A.countDocuments()).toBe(0); expect((await stored(d)).templateReferenceReservation.token).toBeTruthy();
++  await send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(409);
++});
++test('lost dependent commit acknowledgement retains reservation even when reference exists', async () => {
++  const d = await seed(), create = A.create.bind(A);
++  jest.spyOn(A, 'create').mockImplementationOnce(async (...args) => { await create(...args); throw Error('Synthetic lost commit acknowledgement'); });
++  await send('post', '/assets', { templateId: d.id, ctrlNumber: 'NEW' }).expect(500);
++  expect(await A.countDocuments({ templateId: d._id })).toBe(1); expect((await stored(d)).templateReferenceReservation.token).toBeTruthy();
++  await send('patch', `/templates/${d.id}/archive`, {}, 'admin').expect(409);
++});
++
++for (const field of ["deletedAt", "deletedBy", "archivedAt", "archivedBy", "isArchived"]) {
++  for (const value of [[null, spoof], [null], [spoof], [], {}, "invalid-legacy", 0, false]) {
++    test(`malformed archive ${field}=${JSON.stringify(value)} fails closed consistently`, async () => {
++      const id = oid();
++      await T.collection.insertOne({ _id: id, ...payload(), [field]: value });
++      const d = await T.findById(id), raw = await stored(d), before = JSON.stringify(raw);
++      expect(lifecycle.isArchived(raw)).toBe(true); expect(lifecycle.isArchived(d)).toBe(true);
++      expect(await T.countDocuments({ _id: id, ...lifecycle.activeFilter() })).toBe(0);
++      await send("post", "/assets", { ctrlNumber: "MALFORMED", templateId: String(id) }).expect(409);
++      await expect(lifecycle.withReference(id, "synthetic-review", oid(), () => { throw Error("must not write"); })).rejects.toMatchObject({ status: 409 });
++      await send("put", `/templates/${id}`, { description: "Forbidden" }).expect(409);
++      await send("patch", `/templates/${id}/sync-gudid`, {}).expect(409);
++      await archive(d); expect(await snapshot(d)).toBe(before);
++      expect((await send("get", "/templates").expect(200)).body.templates).toEqual([]);
++      expect((await send("get", "/templates/distinct/manufacturers").expect(200)).body).toEqual([]);
++      const historical = await asset({ templateId: id });
++      expect((await send("get", `/assets/${historical.id}`).expect(200)).body.templateId._id).toBe(String(id));
++      expect(await snapshot(d)).toBe(before);
++    });
++  }
++}
++for (const value of [[null], ["Archived"], {}, 1, false]) test(`malformed status ${JSON.stringify(value)} stays protected after hydration`, async () => {
++  const id = oid(); await T.collection.insertOne({ _id: id, ...payload(), status: value });
++  const d = await T.findById(id), before = await snapshot(d);
++  expect(lifecycle.isArchived(d)).toBe(true);
++  expect(await T.countDocuments({ _id: id, ...lifecycle.activeFilter() })).toBe(0);
++  await send("post", "/assets", { ctrlNumber: "MALFORMED", templateId: String(id) }).expect(409);
++  await archive(d); expect(await snapshot(d)).toBe(before);
++});
++for (const marker of [{}, { deletedAt: null, deletedBy: null, archivedAt: null, archivedBy: null, isArchived: null, status: null }]) test(`canonical unarchived missing/exact-null metadata ${JSON.stringify(marker)}`, async () => {
++  const id = oid(); await T.collection.insertOne({ _id: id, ...payload(), ...marker });
++  const d = await T.findById(id);
++  expect(lifecycle.isArchived(d)).toBe(false);
++  expect(await T.countDocuments({ _id: id, ...lifecycle.activeFilter() })).toBe(1);
++  await send("put", `/templates/${id}`, { description: "Valid update" }).expect(200);
++  await send("post", "/assets", { ctrlNumber: "ACTIVE", templateId: String(id) }).expect(201);
++  await archive(d);
++});
++test("cyclic-parent rejection happens before Template reservation and never persists the Asset", async () => {
++  const d = await seed(), b = await asset(), a = await asset({ parentAsset: b._id });
++  const before = JSON.stringify(await A.collection.findOne({ _id: b._id }));
++  const reserve = jest.spyOn(lifecycle, "withReference");
++  await send("put", `/assets/${b.id}`, { templateId: d.id, parentAsset: a.id }).expect(400);
++  expect(reserve).not.toHaveBeenCalled();
++  expect(JSON.stringify(await A.collection.findOne({ _id: b._id }))).toBe(before);
++  expect(await stored(d)).not.toHaveProperty("templateReferenceReservation"); await archive(d);
++});
++test("deterministic pre-save rejection after reservation releases its exact token", async () => {
++  const d = await seed(), b = await asset(), a = await asset();
++  const before = JSON.stringify(await A.collection.findOne({ _id: b._id }));
++  const reserve = lifecycle.withReference;
++  jest.spyOn(lifecycle, "withReference").mockImplementationOnce((...args) => reserve(...args.slice(0, 3), async () => {
++    await A.collection.updateOne({ _id: a._id }, { $set: { parentAsset: b._id } });
++    return args[3]();
++  }));
++  await send("put", `/assets/${b.id}`, { templateId: d.id, parentAsset: a.id }).expect(400);
++  expect(JSON.stringify(await A.collection.findOne({ _id: b._id }))).toBe(before);
++  expect(await stored(d)).not.toHaveProperty("templateReferenceReservation"); await archive(d);
++});
++test("definitive no-write release cannot clear a different reservation token", async () => {
++  const d = await seed(), b = await asset(), a = await asset({ parentAsset: b._id });
++  b.parentAsset = a._id;
++  await expect(lifecycle.withReference(d._id, "synthetic", b._id, async () => {
++    await T.collection.updateOne({ _id: d._id }, { $set: { "templateReferenceReservation.token": "other-operation" } });
++    return b.validateParentRelationship();
++  })).rejects.toMatchObject({ status: 409 });
++  expect((await stored(d)).templateReferenceReservation.token).toBe("other-operation");
++  expect((await A.findById(b._id)).parentAsset).toBeFalsy();
++  await send("patch", `/templates/${d.id}/archive`, {}, "admin").expect(409);
++});
+diff --git a/core-service/src/routers/assetsRouter.js b/core-service/src/routers/assetsRouter.js
+--- a/core-service/src/routers/assetsRouter.js
++++ b/core-service/src/routers/assetsRouter.js
+@@ -1,4 +1,5 @@
+ const ownership = require('../services/operationalOwnership');
++const templateLifecycle = require('../services/templateLifecycle');
+ const express = require('express');
+ const mongoose = require('mongoose');
+ const debug = require('debug')('app:assetsRouter');
+@@ -321,6 +322,9 @@
+       };
+     }
+ 
++    const assetId = new mongoose.Types.ObjectId();
++    const saveAsset = () => templateLifecycle.withReference(tpl?._id, 'asset-create', assetId,
++      () => Asset.create({ ...payload, _id: assetId }));
+     const duplicate = await Asset.findOne({
+       $and: [
+         buildTenantFilter(req),
+@@ -334,7 +338,7 @@
+     if (duplicate) {
+       payload.duplicateOf = duplicate._id; // Optional: add this field to your Asset model
+ 
+-      const asset = await Asset.create(payload);
++      const asset = await saveAsset();
+       return res.status(201).json({
+         asset,
+         duplicateOf: duplicate._id,
+@@ -348,7 +352,7 @@
+ 
+     console.log("Final payload to create Asset:", payload);
+ 
+-    const asset = await Asset.create(payload);
++    const asset = await saveAsset();
+     return res.status(201).json({ message: 'Asset created successfully', asset });
+ 
+   } catch (error) {
+@@ -402,11 +406,23 @@
+     if (!asset) return res.status(404).json({ error: 'Asset not found' });
+     const patch = ownership.pick(req.body, ownership.assetEditFields, true);
+     if (!Object.keys(patch).length) ownership.fail(400, 'No editable fields');
+-    await ownership.assetReferences(patch, asset.facilityId, asset._id);
++    const previousTemplateId = asset.templateId;
++    await ownership.assetReferences(patch, asset.facilityId, asset._id, previousTemplateId);
++    const newTemplateId = patch.templateId && String(patch.templateId) !== String(previousTemplateId)
++      ? patch.templateId : null;
+     asset.set(patch);
+     asset.updatedBy = req.user.id;
+-    asset.$where = { ...ownership.visibility(req), deletedAt: null, facilityId: asset.facilityId };
+-    await asset.save();
++    await asset.validate();
++    await asset.validateParentRelationship();
++    // A stale historical ID must not reattach a reference removed concurrently.
++    asset.$where = { ...ownership.visibility(req), deletedAt: null, facilityId: asset.facilityId,
++      templateId: previousTemplateId || null };
++    try {
++      await templateLifecycle.withReference(newTemplateId, 'asset-template-update', asset._id, () => asset.save());
++    } catch (error) {
++      if (error.name === 'DocumentNotFoundError') ownership.fail(409, 'Asset reference changed; retry');
++      throw error;
++    }
+     res.json({ message: 'Asset updated successfully', asset });
+   } catch (error) { return ownership.respond(res, error); }
+ });
+diff --git a/core-service/src/routers/templatesRouter.js b/core-service/src/routers/templatesRouter.js
+--- a/core-service/src/routers/templatesRouter.js
++++ b/core-service/src/routers/templatesRouter.js
+@@ -1,3 +1,4 @@
++const lifecycle = require('../services/templateLifecycle');
+ const ownership = require('../services/operationalOwnership');
+ const express = require('express');
+ const mongoose = require('mongoose');
+@@ -17,7 +18,7 @@
+ router.get('/', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+   try {
+     const { manufacturer, q, limit = '25', skip = '0' } = req.query;
+-    const find = {};
++    const find = lifecycle.activeFilter();
+     if (manufacturer) find.manufacturer = manufacturer;
+     if (q) {
+       find.$or = [
+@@ -62,74 +63,46 @@
+   }
+ );
+ 
+-// GET: Manufacturers from templates (Admin/User global; Customer optionally scoped)
+-router.get('/distinct/manufacturers', authenticateToken, async (req, res) => {
+-  try {
+-    if (req.user?.role === 'customer') {
+-      // Limit to what this customer actually has (optional behavior)
+-      const list = await Asset.distinct('manufacturer', { customerId: req.user.customerId });
+-      return res.json((list || []).filter(Boolean).sort());
+-    }
+-    const list = await EquipmentTemplate.distinct('manufacturer');
++// GET: shared active Template manufacturer choices (canonical Template readers).
++router.get('/distinct/manufacturers', authenticateToken, authorizeRoles('admin', 'technician'), async (req, res) => {
++  try {
++    const list = await EquipmentTemplate.distinct('manufacturer', lifecycle.activeFilter());
+     res.json((list || []).filter(Boolean).sort());
+   } catch (e) {
+     res.status(500).json({ error: 'Failed to fetch manufacturers' });
+   }
+ });
+ 
+-// GET: Models from templates (Admin/User global; Customer optionally scoped)
+-router.get('/distinct/models', authenticateToken, async (req, res) => {
++// GET: shared active Template model choices (canonical Template readers).
++router.get('/distinct/models', authenticateToken, authorizeRoles('admin', 'technician'), async (req, res) => {
+   try {
+     const { manufacturer } = req.query;
+     if (!manufacturer) return res.status(400).json({ error: 'manufacturer is required' });
+-    const list = await EquipmentTemplate.distinct('model', { manufacturer });
++    const list = await EquipmentTemplate.distinct('model', { manufacturer, ...lifecycle.activeFilter() });
+     res.json((list || []).filter(Boolean).sort());
+   } catch (e) {
+     res.status(500).json({ error: 'Failed to fetch models' });
+   }
+ });
+ 
+-// POST: manual upsert (admin)
++// Manual creation keeps the existing admin-only policy.
+ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+   try {
+-    const payload = req.body || {};
+-
+-    // Validate required fields for manual creation
++    const payload = lifecycle.fields(req.body);
+     if (!payload.manufacturer || !payload.model || !payload.description || !payload.equipmentClass) {
+-      return res.status(400).json({ error: 'Missing required fields: manufacturer, model, description, or equipmentClass' });
+-    }
+-
+-    // 1. Duplicate detection
+-    const existing = await EquipmentTemplate.findOne({
+-      $or: [
+-        { di: payload.di },
+-        { manufacturer: payload.manufacturer, model: payload.model }
+-      ],
+-    });
+-
+-    if (existing) {
+-      payload.duplicateOf = existing._id;
+-    }
+-
+-    // 2. Create the template
+-    const created = await EquipmentTemplate.create(payload);
+-
+-    res.status(201).json({
+-      template: created,
+-      duplicateOf: payload.duplicateOf || null,
+-      warning: payload.duplicateOf
+-        ? 'Potential duplicate detected based on DI or manufacturer/model.'
+-        : undefined,
+-    });
+-  } catch (e) {
+-    res.status(400).json({ error: e.message || 'Failed to create template' });
+-  }
++      ownership.fail(400, 'Missing required fields: manufacturer, model, description, or equipmentClass');
++    }
++    const template = await lifecycle.create(payload, req.user.id);
++    res.status(201).json({ template, duplicateOf: template.duplicateOf,
++      warning: template.duplicateOf ? 'Potential duplicate detected based on DI or manufacturer/model.' : undefined });
++  } catch (error) { ownership.respond(res, error); }
+ });
+ 
+ // POST: Create an Asset/Template from DI or UDI  (no transactions)
+-router.post('/from-di-or-udi', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+-  try {
+-    ownership.object(req.body);
++router.post(['/from-di-or-udi', '/from-di'], authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
++  try {
++    ownership.pick(req.body, req.path === '/from-di' ? ['di', 'udi'] : ['di', 'udi', 'createAsset', 'asset'], true);
++    if (req.body.createAsset != null && typeof req.body.createAsset !== 'boolean') ownership.fail(400, 'Invalid createAsset');
+     const { di: rawDi, udi, createAsset = false } = req.body;
+     let assetInput = {};
+     let facilityId;
+@@ -148,7 +121,10 @@
+       const parsed = extractDIFromUDI(udi);
+       di = parsed?.di;
+     }
+-    if (!di) return res.status(400).json({ error: 'Provide di or udi' });
++    if (!di || !di.trim()) return res.status(400).json({ error: 'Provide di or udi' });
++    di = di.trim();
++    const existing = await EquipmentTemplate.findOne({ di });
++    if (existing) await lifecycle.active(existing.id);
+ 
+     // 2) Fetch & map
+     const device = await fetchDeviceFromGUDID(di);
+@@ -165,28 +141,11 @@
+       }
+     } catch (_) {}
+ 
+-    // 4) Upsert Template
+-    const templateDoc = await EquipmentTemplate.findOneAndUpdate(
+-      { di: tplPayload.di },
+-      { $set: tplPayload },
+-      { new: true, upsert: true, setDefaultsOnInsert: true }
+-    );
+-
+-    // 5) Duplicate Detection
+-    const potentialDuplicate = await EquipmentTemplate.findOne({
+-      $or: [
+-        { di: tplPayload.di },
+-        { manufacturer: tplPayload.manufacturer, model: tplPayload.model }
+-      ],
+-      _id: { $ne: templateDoc._id }
+-    });
+-
+-    if (potentialDuplicate) {
+-      await EquipmentTemplate.findByIdAndUpdate(templateDoc._id, {
+-        $set: { duplicateOf: potentialDuplicate._id }
+-      });
+-      templateDoc.duplicateOf = potentialDuplicate._id;
+-    }
++    // Provider data cannot set lifecycle state or client-selected audit fields.
++    tplPayload.di = di;
++    const providerData = Object.fromEntries(lifecycle.providerFields
++      .filter(key => Object.hasOwn(tplPayload, key)).map(key => [key, tplPayload[key]]));
++    const templateDoc = await lifecycle.upsertProvider(providerData, req.user.id);
+ 
+     // If not creating asset
+     if (!createAsset) {
+@@ -253,7 +212,9 @@
+     }
+ 
+     // 7) Create asset
+-    const assetDoc = await Asset.create(assetPayload);
++    const assetId = new mongoose.Types.ObjectId();
++    const assetDoc = await lifecycle.withReference(templateDoc._id, 'asset-create', assetId,
++      () => Asset.create({ ...assetPayload, _id: assetId }));
+ 
+     return res.status(201).json({
+       template: templateDoc,
+@@ -270,202 +231,46 @@
+   }
+ });
+ 
+-// POST: create/upsert from DI or UDI
+-router.post('/from-di', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+-  try {
+-    const { di: rawDi, udi } = req.body || {};
+-    if ((rawDi != null && typeof rawDi !== 'string') || (udi != null && typeof udi !== 'string')) ownership.fail(400, 'Invalid device identifier');
+-    if (createAsset && assetInput.ctrlNumber != null && typeof assetInput.ctrlNumber !== 'string') ownership.fail(400, 'Invalid control number');
+-    let di = rawDi;
+-    if (!di && udi) di = extractDIFromUDI(udi).di || undefined;
+-    if (!di) return res.status(400).json({ error: 'Provide di or udi' });
+-
+-    const device = await fetchDeviceFromGUDID(di);
+-    const payload = await mapGUDIDToTemplatePayload(device);
+-    payload.di = di;
+-
+-    // Enrich with FDA classification info
+-    try {
+-      const klass = await fetchClassificationByProductCode(payload.fdaProductCode);
+-      if (klass?.equipmentClass) {
+-        payload.equipmentClass = klass.equipmentClass;
+-        payload.panel = klass.panel || payload.panel;
+-        payload.regulationNumber = klass.regulationNumber || payload.regulationNumber;
+-      }
+-    } catch (_) {
+-      // don't block on classification lookup
+-    }
+-
+-    // Create or update template (based on DI)
+-    const doc = await EquipmentTemplate.findOneAndUpdate(
+-      { di: payload.di },
+-      { $set: payload },
+-      { new: true, upsert: true, setDefaultsOnInsert: true }
+-    );
+-
+-    // Now check for possible duplicates (excluding itself)
+-    const potentialDuplicate = await EquipmentTemplate.findOne({
+-      $or: [
+-        { di: payload.di },
+-        { manufacturer: payload.manufacturer, model: payload.model }
+-      ],
+-      _id: { $ne: doc._id }
+-    });
+-
+-    if (potentialDuplicate) {
+-      await EquipmentTemplate.findByIdAndUpdate(doc._id, {
+-        $set: { duplicateOf: potentialDuplicate._id }
+-      });
+-      doc.duplicateOf = potentialDuplicate._id;
+-    }
+-
+-    return res.status(201).json({
+-      template: doc,
+-      duplicateOf: doc.duplicateOf || null,
+-      warning: doc.duplicateOf
+-        ? 'Potential duplicate detected based on DI or manufacturer/model.'
+-        : undefined
+-    });
+-
+-  } catch (e) {
+-    if (axios.isAxiosError(e)) {
+-      return res
+-        .status(e.response?.status || 502)
+-        .json({ error: e.response?.data || 'GUDID lookup failed' });
+-    }
+-    res.status(500).json({ error: e.message || 'Failed to create template from DI' });
+-  }
+-});
+-
+-// PATCH: Sync/Update and existing template from GUDID
++// Provider refresh cannot mutate archived Templates or accept caller verification.
+ router.patch('/:id/sync-gudid', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+   try {
+-    const { id } = req.params;
+-    const { di, udi } = req.body || {};
+-
+-    if (!mongoose.Types.ObjectId.isValid(id)) {
+-      return res.status(400).json({ error: 'Invalid template ID' });
+-    }
+-
+-    const tpl = await EquipmentTemplate.findById(id);
+-    if (!tpl) {
+-      return res.status(404).json({ error: 'Template not found' });
+-    }
+-
+-    // Prefer tpl.di, then di from body, then raw udi
+-    const finalDi = tpl.di || di || udi;
+-    if (!finalDi) {
+-      return res.status(400).json({ error: 'No DI provided in template or request' });
+-    }
+-
+-    const device = await fetchDeviceFromGUDID(finalDi);
+-    const mapped = await mapGUDIDToTemplatePayload(device);
+-
+-    // Also apply finalDi if tpl was missing it
+-    if (!tpl.di) {
+-      mapped.di = finalDi;
+-    }
+-
+-    // Prepare updated fields
+-    const refresh = {
+-      di: mapped.di,
+-      issuingAgency: mapped.issuingAgency,
+-      brandName: mapped.brandName,
+-      manufacturer: mapped.manufacturer,
+-      model: mapped.model,
+-      catalogNumber: mapped.catalogNumber,
+-      description: mapped.description,
+-      fdaProductCode: mapped.fdaProductCode,
+-      gmdnTerm: mapped.gmdnTerm,
+-      gmdnDefinition: mapped.gmdnDefinition,
+-      equipmentClass: mapped.equipmentClass,
+-      classificationName: mapped.classificationName,
+-      regulationNumber: mapped.regulationNumber,
+-      panel: mapped.panel,
+-      recordStatus: mapped.recordStatus,
+-      prescriptionRequired: mapped.prescriptionRequired,
+-      otc: mapped.otc,
+-      submissionNumber: mapped.submissionNumber,
+-      manufacturerDUNS: mapped.manufacturerDUNS,
+-      _rawGUDID: mapped._rawGUDID,
+-      verified: true
+-    };
+-
+-    // Check for potential duplicates
+-    const existing = await EquipmentTemplate.findOne({
+-      $or: [
+-        { di: mapped.di },
+-        { manufacturer: mapped.manufacturer, model: mapped.model }
+-      ],
+-      _id: { $ne: id } // exclude the current one
+-    });
+-
+-    let duplicateOf = null;
+-    if (existing) {
+-      duplicateOf = existing._id;
+-      refresh.duplicateOf = existing._id;
+-
+-      // Update the current template to mark it as a duplicate
+-      await EquipmentTemplate.findByIdAndUpdate(id, { $set: refresh }, { new: true });
+-      const updated = await EquipmentTemplate.findById(id);
+-
+-      return res.status(200).json({
+-        message: 'Template synced from GUDID (duplicate flagged)',
+-        template: updated,
+-        duplicateOf,
+-        warning: 'Potential duplicate detected based on DI or manufacturer/model.'
+-      });
+-    }
+-
+-    // No duplicate — update normally
+-    const updated = await EquipmentTemplate.findByIdAndUpdate(id, { $set: refresh }, { new: true });
+-    res.json({ message: 'Template synced from GUDID', template: updated });
+-
+-  } catch (err) {
+-    console.error(err);
+-    res.status(502).json({ error: err.message || 'GUDID sync failed' });
+-  }
+-});
+-
+-// PUT: Update a Template
++    const body = ownership.pick(req.body, ['di', 'udi'], true);
++    const template = await lifecycle.active(req.params.id);
++    if ((body.di != null && typeof body.di !== 'string') || (body.udi != null && typeof body.udi !== 'string')) ownership.fail(400, 'Invalid device identifier');
++    const di = template.di || body.di || extractDIFromUDI(body.udi).di || body.udi;
++    if (!di || !di.trim()) ownership.fail(400, 'No DI provided in template or request');
++    const mapped = await mapGUDIDToTemplatePayload(await fetchDeviceFromGUDID(di.trim()));
++    mapped.di = di.trim();
++    const data = Object.fromEntries(lifecycle.providerFields
++      .filter(key => Object.hasOwn(mapped, key)).map(key => [key, mapped[key]]));
++    const updated = await lifecycle.update(template.id, data, req.user.id, true);
++    res.json({ message: 'Template synced from GUDID', template: updated, duplicateOf: updated.duplicateOf });
++  } catch (error) {
++    if (axios.isAxiosError(error)) return res.status(502).json({ error: 'Provider lookup failed' });
++    ownership.respond(res, error);
++  }
++});
++
+ router.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), async (req, res) => {
+-  const { id } = req.params;
+-  const updatedData = req.body;
+-
+-  if (!mongoose.Types.ObjectId.isValid(id)) {
+-        return res.status(400).json({ error: 'Invalid asset ID format' });
+-    }
+-
+-  try {
+-    const updatedTemplate = await EquipmentTemplate.findByIdAndUpdate(id, updatedData);
+-    if (!updatedTemplate) return status(404).json({ error: 'Template not found'});
+-
+-    res.status(200).json({ message: 'Template updated successfully', template: updatedTemplate });
+-  } catch (err) {
+-      debug('Error updating Template:', err);
+-      res.status(500).json({ error: 'Internal Server Error'});
+-  }
+-});
+-
+-// PATCH: SOFT DELETE / Remove and asset by ID
+-router.patch('/:id/achive', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+-  try {
+-    const deletedTemplate = await EquipmentTemplate.findByIdAndUpdate(
+-            { _id: req.params.id },
+-            { $set: { deletedAt: new Date(), deletedBy: req.user.id, status: 'Archived', updatedBy: req.user.id } },
+-            { new: true }
+-    );
+-    if (!deletedTemplate) return res.status(404).json({ error: 'Template not found' });
+-
+-    res.status(200).json({ message: "Template achived successfull" });
+-  } catch (error) {
+-    debug('Error achiving Template:', error);
+-    res.status(500).json({ error: 'Internal Server Error' });
+-  }
++  try {
++    const fields = lifecycle.fields(req.body);
++    if (!Object.keys(fields).length) ownership.fail(400, 'No editable fields');
++    const template = await lifecycle.update(req.params.id, fields, req.user.id);
++    res.json({ message: 'Template updated successfully', template });
++  } catch (error) { ownership.respond(res, error); }
++});
++
++// Preserve the misspelled public endpoint while moving the UI to /archive.
++router.patch(['/:id/archive', '/:id/achive'], authenticateToken, authorizeRoles('admin'), async (req, res) => {
++  try {
++    ownership.pick(req.body || {}, [], true);
++    const template = await lifecycle.archive(req.params.id, req.user.id);
++    res.json({ message: 'Template archived', template });
++  } catch (error) { ownership.respond(res, error); }
+ });
+ 
+ // GET: lifecycle summary for a template/model
+-router.get('/:id/lifecycle', authenticateToken, async (req, res) => {
++router.get('/:id/lifecycle', authenticateToken, authorizeRoles('admin', 'technician'), async (req, res) => {
+   try {
+     const { id } = req.params;
+ 
+@@ -613,4 +418,4 @@
+   }
+ });
+ 
+-module.exports = router;
+\ No newline at end of file
++module.exports = router;
+diff --git a/core-service/src/services/operationalOwnership.js b/core-service/src/services/operationalOwnership.js
+--- a/core-service/src/services/operationalOwnership.js
++++ b/core-service/src/services/operationalOwnership.js
+@@ -77,9 +77,15 @@
+ }
+ const assetCreateFields = ['templateId','ctrlNumber','departmentId','locationNote','notes','manufacturer','model','description','serialNumber','parentAsset','relationToParent','maintenanceSchedule','attributes'];
+ const assetEditFields = [...assetCreateFields, 'revisionNumber','status','purchase','acquisitionDate','installationDate','retirementDate','purchaseDate','purchaseCost','budgetValue','contractValue','manufacturerRecommendedPMFrequency','equipmentClass','classificationName','regulationNumber','panel','recordStatus','prescriptionRequired','otc','submissionNumber','manufacturerDUNS','gmdnDefinition','riskLevel','isHIPAARelevant','isAlarmed','isSecuritySensitive','isAEMExcluded','documents','images'];
+-async function assetReferences(payload, facilityId, ownId = null) {
++async function assetReferences(payload, facilityId, ownId = null, existingTemplateId = null) {
+   if (Object.hasOwn(payload, 'departmentId')) payload.departmentId = await department(payload.departmentId, facilityId);
+-  if (payload.templateId) payload.templateId = (await reference(Template, payload.templateId))._id;
++  if (payload.templateId) {
++    const template = await reference(Template, payload.templateId);
++    if (String(template._id) !== String(existingTemplateId) && require('./templateLifecycle').isArchived(template)) {
++      fail(409, 'Template is archived');
++    }
++    payload.templateId = template._id;
++  }
+   if (payload.parentAsset) {
+     if (String(payload.parentAsset) === String(ownId)) fail(400, 'Invalid parent relationship');
+     await reference(Asset, payload.parentAsset, { facilityId });
+diff --git a/core-service/src/services/templateArchiveState.js b/core-service/src/services/templateArchiveState.js
+new file mode 100644
+--- /dev/null
++++ b/core-service/src/services/templateArchiveState.js
+@@ -0,0 +1,17 @@
++// Shared archive policy. Missing/exact null are the only inactive metadata values.
++// Preserve stored BSON state before Mongoose can cast malformed legacy values.
++const metadata = ['deletedAt', 'deletedBy', 'archivedAt', 'archivedBy', 'isArchived'];
++const hydratedState = new WeakMap();
++const absent = value => value === undefined || value === null;
++function rawArchived(t) {
++  return (!absent(t.status) && (typeof t.status !== 'string' || t.status === 'Archived')) ||
++    metadata.some(key => !absent(t[key]));
++}
++function isArchived(t) { return hydratedState.get(t) === true || rawArchived(t); }
++function remember(t, raw) { hydratedState.set(t, rawArchived(raw)); }
++const activeFilter = () => ({ $expr: { $and: [
++  { $in: [{ $type: '$status' }, ['missing', 'null', 'string']] },
++  { $ne: ['$status', 'Archived'] },
++  ...metadata.map(key => ({ $in: [{ $type: `$${key}` }, ['missing', 'null']] })),
++] } });
++module.exports = { isArchived, remember, activeFilter };
+diff --git a/core-service/src/services/templateLifecycle.js b/core-service/src/services/templateLifecycle.js
+new file mode 100644
+--- /dev/null
++++ b/core-service/src/services/templateLifecycle.js
+@@ -0,0 +1,140 @@
++const { randomUUID } = require('node:crypto');
++const { isDeepStrictEqual } = require('node:util');
++const Template = require('../models/EquipmentTemplate');
++const ownership = require('./operationalOwnership');
++
++// Shared catalog; these predicates must never include Facility ownership.
++const { activeFilter, isArchived } = require('./templateArchiveState');
++const writableFilter = value => ({ _id: value, ...activeFilter(), templateReferenceReservation: null });
++
++const providerFields = ['manufacturer', 'model', 'description', 'equipmentClass', 'di',
++  'fdaProductCode', 'gmdnTerm', 'gmdnDefinition', 'brandName', 'catalogNumber', 'versionOrModel',
++  'mrSafetyStatus', 'issuingAgency', 'classificationName', 'regulationNumber', 'panel',
++  'recordStatus', 'prescriptionRequired', 'otc', 'submissionNumber', 'manufacturerDUNS'];
++const businessFields = [...providerFields, 'alarm', 'hipaa', 'autoAddPmProcedure', 'requirePmPlan',
++  'excludeFromLifecycle', 'excludeFromAEM', 'manufacturerRecommendedPMFrequency', 'isTestEquipment',
++  'eolYears', 'lineItemPricing', 'lifecycleDefaults', 'benchmark', 'kind', 'subType'];
++const nestedFields = {
++  lifecycleDefaults: ['expectedLifeYears', 'typicalAnnualMaintenance'],
++  benchmark: ['source', 'reportDate', 'expectedUsefulLifeYears', 'averageListPrice', 'averageQuotedPrice',
++    'expectedAnnualMaintenance', 'expectedCapitalCostRatio', 'marketInterest', 'confidence', 'notes'],
++};
++function fields(body) {
++  const result = ownership.pick(body, businessFields, true);
++  for (const [key, allowed] of Object.entries(nestedFields)) {
++    if (Object.hasOwn(result, key) && result[key] !== null) result[key] = ownership.pick(result[key], allowed, true);
++  }
++  if (typeof result.di === 'string') {
++    result.di = result.di.trim();
++    if (!result.di) delete result.di; // Do not introduce a unique empty identifier.
++  }
++  return result;
++}
++async function active(value) {
++  const record = await Template.findById(ownership.id(String(value)));
++  if (!record) ownership.fail(404, 'Template not found');
++  if (isArchived(record)) ownership.fail(409, 'Template is archived');
++  return record;
++}
++async function conflict(value) {
++  await active(value);
++  ownership.fail(409, 'Template is reserved or changed; retry');
++}
++const durable = { writeConcern: { w: 1, j: true } };
++
++// Serializes each new reference with archive on standalone MongoDB. There is no
++// lease, automatic retry, public release, or replayable callback. Only a known
++// completed write (or a definitive no-write failure) permits exact-token release.
++// An interrupted/uncertain writer leaves the reservation for explicit recovery.
++async function withReference(value, operation, destinationId, write) {
++  if (!value) return write();
++  ownership.id(String(value));
++  const token = randomUUID();
++  const reserved = await Template.findOneAndUpdate(writableFilter(value), {
++    $set: { templateReferenceReservation: { token, acquiredAt: new Date(), operation, destinationId } },
++  }, { new: true, runValidators: true, timestamps: false, ...durable });
++  if (!reserved) return conflict(value);
++  const release = async () => {
++    const result = await Template.updateOne({ _id: value, 'templateReferenceReservation.token': token },
++      { $unset: { templateReferenceReservation: 1 } }, { timestamps: false, ...durable });
++    if (result.matchedCount !== 1) ownership.fail(409, 'Template reservation changed');
++  };
++  let result;
++  try { result = await write(); }
++  catch (error) {
++    if (error.templateNotWritten || ['ValidationError', 'CastError', 'StrictModeError', 'DocumentNotFoundError'].includes(error.name) || error.code === 11000) {
++      await release();
++    }
++    throw error;
++  }
++  await release();
++  return result;
++}
++
++async function duplicate(fields, ownId) {
++  const alternatives = [];
++  if (fields.di) alternatives.push({ di: fields.di });
++  if (fields.manufacturer && fields.model) alternatives.push({ manufacturer: fields.manufacturer, model: fields.model });
++  if (!alternatives.length) return null;
++  return Template.findOne({ ...activeFilter(), ...(ownId ? { _id: { $ne: ownId } } : {}), $or: alternatives }).select('_id');
++}
++async function create(input, actor, provider = false) {
++  const d = new Template({ ...input, status: 'Active', createdBy: actor, updatedBy: actor,
++    ...(provider ? verification(actor) : {}) });
++  const match = await duplicate(input);
++  d.duplicateOf = match?._id || null;
++  await d.validate();
++  return withReference(match?._id, 'template-duplicate', d._id, () => d.save(durable));
++}
++function verification(actor) {
++  // Actor records who requested the server/provider verification, not an FDA user.
++  return { verified: true, verifiedAt: new Date(), verifiedBy: actor, verificationSource: 'AccessGUDID' };
++}
++async function update(value, input, actor, provider = false) {
++  const before = await active(value);
++  const draft = new Template(before.toObject());
++  draft.set(input);
++  await draft.validate();
++  const changes = { ...input, updatedBy: actor };
++  if (provider) Object.assign(changes, verification(actor));
++  else if (providerFields.some(key => Object.hasOwn(input, key) && !isDeepStrictEqual(before.get(key), draft.get(key)))) {
++    // An ordinary edit cannot inherit verification for changed provider data.
++    Object.assign(changes, { verified: false, verifiedAt: null, verifiedBy: null, verificationSource: null });
++  }
++  const match = provider ? await duplicate({ ...before.toObject(), ...input }, before._id) : null;
++  const newDuplicate = match && String(match._id) !== String(before.duplicateOf);
++  if (provider) changes.duplicateOf = match?._id || before.duplicateOf || null;
++  const write = async () => {
++    // Version CAS prevents stale provider/ordinary edits from restoring a
++    // reference removed by another request, even if it looked historical above.
++    const result = await Template.findOneAndUpdate({ ...writableFilter(value), __v: before.__v ?? null },
++      { $set: changes, $inc: { __v: 1 } }, { new: true, runValidators: true, ...durable });
++    if (!result) {
++      const error = new ownership.OwnershipError(409, 'Template changed or is archived; retry');
++      error.templateNotWritten = true;
++      throw error;
++    }
++    return result;
++  };
++  return withReference(newDuplicate ? match._id : null, 'template-duplicate', before._id, write);
++}
++async function upsertProvider(input, actor) {
++  // Search by DI without an active filter so an archived DI is never recreated.
++  const existing = await Template.findOne({ di: input.di });
++  if (existing) return update(existing.id, input, actor, true);
++  return create(input, actor, true);
++}
++async function archive(value, actor) {
++  ownership.id(value);
++  const result = await Template.findOneAndUpdate(writableFilter(value), {
++    $set: { status: 'Archived', deletedAt: new Date(), deletedBy: actor, updatedBy: actor }, $inc: { __v: 1 },
++  }, { new: true, runValidators: true, ...durable });
++  if (result) return result;
++  const existing = await Template.findById(value);
++  if (!existing) ownership.fail(404, 'Template not found');
++  if (isArchived(existing)) return existing; // Never invent or overwrite legacy provenance.
++  ownership.fail(409, 'Template reference is reserved; archive blocked');
++}
++
++module.exports = { activeFilter, isArchived, fields, providerFields, active, withReference,
++  create, update, upsertProvider, archive };
+diff --git a/frontend/src/pages/AddTemplate/TemplateCreatePage.tsx b/frontend/src/pages/AddTemplate/TemplateCreatePage.tsx
+--- a/frontend/src/pages/AddTemplate/TemplateCreatePage.tsx
++++ b/frontend/src/pages/AddTemplate/TemplateCreatePage.tsx
+@@ -2,6 +2,8 @@
+ import { useNavigate } from "react-router-dom";
+ import { EquipmentTemplate } from "../../types";
+ import { createTempleteFromDI, createTemplate } from "../../services/templateAPI";
++import { useUser } from '@/context/UserContext';
++import { canReadTemplates } from '@/services/templatePolicy';
+ 
+ type TemplateFormData = Partial<Omit<EquipmentTemplate, '_id' | 'verified'>> & {
+   manufacturer: string;
+@@ -13,6 +15,7 @@
+ const equipmentClassOptions = ["Class I", "Class II", "Class III", "Other"];
+ 
+ const TemplateCreatePage: React.FC = () => {
++  const { user } = useUser();
+   const [formData, setFormData] = useState<TemplateFormData>({
+     manufacturer: "",
+     model: "",
+@@ -20,7 +23,7 @@
+     equipmentClass: "",
+     alarm: false,
+     hipaa: false,
+-    autoAddPMProcedure: false,
++    autoAddPmProcedure: false,
+     requirePmPlan: false,
+     excludeFromLifecycle: false,
+     excludeFromAEM: false,
+@@ -34,6 +37,7 @@
+   };
+ 
+   const handleSyncFromFDA = async () => {
++    if (!canReadTemplates(user?.role)) return;
+     try {
+       if (formData.di) {
+         setIsSyncing(true);
+@@ -57,6 +61,7 @@
+   };
+ 
+   const handleCreate = async () => {
++    if (user?.role !== 'admin') return;
+     const { manufacturer, model, description, equipmentClass } = formData;
+ 
+     if (!manufacturer || !model || !description || !equipmentClass) {
+@@ -65,16 +70,14 @@
+     }
+ 
+     try {
+-      const payload = {
+-        ...formData,
+-        verified: false, // manually created
+-      };
+-      const res = await createTemplate(payload);
+-      navigate(`/templates/edit/${res._id}`);
++      const res = await createTemplate(formData);
++      navigate(`/templates/edit/${res.template._id}`);
+     } catch (err) {
+       console.error("Template creation failed", err);
+     }
+   };
++
++  if (!canReadTemplates(user?.role)) return <div role="alert">You do not have access to Templates.</div>;
+ 
+   return (
+     <div className="max-w-3xl mx-auto p-6 space-y-6">
+@@ -161,7 +164,7 @@
+         {[
+           { label: "Alarm", key: "alarm" },
+           { label: "HIPAA", key: "hipaa" },
+-          { label: "Auto Add PM Procedure", key: "autoAddPMProcedure" },
++          { label: "Auto Add PM Procedure", key: "autoAddPmProcedure" },
+           { label: "Require PM Plan", key: "requirePmPlan" },
+           { label: "Exclude from Lifecycle", key: "excludeFromLifecycle" },
+           { label: "Exclude from AEM", key: "excludeFromAEM" },
+@@ -178,12 +181,12 @@
+       </div>
+ 
+       <div className="flex gap-4 mt-6">
+-        <button
++        {user?.role === 'admin' && <button
+           onClick={handleCreate}
+           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+         >
+           ➕ Create
+-        </button>
++        </button>}
+         <button
+           onClick={() => navigate("/templates")}
+           className="px-4 py-2 border rounded hover:bg-gray-100"
+@@ -195,4 +198,4 @@
+   );
+ };
+ 
+-export default TemplateCreatePage;
+\ No newline at end of file
++export default TemplateCreatePage;
+diff --git a/frontend/src/pages/EditTemplates/TemplateEditPage.tsx b/frontend/src/pages/EditTemplates/TemplateEditPage.tsx
+--- a/frontend/src/pages/EditTemplates/TemplateEditPage.tsx
++++ b/frontend/src/pages/EditTemplates/TemplateEditPage.tsx
+@@ -4,23 +4,27 @@
+ import useSWR from "swr";
+ import { useParams, useNavigate } from "react-router-dom";
+ 
+-import type { EquipmentTemplate, WithDuplicate } from "@/types";
++import type { EquipmentTemplate } from "@/types";
+ import {
+   getTemplateById,
+   getTemplateLifecycle,
+   syncTemplate,
+   updateTemplate,
+-  deleteTemplate,
++  archiveTemplate,
+ } from "@/services";
+ 
+ import SyncFromFDAModal from "./modals/SyncFromFDAModal";
+ import DuplicateBanner from "../../components/DuplicateBanner";
+ import TemplateLifecycleSummaryCard from "./components/TemplateLifecycleSummaryCard";
+ import { FaArrowLeft } from "react-icons/fa";
++import { useUser } from '@/context/UserContext';
++import { canReadTemplates, isTemplateArchived } from '@/services/templatePolicy';
+ 
+ const TemplateEditPage: React.FC = () => {
+   const { id } = useParams();
+   const navigate = useNavigate();
++  const { user } = useUser();
++  const canRead = canReadTemplates(user?.role);
+ 
+   const [formData, setFormData] = useState<Partial<EquipmentTemplate>>({});
+   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+@@ -41,7 +45,7 @@
+     error: templateError,
+     isLoading: isTemplateLoading,
+     mutate: mutateTemplate,
+-  } = useSWR(id ? ["template", id] : null, ([, templateId]) =>
++  } = useSWR(id && canRead ? ["template", id] : null, ([, templateId]) =>
+     getTemplateById(templateId)
+   );
+ 
+@@ -50,7 +54,7 @@
+     error: lifecycleSummaryError,
+     isLoading: isLifecycleSummaryLoading,
+     mutate: mutateLifecycleSummary,
+-  } = useSWR(id ? ["template-lifecycle-summary", id] : null, ([, templateId]) =>
++  } = useSWR(id && canRead ? ["template-lifecycle-summary", id] : null, ([, templateId]) =>
+     getTemplateLifecycle(templateId)
+   );
+ 
+@@ -68,18 +72,18 @@
+   };
+ 
+   const handleSave = async () => {
+-    if (!id) return;
++    if (!id || !template || !canRead || isTemplateArchived(template)) return;
+ 
+     setSaving(true);
+ 
+     try {
+-      const res = (await updateTemplate(
++      const res = await updateTemplate(
+         id,
+         formData
+-      )) as WithDuplicate<EquipmentTemplate>;
++      );
+ 
+       setDupMeta({
+-        duplicateOf: res.duplicateOf,
++        duplicateOf: res.duplicateOf ?? undefined,
+         warning: res.warning,
+         matchedOn: res.matchedOn ?? [],
+       });
+@@ -94,24 +98,24 @@
+     }
+   };
+ 
+-  const handleDelete = async () => {
+-    if (!template?._id) return;
+-    if (!confirm("Are you sure you want to delete this template?")) return;
++  const handleArchive = async () => {
++    if (!template?._id || user?.role !== 'admin' || isTemplateArchived(template)) return;
++    if (!confirm("Archive this template? Existing asset history will remain available.")) return;
+ 
+     try {
+-      await deleteTemplate(template._id);
++      await archiveTemplate(template._id);
+       navigate("/templates");
+     } catch (err) {
+-      console.error("Delete failed", err);
+-      alert("Delete failed.");
++      console.error("Archive failed", err);
++      alert("Archive failed. Refresh the template and try again.");
+     }
+   };
+ 
+   const handleSyncFromFDA = async (input: string) => {
+     try {
+-      if (!template?._id) return;
+-
+-      const updatedTemplate = await syncTemplate(template._id, input);
++      if (!template?._id || !canRead || isTemplateArchived(template)) return;
++
++      const { template: updatedTemplate } = await syncTemplate(template._id, input);
+       if (!updatedTemplate) throw new Error("No template returned");
+ 
+       setFormData(updatedTemplate);
+@@ -125,6 +129,8 @@
+       alert("Sync failed. Check DI/UDI and try again.");
+     }
+   };
++
++  if (!canRead) return <div role="alert">You do not have access to Templates.</div>;
+ 
+   if (isTemplateLoading) {
+     return <div className="p-6">Loading template...</div>;
+@@ -164,7 +170,8 @@
+         onDismiss={() => setDupMeta((m) => ({ ...m, warning: undefined }))}
+       />
+ 
+-      <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
++      {isTemplateArchived(template) && <p role="status">Archived template — history is available; editing is disabled.</p>}
++      <fieldset disabled={isTemplateArchived(template)} className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
+         <h2 className="text-lg font-semibold text-gray-800">
+           Template Details
+         </h2>
+@@ -206,7 +213,7 @@
+           <ReadOnlyField label="GMDN" value={template.gmdnTerm} />
+           <ReadOnlyField label="Class" value={template.equipmentClass} />
+         </div>
+-      </section>
++      </fieldset>
+ 
+       <TemplateLifecycleSummaryCard
+         summary={lifecycleSummary}
+@@ -219,7 +226,7 @@
+           type="button"
+           onClick={handleSave}
+           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+-          disabled={saving}
++          disabled={saving || isTemplateArchived(template)}
+         >
+           {saving ? "Saving..." : "💾 Save"}
+         </button>
+@@ -232,7 +239,7 @@
+           Cancel
+         </button>
+ 
+-        {!template.verified && (
++        {!template.verified && !isTemplateArchived(template) && (
+           <button
+             type="button"
+             onClick={() => setIsSyncModalOpen(true)}
+@@ -242,17 +249,17 @@
+           </button>
+         )}
+ 
+-        <button
++        {user?.role === 'admin' && !isTemplateArchived(template) && <button
+           type="button"
+-          onClick={handleDelete}
++          onClick={handleArchive}
+           className="text-red-600 hover:underline ml-auto"
+         >
+-          🗑 Delete
+-        </button>
++          Archive
++        </button>}
+       </div>
+ 
+       <SyncFromFDAModal
+-        isOpen={isSyncModalOpen}
++        isOpen={isSyncModalOpen && !isTemplateArchived(template)}
+         onClose={() => setIsSyncModalOpen(false)}
+         onSync={handleSyncFromFDA}
+       />
+@@ -272,4 +279,4 @@
+   </div>
+ );
+ 
+-export default TemplateEditPage;
+\ No newline at end of file
++export default TemplateEditPage;
+diff --git a/frontend/src/pages/EditTemplates/templateLifecycle.test.tsx b/frontend/src/pages/EditTemplates/templateLifecycle.test.tsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/pages/EditTemplates/templateLifecycle.test.tsx
+@@ -0,0 +1,79 @@
++import { fireEvent, render, screen, waitFor } from '@testing-library/react';
++import { MemoryRouter, Route, Routes } from 'react-router-dom';
++import { SWRConfig } from 'swr';
++import { beforeEach, expect, test, vi } from 'vitest';
++import Edit from './TemplateEditPage';
++import Create from '../AddTemplate/TemplateCreatePage';
++import List from '../ListTemplates/TemplateListPage';
++
++const state = vi.hoisted(() => ({ role: 'admin' as string | undefined }));
++const api = vi.hoisted(() => ({ getTemplateById: vi.fn(), getTemplateLifecycle: vi.fn(), archiveTemplate: vi.fn(), updateTemplate: vi.fn(), syncTemplate: vi.fn(), createTemplate: vi.fn(), createTempleteFromDI: vi.fn(), getTemplates: vi.fn(), getManufactures: vi.fn() }));
++vi.mock('@/context/UserContext', () => ({ useUser: () => ({ user: { role: state.role } }) }));
++vi.mock('@/services', () => api);
++vi.mock('@/services/templateAPI', () => api);
++vi.mock('./components/TemplateLifecycleSummaryCard', () => ({ default: () => <div>Lifecycle history</div> }));
++const template = { _id: 'template', manufacturer: 'Synthetic', model: 'Device', description: 'Original', equipmentClass: 'Class II', status: 'Active', verified: false };
++function page(Component = Edit) {
++  return render(<SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0, shouldRetryOnError: false }}><MemoryRouter initialEntries={['/templates/edit/template']}><Routes>
++    <Route path="/templates/edit/:id" element={<Component />} />
++    <Route path="/templates" element={<div>Template list destination</div>} />
++  </Routes></MemoryRouter></SWRConfig>);
++}
++beforeEach(() => {
++  vi.clearAllMocks(); state.role = 'admin';
++  api.getTemplateById.mockResolvedValue({ ...template }); api.getTemplateLifecycle.mockResolvedValue({});
++  api.archiveTemplate.mockResolvedValue({}); api.updateTemplate.mockResolvedValue({ template });
++  api.createTemplate.mockResolvedValue({ template }); api.getTemplates.mockResolvedValue({ templates: [], totalCount: 0 }); api.getManufactures.mockResolvedValue([]);
++  vi.spyOn(window, 'confirm').mockReturnValue(true); vi.spyOn(window, 'alert').mockImplementation(() => {});
++});
++test('admin archive action invokes supported helper and navigates after success', async () => {
++  page(); fireEvent.click(await screen.findByRole('button', { name: 'Archive' }));
++  await waitFor(() => expect(api.archiveTemplate).toHaveBeenCalledWith('template'));
++  await screen.findByText('Template list destination'); expect(screen.queryByRole('button', { name: /Delete/ })).toBeNull();
++});
++test('technician can edit active Template but has no archive control', async () => {
++  state.role = 'technician'; page();
++  expect(await screen.findByRole('button', { name: /Save/ })).toBeEnabled();
++  expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
++  fireEvent.click(screen.getByRole('button', { name: /Save/ }));
++  await waitFor(() => expect(api.updateTemplate).toHaveBeenCalled());
++});
++for (const marker of [{ status: 'Archived' }, { deletedAt: 'old' }, { archivedAt: 'old' }]) test(`archived ${Object.keys(marker)[0]} is read-only while history remains`, async () => {
++  api.getTemplateById.mockResolvedValue({ ...template, ...marker }); page();
++  expect(await screen.findByRole('status')).toHaveTextContent('Archived template');
++  expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
++  expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
++  expect(screen.queryByRole('button', { name: /Sync from FDA/ })).toBeNull();
++  for (const input of screen.getAllByRole('textbox')) expect(input).toBeDisabled();
++  expect(screen.getByText('Lifecycle history')).toBeVisible();
++  expect(api.archiveTemplate).not.toHaveBeenCalled(); expect(api.updateTemplate).not.toHaveBeenCalled();
++});
++for (const role of ['customer', 'viewer', 'tech', undefined, 'unknown']) test(`${role}: unauthorized Template pages do not load data or expose controls`, async () => {
++  state.role = role;
++  for (const Component of [Edit, Create, List]) { const view = page(Component); expect(screen.getByRole('alert')).toHaveTextContent('do not have access'); view.unmount(); }
++  expect(api.getTemplateById).not.toHaveBeenCalled(); expect(api.getTemplateLifecycle).not.toHaveBeenCalled(); expect(api.getTemplates).not.toHaveBeenCalled(); expect(api.getManufactures).not.toHaveBeenCalled();
++});
++test('technician creation page offers provider lookup but no manual create', () => {
++  state.role = 'technician'; page(Create);
++  expect(screen.getByRole('button', { name: /Sync from FDA/ })).toBeEnabled();
++  expect(screen.queryByRole('button', { name: /➕ Create/ })).toBeNull();
++});
++test('manual create sends no verification and uses canonical autoAddPmProcedure name', async () => {
++  page(Create);
++  fireEvent.change(screen.getByLabelText('Manufacturer *'), { target: { value: 'Synthetic' } });
++  fireEvent.change(screen.getByLabelText('Model *'), { target: { value: 'Device' } });
++  fireEvent.change(screen.getByLabelText('Description *'), { target: { value: 'Description' } });
++  fireEvent.change(screen.getByLabelText('Equipment Class *'), { target: { value: 'Class II' } });
++  fireEvent.click(screen.getByRole('button', { name: /➕ Create/ }));
++  await waitFor(() => expect(api.createTemplate).toHaveBeenCalled());
++  const body = api.createTemplate.mock.calls[0][0]; expect(body).not.toHaveProperty('verified'); expect(body).toHaveProperty('autoAddPmProcedure', false); expect(body).not.toHaveProperty('autoAddPMProcedure');
++});
++test('provider sync unwraps the Template response and keeps the editor usable', async () => {
++  api.syncTemplate.mockResolvedValue({ template: { ...template, verified: true, description: 'Provider data' } }); page();
++  fireEvent.click(await screen.findByRole('button', { name: /Sync from FDA/ }));
++  const inputs = screen.getAllByRole('textbox');
++  fireEvent.change(inputs[inputs.length - 1], { target: { value: '00000000000001' } });
++  fireEvent.click(screen.getByRole('button', { name: /🔄 Sync$/ }));
++  await waitFor(() => expect(api.syncTemplate).toHaveBeenCalledWith('template', '00000000000001'));
++  await waitFor(() => expect(screen.getByDisplayValue('Provider data')).toBeVisible());
++});
+diff --git a/frontend/src/pages/ListTemplates/TemplateListPage.tsx b/frontend/src/pages/ListTemplates/TemplateListPage.tsx
+--- a/frontend/src/pages/ListTemplates/TemplateListPage.tsx
++++ b/frontend/src/pages/ListTemplates/TemplateListPage.tsx
+@@ -1,6 +1,8 @@
+ import React, { useEffect, useState } from "react";
+ import { useNavigate } from "react-router-dom";
+ import {getTemplates, getManufactures } from "../../services/templateAPI";
++import { useUser } from '@/context/UserContext';
++import { canReadTemplates } from '@/services/templatePolicy';
+ 
+ interface EquipmentTemplate {
+   _id: string;
+@@ -12,6 +14,8 @@
+ }
+ 
+ const TemplateListPage: React.FC = () => {
++  const { user } = useUser();
++  const canRead = canReadTemplates(user?.role);
+   const [templates, setTemplates] = useState<EquipmentTemplate[]>([]);
+   const [search, setSearch] = useState("");
+   const [manufacturer, setManufacturer] = useState("");
+@@ -24,9 +28,10 @@
+   const navigate = useNavigate();
+ 
+   useEffect(() => {
++    if (!canRead) return;
+     fetchTemplates();
+     fetchManufacturers();
+-  }, [search, manufacturer, verifiedOnly, sortBy, currentPage]);
++  }, [search, manufacturer, verifiedOnly, sortBy, currentPage, canRead]);
+ 
+   const fetchTemplates = async () => {
+     try {
+@@ -57,6 +62,8 @@
+       console.error("Failed to fetch manufacturers", error);
+     }
+   };
++
++  if (!canRead) return <div role="alert">You do not have access to Templates.</div>;
+ 
+   return (
+     <div className="p-6 space-y-6">
+@@ -172,4 +179,4 @@
+   );
+ };
+ 
+-export default TemplateListPage;
+\ No newline at end of file
++export default TemplateListPage;
+diff --git a/frontend/src/services/templateAPI.ts b/frontend/src/services/templateAPI.ts
+--- a/frontend/src/services/templateAPI.ts
++++ b/frontend/src/services/templateAPI.ts
+@@ -1,6 +1,13 @@
+ import { EquipmentTemplate, TemplateLifecycleSummaryResponse, TemplateListResponse } from "@/types";
+-import { WithDuplicate } from "../types/duplicate";
+ import apiClient from "./apiClient";
++import { templateBusinessPayload } from './templatePolicy';
++
++export interface TemplateMutationResponse {
++  template: EquipmentTemplate;
++  duplicateOf?: string | null;
++  warning?: string;
++  matchedOn?: string[];
++}
+ 
+ export const getTemplates = async (params?: any): Promise<TemplateListResponse> =>
+   (await apiClient.get<TemplateListResponse>("/templates", { params })).data;
+@@ -23,11 +30,14 @@
+ export const getManufactures = async () => 
+   (await apiClient.get<string[]>('/templates/distinct/manufacturers')).data;
+ 
+-export const syncTemplate = async (id: string, diOrudi: string) =>
++export const syncTemplate = async (id: string, diOrudi: string): Promise<TemplateMutationResponse> =>
+   (await apiClient.patch(`/templates/${id}/sync-gudid`, { udi: diOrudi })).data;
+ 
+-export const deleteTemplate = async (id: string) =>
+-  (await apiClient.delete(`/templates/${id}`));
++export const archiveTemplate = async (id: string) =>
++  (await apiClient.patch(`/templates/${id}/archive`, {})).data;
++
++// Keep exported caller compatibility; no Template hard-delete workflow exists.
++export const deleteTemplate = archiveTemplate;
+ 
+ // Create Template w/ Duplicate detection
+ /*export async function createTemplate(payload: Partial<EquipmentTemplate>): Promise<WithDuplicate<EquipmentTemplate>> {
+@@ -35,8 +45,8 @@
+   return data;
+ }*/
+ 
+-export const createTemplate = async (payload: any) =>
+-  (await apiClient.post('/templates', payload)).data;
++export const createTemplate = async (payload: Partial<EquipmentTemplate>): Promise<TemplateMutationResponse> =>
++  (await apiClient.post('/templates', templateBusinessPayload(payload))).data;
+ 
+ export const createAssetFromUDI = async (payload: any) =>
+   (await apiClient.post('/templates/from-di-or-udi', payload)).data;
+@@ -45,8 +55,8 @@
+   (await apiClient.post('/templates/from-di', { di })).data;
+ 
+ // Update Template w/ Duplicate detection
+-export async function updateTemplate(id: string, payload: Partial<EquipmentTemplate>): Promise<WithDuplicate<EquipmentTemplate>> {
+-  const { data } = await apiClient.put(`/templates/${id}`, payload);
++export async function updateTemplate(id: string, payload: Partial<EquipmentTemplate>): Promise<TemplateMutationResponse> {
++  const { data } = await apiClient.put(`/templates/${id}`, templateBusinessPayload(payload));
+   return data;
+ }
+ 
+diff --git a/frontend/src/services/templateLifecycle.test.ts b/frontend/src/services/templateLifecycle.test.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/services/templateLifecycle.test.ts
+@@ -0,0 +1,58 @@
++import { afterEach, beforeEach, expect, test } from 'vitest';
++import type { AxiosAdapter } from 'axios';
++import type { EquipmentTemplate } from '@/types';
++import apiClient from './apiClient';
++import { archiveTemplate, deleteTemplate, createTemplate, updateTemplate, createTempleteFromDI } from './templateAPI';
++import { isTemplateArchived } from './templatePolicy';
++
++const originalAdapter = apiClient.defaults.adapter;
++let sent: { method?: string; url?: string; body: Record<string, unknown> };
++beforeEach(() => {
++  apiClient.defaults.adapter = (async config => {
++    sent = { method: config.method, url: config.url, body: JSON.parse(config.data || '{}') };
++    return { data: { template: { _id: 'template', ...sent.body } }, status: 200, statusText: 'OK', headers: {}, config };
++  }) satisfies AxiosAdapter;
++});
++afterEach(() => { apiClient.defaults.adapter = originalAdapter; });
++
++test('archive and legacy exported delete helper both use supported PATCH archive', async () => {
++  for (const action of [archiveTemplate, deleteTemplate]) {
++    await action('template');
++    expect(sent).toEqual({ method: 'patch', url: '/templates/template/archive', body: {} });
++  }
++});
++test('whole fetched Template narrows to business payload and preserves supported nested fields', async () => {
++  await updateTemplate('template', {
++    _id: 'template', status: 'Active', manufacturer: 'Synthetic', model: 'Pump', description: 'Changed',
++    verified: true, verifiedAt: 'old', verifiedBy: 'other', verificationSource: 'Forged',
++    createdAt: 'old', updatedAt: 'old', createdBy: 'other', updatedBy: 'other', deletedAt: null,
++    deletedBy: null, archivedAt: null, archivedBy: null, isArchived: false, duplicateOf: 'other',
++    benchmark: { confidence: 'high' }, lifecycleDefaults: { expectedLifeYears: 10 },
++  });
++  expect(sent.body).toEqual({ manufacturer: 'Synthetic', model: 'Pump', description: 'Changed', benchmark: { confidence: 'high' }, lifecycleDefaults: { expectedLifeYears: 10 } });
++});
++test('manual create never sends verification or provenance and returns the Template envelope', async () => {
++  const result = await createTemplate({ manufacturer: 'Synthetic', model: 'Pump', description: 'Synthetic', equipmentClass: 'Class II', autoAddPmProcedure: false, verified: false, status: 'Active', createdBy: 'forged' });
++  expect(sent.body).toEqual({ manufacturer: 'Synthetic', model: 'Pump', description: 'Synthetic', equipmentClass: 'Class II', autoAddPmProcedure: false });
++  expect(result.template._id).toBe('template');
++});
++test('DI creation uses the repaired supported path', async () => {
++  await createTempleteFromDI('00000000000001');
++  expect(sent).toEqual({ method: 'post', url: '/templates/from-di', body: { di: '00000000000001' } });
++});
++for (const marker of [{ status: 'Archived' }, { deletedAt: 'old' }, { deletedBy: 'actor' }, { archivedAt: 'old' }, { archivedBy: 'actor' }, { isArchived: true }]) test(`UI recognizes archive marker ${Object.keys(marker)[0]}`, () => {
++  expect(isTemplateArchived(marker as Partial<EquipmentTemplate>)).toBe(true);
++});
++test('legacy records without archive metadata remain active', () => {
++  expect(isTemplateArchived({ status: 'Active', deletedAt: null })).toBe(false);
++  expect(isTemplateArchived({})).toBe(false);
++});
++
++for (const field of ["deletedAt", "deletedBy", "archivedAt", "archivedBy", "isArchived", "status"]) {
++  for (const value of [[null, "actor"], [null], [], {}, false, 1]) test(`malformed ${field}=${JSON.stringify(value)} is protected in the UI`, () => {
++    expect(isTemplateArchived({ [field]: value } as unknown as Partial<EquipmentTemplate>)).toBe(true);
++  });
++}
++test("exact null metadata remains active in the UI", () => {
++  expect(isTemplateArchived({ deletedAt: null, deletedBy: null, archivedAt: null, archivedBy: null, isArchived: null } as unknown as Partial<EquipmentTemplate>)).toBe(false);
++});
+diff --git a/frontend/src/services/templatePolicy.ts b/frontend/src/services/templatePolicy.ts
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/services/templatePolicy.ts
+@@ -0,0 +1,21 @@
++import type { EquipmentTemplate } from '@/types';
++
++export const canReadTemplates = (role?: string) => role === 'admin' || role === 'technician';
++export const isTemplateArchived = (template: Partial<EquipmentTemplate>) =>
++  (template.status != null && (typeof template.status !== 'string' || template.status === 'Archived')) ||
++  [template.deletedAt, template.deletedBy, template.archivedAt, template.archivedBy, template.isArchived]
++    .some(value => value !== undefined && value !== null);
++
++// The editor loads a complete DTO. Only business fields belong in a mutation.
++const editable = ['manufacturer', 'model', 'description', 'equipmentClass', 'di',
++  'fdaProductCode', 'gmdnTerm', 'gmdnDefinition', 'brandName', 'catalogNumber', 'versionOrModel',
++  'mrSafetyStatus', 'issuingAgency', 'classificationName', 'regulationNumber', 'panel',
++  'recordStatus', 'prescriptionRequired', 'otc', 'submissionNumber', 'manufacturerDUNS',
++  'alarm', 'hipaa', 'autoAddPmProcedure', 'requirePmPlan', 'excludeFromLifecycle', 'excludeFromAEM',
++  'manufacturerRecommendedPMFrequency', 'isTestEquipment', 'eolYears', 'lineItemPricing',
++  'lifecycleDefaults', 'benchmark', 'kind', 'subType'] as const;
++
++export function templateBusinessPayload(template: Partial<EquipmentTemplate>) {
++  return Object.fromEntries(editable.filter(key => Object.prototype.hasOwnProperty.call(template, key))
++    .map(key => [key, template[key]]));
++}
+diff --git a/frontend/src/types/EquipmentTemplate.ts b/frontend/src/types/EquipmentTemplate.ts
+--- a/frontend/src/types/EquipmentTemplate.ts
++++ b/frontend/src/types/EquipmentTemplate.ts
+@@ -8,6 +8,16 @@
+   verified: boolean;
+   updatedAt?: string;
+   createdAt?: string;
++  createdBy?: string | null;
++  updatedBy?: string | null;
++  deletedAt?: string | null;
++  deletedBy?: string | null;
++  archivedAt?: string | null;
++  archivedBy?: string | null;
++  isArchived?: boolean;
++  verifiedAt?: string | null;
++  verifiedBy?: string | null;
++  verificationSource?: string | null;
+ 
+   // FDA / UDI fields
+   di?: string;
+@@ -36,6 +46,10 @@
+   lineItemPricing?: number;
+ 
+   benchmark?: TemplateBenchmark;
++  lifecycleDefaults?: {
++    expectedLifeYears?: number | null;
++    typicalAnnualMaintenance?: number | null;
++  };
+ 
+   // Extra fields
+   classificationName?: string;

@@ -1,0 +1,12 @@
+(node:480262) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:480262) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:480262) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:480262) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+Test Suites: 2 passed, 2 total
+Tests:       134 passed, 134 total
+Snapshots:   0 total
+Time:        5.133 s
+Ran all test suites within paths "src/routers/_tests_/referenceLifecycle.test.mjs", "src/routers/_tests_/referenceLifecycleStandalone.test.mjs".
+Test results written to: evidence/gitea-15/compatibility-results.json

@@ -1,0 +1,86 @@
+(node:480127) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  console.warn
+    Using NodeJS below 20.19.0
+
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:28:11)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:16:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/index.ts:2:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server/index.js:4:20)
+
+(node:480127) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:480127) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+FAIL evidence/gitea-15/lifecycle.reproduction.mjs
+  ● SECURITY: technician ordinary PUT must not undo admin archive
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Archived"
+    Received: "Active"
+
+      184 | // Desired boundaries deliberately fail on the frozen baseline; policy is still proposed.
+      185 | test('SECURITY: technician ordinary PUT must not undo admin archive',async()=>{
+    > 186 |  const d=await seed();await archive(d);await send('put',`/templates/${d.id}`,{status:'Active'});expect((await stored(d)).status).toBe('Archived');
+          |                                                                                                                                  ^
+      187 | });
+      188 | test('SECURITY: normal selection list must exclude archived Templates',async()=>{
+      189 |  const d=await seed();await archive(d);const r=await send('get','/templates').expect(200);expect(r.body.templates.map(x=>x._id)).not.toContain(d.id);
+
+      at Object.<anonymous> (evidence/gitea-15/lifecycle.reproduction.mjs:186:130)
+
+  ● SECURITY: normal selection list must exclude archived Templates
+
+    expect(received).not.toContain(expected) // indexOf
+
+    Expected value: not "6abb959454c67f069a9b9200"
+    Received array:     ["6abb959454c67f069a9b9200"]
+
+      187 | });
+      188 | test('SECURITY: normal selection list must exclude archived Templates',async()=>{
+    > 189 |  const d=await seed();await archive(d);const r=await send('get','/templates').expect(200);expect(r.body.templates.map(x=>x._id)).not.toContain(d.id);
+          |                                                                                                                                      ^
+      190 | });
+      191 | test('SECURITY: archived Template must not acquire new Asset reference',async()=>{
+      192 |  const d=await seed();await archive(d);await send('post','/assets',{ctrlNumber:'FORBIDDEN',templateId:d.id});expect(await A.countDocuments()).toBe(0);
+
+      at Object.<anonymous> (evidence/gitea-15/lifecycle.reproduction.mjs:189:134)
+
+  ● SECURITY: archived Template must not acquire new Asset reference
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 1
+
+      190 | });
+      191 | test('SECURITY: archived Template must not acquire new Asset reference',async()=>{
+    > 192 |  const d=await seed();await archive(d);await send('post','/assets',{ctrlNumber:'FORBIDDEN',templateId:d.id});expect(await A.countDocuments()).toBe(0);
+          |                                                                                                                                               ^
+      193 | });
+      194 | test('SECURITY: archive must persist actor and timestamp',async()=>{
+      195 |  const d=await seed();await archive(d);const s=await stored(d);expect(String(s.deletedBy)).toBe(actor);expect(s.deletedAt).toBeInstanceOf(Date);
+
+      at Object.<anonymous> (evidence/gitea-15/lifecycle.reproduction.mjs:192:143)
+
+  ● SECURITY: archive must persist actor and timestamp
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "000000000000000000000001"
+    Received: "undefined"
+
+      193 | });
+      194 | test('SECURITY: archive must persist actor and timestamp',async()=>{
+    > 195 |  const d=await seed();await archive(d);const s=await stored(d);expect(String(s.deletedBy)).toBe(actor);expect(s.deletedAt).toBeInstanceOf(Date);
+          |                                                                                            ^
+      196 | });
+      197 |
+
+      at Object.<anonymous> (evidence/gitea-15/lifecycle.reproduction.mjs:195:92)
+
+Test Suites: 1 failed, 1 total
+Tests:       4 failed, 29 passed, 33 total
+Snapshots:   0 total
+Time:        1.68 s, estimated 3 s
+Ran all test suites.
+Test results written to: evidence/gitea-15/results.json

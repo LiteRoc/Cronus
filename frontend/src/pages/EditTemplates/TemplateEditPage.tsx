@@ -4,23 +4,27 @@ import React, { useState } from "react";
 import useSWR from "swr";
 import { useParams, useNavigate } from "react-router-dom";
 
-import type { EquipmentTemplate, WithDuplicate } from "@/types";
+import type { EquipmentTemplate } from "@/types";
 import {
   getTemplateById,
   getTemplateLifecycle,
   syncTemplate,
   updateTemplate,
-  deleteTemplate,
+  archiveTemplate,
 } from "@/services";
 
 import SyncFromFDAModal from "./modals/SyncFromFDAModal";
 import DuplicateBanner from "../../components/DuplicateBanner";
 import TemplateLifecycleSummaryCard from "./components/TemplateLifecycleSummaryCard";
 import { FaArrowLeft } from "react-icons/fa";
+import { useUser } from '@/context/UserContext';
+import { canReadTemplates, isTemplateArchived } from '@/services/templatePolicy';
 
 const TemplateEditPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser();
+  const canRead = canReadTemplates(user?.role);
 
   const [formData, setFormData] = useState<Partial<EquipmentTemplate>>({});
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
@@ -41,7 +45,7 @@ const TemplateEditPage: React.FC = () => {
     error: templateError,
     isLoading: isTemplateLoading,
     mutate: mutateTemplate,
-  } = useSWR(id ? ["template", id] : null, ([, templateId]) =>
+  } = useSWR(id && canRead ? ["template", id] : null, ([, templateId]) =>
     getTemplateById(templateId)
   );
 
@@ -50,7 +54,7 @@ const TemplateEditPage: React.FC = () => {
     error: lifecycleSummaryError,
     isLoading: isLifecycleSummaryLoading,
     mutate: mutateLifecycleSummary,
-  } = useSWR(id ? ["template-lifecycle-summary", id] : null, ([, templateId]) =>
+  } = useSWR(id && canRead ? ["template-lifecycle-summary", id] : null, ([, templateId]) =>
     getTemplateLifecycle(templateId)
   );
 
@@ -68,18 +72,18 @@ const TemplateEditPage: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!id) return;
+    if (!id || !template || !canRead || isTemplateArchived(template)) return;
 
     setSaving(true);
 
     try {
-      const res = (await updateTemplate(
+      const res = await updateTemplate(
         id,
         formData
-      )) as WithDuplicate<EquipmentTemplate>;
+      );
 
       setDupMeta({
-        duplicateOf: res.duplicateOf,
+        duplicateOf: res.duplicateOf ?? undefined,
         warning: res.warning,
         matchedOn: res.matchedOn ?? [],
       });
@@ -94,24 +98,24 @@ const TemplateEditPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!template?._id) return;
-    if (!confirm("Are you sure you want to delete this template?")) return;
+  const handleArchive = async () => {
+    if (!template?._id || user?.role !== 'admin' || isTemplateArchived(template)) return;
+    if (!confirm("Archive this template? Existing asset history will remain available.")) return;
 
     try {
-      await deleteTemplate(template._id);
+      await archiveTemplate(template._id);
       navigate("/templates");
     } catch (err) {
-      console.error("Delete failed", err);
-      alert("Delete failed.");
+      console.error("Archive failed", err);
+      alert("Archive failed. Refresh the template and try again.");
     }
   };
 
   const handleSyncFromFDA = async (input: string) => {
     try {
-      if (!template?._id) return;
+      if (!template?._id || !canRead || isTemplateArchived(template)) return;
 
-      const updatedTemplate = await syncTemplate(template._id, input);
+      const { template: updatedTemplate } = await syncTemplate(template._id, input);
       if (!updatedTemplate) throw new Error("No template returned");
 
       setFormData(updatedTemplate);
@@ -125,6 +129,8 @@ const TemplateEditPage: React.FC = () => {
       alert("Sync failed. Check DI/UDI and try again.");
     }
   };
+
+  if (!canRead) return <div role="alert">You do not have access to Templates.</div>;
 
   if (isTemplateLoading) {
     return <div className="p-6">Loading template...</div>;
@@ -164,7 +170,8 @@ const TemplateEditPage: React.FC = () => {
         onDismiss={() => setDupMeta((m) => ({ ...m, warning: undefined }))}
       />
 
-      <section className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
+      {isTemplateArchived(template) && <p role="status">Archived template — history is available; editing is disabled.</p>}
+      <fieldset disabled={isTemplateArchived(template)} className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-4">
         <h2 className="text-lg font-semibold text-gray-800">
           Template Details
         </h2>
@@ -206,7 +213,7 @@ const TemplateEditPage: React.FC = () => {
           <ReadOnlyField label="GMDN" value={template.gmdnTerm} />
           <ReadOnlyField label="Class" value={template.equipmentClass} />
         </div>
-      </section>
+      </fieldset>
 
       <TemplateLifecycleSummaryCard
         summary={lifecycleSummary}
@@ -219,7 +226,7 @@ const TemplateEditPage: React.FC = () => {
           type="button"
           onClick={handleSave}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          disabled={saving}
+          disabled={saving || isTemplateArchived(template)}
         >
           {saving ? "Saving..." : "💾 Save"}
         </button>
@@ -232,7 +239,7 @@ const TemplateEditPage: React.FC = () => {
           Cancel
         </button>
 
-        {!template.verified && (
+        {!template.verified && !isTemplateArchived(template) && (
           <button
             type="button"
             onClick={() => setIsSyncModalOpen(true)}
@@ -242,17 +249,17 @@ const TemplateEditPage: React.FC = () => {
           </button>
         )}
 
-        <button
+        {user?.role === 'admin' && !isTemplateArchived(template) && <button
           type="button"
-          onClick={handleDelete}
+          onClick={handleArchive}
           className="text-red-600 hover:underline ml-auto"
         >
-          🗑 Delete
-        </button>
+          Archive
+        </button>}
       </div>
 
       <SyncFromFDAModal
-        isOpen={isSyncModalOpen}
+        isOpen={isSyncModalOpen && !isTemplateArchived(template)}
         onClose={() => setIsSyncModalOpen(false)}
         onSync={handleSyncFromFDA}
       />

@@ -1,0 +1,462 @@
+(node:479866) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  console.warn
+    Using NodeJS below 20.19.0
+
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:28:11)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:16:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/index.ts:2:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server/index.js:4:20)
+
+(node:479866) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+  console.warn
+    getPath: MongoMemoryServer: Possible version conflict
+      SystemBinary version: "8.2.1"
+      Requested version:    "8.2.6"
+    
+      Using SystemBinary!
+
+      37 |   const server = replicaSet
+      38 |     ? await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger', ip: '127.0.0.1' } })
+    > 39 |     : await MongoMemoryServer.create({ instance: { dbName: 'cronus_core_contact_test_bootstrap' } });
+         |       ^
+      40 |   const baseUri = server.getUri();
+      41 |   assertMemoryServerUri(baseUri, baseUri);
+      42 |
+
+      at Function.getPath (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoBinary.ts:109:21)
+      at MongoInstance.start (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:366:22)
+      at Function.create (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:294:5)
+      at MongoMemoryServer._startUpInstance (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:532:22)
+      at MongoMemoryServer.start (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:350:5)
+      at Function.create (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:317:5)
+      at createIsolatedMongoHarness (src/test/mongoMemoryHarness.mjs:39:7)
+      at Object.<anonymous> (evidence/gitea-15/lifecycle.reproduction.mjs:47:4)
+
+FAIL evidence/gitea-15/lifecycle.reproduction.mjs
+  ● CONTROL: configured and alternative Mongo targets fail closed
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: anonymous cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: customer cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: viewer cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: tech cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: missing cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: unknown cannot use role-gated Template routes
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: admin PUT can archive restore set arbitrary status and bypass nested validators
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: technician PUT can archive restore set arbitrary status and bypass nested validators
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: admin archive stores status but drops intended audit fields; repeat succeeds
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: technician edits archived row then restores real admin archive
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: PUT operators remove status and required fields; timestamps stay server-controlled
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: admin create accepts identity timestamps status verification dangling duplicate reference; drops audit fields
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: archived Template remains in list count detail and distinct picker data
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: customer passes authentication-only distinct and lifecycle reads
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: viewer passes authentication-only distinct and lifecycle reads
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: tech passes authentication-only distinct and lifecycle reads
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: missing passes authentication-only distinct and lifecycle reads
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: unknown passes authentication-only distinct and lifecycle reads
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● CONTROL: lifecycle requires authorized selected Facility and all reads require authentication
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: archived Template accepts Asset POST and PUT references; history detail batch lifecycle and test-equipment picker survive
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: DI upsert resurrects archived Template and optionally creates new Asset reference
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: sync-gudid edits archived Template without restoring status or recording actor
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: from-di returns 500 before provider with undefined createAsset
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: frontend DELETE and correctly spelled archive route are unmounted 404
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● OBSERVATION: absent Template PUT and invalid archive identifier return 500
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● SECURITY: technician ordinary PUT must not undo admin archive
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● SECURITY: normal selection list must exclude archived Templates
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● SECURITY: archived Template must not acquire new Asset reference
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+  ● SECURITY: archive must persist actor and timestamp
+
+    MongoServerError: Error in specification { unique: true, partialFilterExpression: { di: { $exists: false } }, background: true, name: "manufacturer_1_model_1", key: { manufacturer: 1, model: 1 }, v: 2 } :: caused by :: Expression not supported in partial index: $not
+        di exists
+
+      at Connection.sendCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:550:17)
+      at Connection.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/cmap/connection.ts:624:22)
+      at Server.command (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/sdam/server.ts:338:21)
+      at CreateIndexesOperation.executeCommand (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/command.ts:179:12)
+      at CreateIndexesOperation.execute (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/indexes.ts:324:5)
+      at tryOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:283:14)
+      at executeOperation (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/operations/execute_operation.ts:115:12)
+      at Collection.createIndex (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb/src/collection.ts:609:21)
+
+Test Suites: 1 failed, 1 total
+Tests:       30 failed, 30 total
+Snapshots:   0 total
+Time:        1.058 s
+Ran all test suites.
+Test results written to: evidence/gitea-15/results.json

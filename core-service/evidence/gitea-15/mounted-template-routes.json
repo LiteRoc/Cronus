@@ -1,0 +1,68 @@
+[
+  {
+    "methods": [
+      "get"
+    ],
+    "path": "/templates/"
+  },
+  {
+    "methods": [
+      "get"
+    ],
+    "path": "/templates/:id"
+  },
+  {
+    "methods": [
+      "get"
+    ],
+    "path": "/templates/distinct/manufacturers"
+  },
+  {
+    "methods": [
+      "get"
+    ],
+    "path": "/templates/distinct/models"
+  },
+  {
+    "methods": [
+      "post"
+    ],
+    "path": "/templates/"
+  },
+  {
+    "methods": [
+      "post"
+    ],
+    "path": "/templates/from-di-or-udi"
+  },
+  {
+    "methods": [
+      "post"
+    ],
+    "path": "/templates/from-di"
+  },
+  {
+    "methods": [
+      "patch"
+    ],
+    "path": "/templates/:id/sync-gudid"
+  },
+  {
+    "methods": [
+      "put"
+    ],
+    "path": "/templates/:id"
+  },
+  {
+    "methods": [
+      "patch"
+    ],
+    "path": "/templates/:id/achive"
+  },
+  {
+    "methods": [
+      "get"
+    ],
+    "path": "/templates/:id/lifecycle"
+  }
+]

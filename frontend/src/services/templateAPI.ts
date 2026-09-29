@@ -1,6 +1,13 @@
 import { EquipmentTemplate, TemplateLifecycleSummaryResponse, TemplateListResponse } from "@/types";
-import { WithDuplicate } from "../types/duplicate";
 import apiClient from "./apiClient";
+import { templateBusinessPayload } from './templatePolicy';
+
+export interface TemplateMutationResponse {
+  template: EquipmentTemplate;
+  duplicateOf?: string | null;
+  warning?: string;
+  matchedOn?: string[];
+}
 
 export const getTemplates = async (params?: any): Promise<TemplateListResponse> =>
   (await apiClient.get<TemplateListResponse>("/templates", { params })).data;
@@ -23,11 +30,14 @@ export const getTemplateLifecycle = async (id: string): Promise<TemplateLifecycl
 export const getManufactures = async () => 
   (await apiClient.get<string[]>('/templates/distinct/manufacturers')).data;
 
-export const syncTemplate = async (id: string, diOrudi: string) =>
+export const syncTemplate = async (id: string, diOrudi: string): Promise<TemplateMutationResponse> =>
   (await apiClient.patch(`/templates/${id}/sync-gudid`, { udi: diOrudi })).data;
 
-export const deleteTemplate = async (id: string) =>
-  (await apiClient.delete(`/templates/${id}`));
+export const archiveTemplate = async (id: string) =>
+  (await apiClient.patch(`/templates/${id}/archive`, {})).data;
+
+// Keep exported caller compatibility; no Template hard-delete workflow exists.
+export const deleteTemplate = archiveTemplate;
 
 // Create Template w/ Duplicate detection
 /*export async function createTemplate(payload: Partial<EquipmentTemplate>): Promise<WithDuplicate<EquipmentTemplate>> {
@@ -35,8 +45,8 @@ export const deleteTemplate = async (id: string) =>
   return data;
 }*/
 
-export const createTemplate = async (payload: any) =>
-  (await apiClient.post('/templates', payload)).data;
+export const createTemplate = async (payload: Partial<EquipmentTemplate>): Promise<TemplateMutationResponse> =>
+  (await apiClient.post('/templates', templateBusinessPayload(payload))).data;
 
 export const createAssetFromUDI = async (payload: any) =>
   (await apiClient.post('/templates/from-di-or-udi', payload)).data;
@@ -45,8 +55,8 @@ export const createTempleteFromDI = async (di: string) =>
   (await apiClient.post('/templates/from-di', { di })).data;
 
 // Update Template w/ Duplicate detection
-export async function updateTemplate(id: string, payload: Partial<EquipmentTemplate>): Promise<WithDuplicate<EquipmentTemplate>> {
-  const { data } = await apiClient.put(`/templates/${id}`, payload);
+export async function updateTemplate(id: string, payload: Partial<EquipmentTemplate>): Promise<TemplateMutationResponse> {
+  const { data } = await apiClient.put(`/templates/${id}`, templateBusinessPayload(payload));
   return data;
 }
 

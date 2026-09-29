@@ -1,4 +1,5 @@
 const ownership = require('../services/operationalOwnership');
+const templateLifecycle = require('../services/templateLifecycle');
 const express = require('express');
 const mongoose = require('mongoose');
 const debug = require('debug')('app:assetsRouter');
@@ -321,6 +322,9 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       };
     }
 
+    const assetId = new mongoose.Types.ObjectId();
+    const saveAsset = () => templateLifecycle.withReference(tpl?._id, 'asset-create', assetId,
+      () => Asset.create({ ...payload, _id: assetId }));
     const duplicate = await Asset.findOne({
       $and: [
         buildTenantFilter(req),
@@ -334,7 +338,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
     if (duplicate) {
       payload.duplicateOf = duplicate._id; // Optional: add this field to your Asset model
 
-      const asset = await Asset.create(payload);
+      const asset = await saveAsset();
       return res.status(201).json({
         asset,
         duplicateOf: duplicate._id,
@@ -348,7 +352,7 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
 
     console.log("Final payload to create Asset:", payload);
 
-    const asset = await Asset.create(payload);
+    const asset = await saveAsset();
     return res.status(201).json({ message: 'Asset created successfully', asset });
 
   } catch (error) {
@@ -402,11 +406,23 @@ assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), asyn
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
     const patch = ownership.pick(req.body, ownership.assetEditFields, true);
     if (!Object.keys(patch).length) ownership.fail(400, 'No editable fields');
-    await ownership.assetReferences(patch, asset.facilityId, asset._id);
+    const previousTemplateId = asset.templateId;
+    await ownership.assetReferences(patch, asset.facilityId, asset._id, previousTemplateId);
+    const newTemplateId = patch.templateId && String(patch.templateId) !== String(previousTemplateId)
+      ? patch.templateId : null;
     asset.set(patch);
     asset.updatedBy = req.user.id;
-    asset.$where = { ...ownership.visibility(req), deletedAt: null, facilityId: asset.facilityId };
-    await asset.save();
+    await asset.validate();
+    await asset.validateParentRelationship();
+    // A stale historical ID must not reattach a reference removed concurrently.
+    asset.$where = { ...ownership.visibility(req), deletedAt: null, facilityId: asset.facilityId,
+      templateId: previousTemplateId || null };
+    try {
+      await templateLifecycle.withReference(newTemplateId, 'asset-template-update', asset._id, () => asset.save());
+    } catch (error) {
+      if (error.name === 'DocumentNotFoundError') ownership.fail(409, 'Asset reference changed; retry');
+      throw error;
+    }
     res.json({ message: 'Asset updated successfully', asset });
   } catch (error) { return ownership.respond(res, error); }
 });

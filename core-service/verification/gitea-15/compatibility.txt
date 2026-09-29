@@ -1,0 +1,21 @@
+
+> core-services@1.0.0 test
+> NODE_ENV=test node --experimental-vm-modules --experimental-specifier-resolution=node node_modules/jest/bin/jest.js --runInBand --runTestsByPath src/routers/_tests_/operationalOwnership.test.mjs src/routers/_tests_/workOrderSubresourceSecurity.test.mjs src/routers/_tests_/testEquipmentPickerSecurity.test.mjs src/routers/_tests_/facilityQueryIsolation.test.mjs src/routers/_tests_/referenceLifecycle.test.mjs src/routers/_tests_/referenceLifecycleStandalone.test.mjs src/routers/_tests_/workOrderCosts.test.mjs src/utils/_tests_/lifecycle.util.test.mjs --json --outputFile=verification/gitea-15/compatibility.json
+
+(node:483475) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:483475) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:483475) [MONGOOSE] Warning: Duplicate schema index on {"workOrderId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+
+Test Suites: 8 passed, 8 total
+Tests:       745 passed, 745 total
+Snapshots:   0 total
+Time:        30.479 s
+Ran all test suites within paths "src/routers/_tests_/operationalOwnership.test.mjs", "src/routers/_tests_/workOrderSubresourceSecurity.test.mjs", "src/routers/_tests_/testEquipmentPickerSecurity.test.mjs", "src/routers/_tests_/facilityQueryIsolation.test.mjs", "src/routers/_tests_/referenceLifecycle.test.mjs", "src/routers/_tests_/referenceLifecycleStandalone.test.mjs", "src/routers/_tests_/workOrderCosts.test.mjs", "src/utils/_tests_/lifecycle.util.test.mjs".
+Test results written to: verification/gitea-15/compatibility.json

@@ -8,6 +8,16 @@ export interface EquipmentTemplate {
   verified: boolean;
   updatedAt?: string;
   createdAt?: string;
+  createdBy?: string | null;
+  updatedBy?: string | null;
+  deletedAt?: string | null;
+  deletedBy?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  isArchived?: boolean;
+  verifiedAt?: string | null;
+  verifiedBy?: string | null;
+  verificationSource?: string | null;
 
   // FDA / UDI fields
   di?: string;
@@ -36,6 +46,10 @@ export interface EquipmentTemplate {
   lineItemPricing?: number;
 
   benchmark?: TemplateBenchmark;
+  lifecycleDefaults?: {
+    expectedLifeYears?: number | null;
+    typicalAnnualMaintenance?: number | null;
+  };
 
   // Extra fields
   classificationName?: string;

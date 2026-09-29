@@ -168,10 +168,17 @@ AssetSchema.index({ serialNumber: 1 }, { sparse: true });
 AssetSchema.index({ templateId: 1 });
 
 /** Guard rails (no self/loop) */
-AssetSchema.pre('save', async function (next) {
-  if (!this.isModified('parentAsset')) return next();
+AssetSchema.methods.validateParentRelationship = async function () {
+  if (!this.isModified('parentAsset')) return;
+  const reject = message => {
+    const error = new mongoose.Error.ValidationError(this);
+    error.addError('parentAsset', new mongoose.Error.ValidatorError({ path: 'parentAsset', message }));
+    // This business rejection is raised before save issues a persistence write.
+    error.templateNotWritten = true;
+    throw error;
+  };
   if (this.parentAsset && this.parentAsset.equals(this._id)) {
-    return next(new Error('An asset cannot be its own parent.'));
+    reject('An asset cannot be its own parent.');
   }
   if (this.parentAsset) {
     const Asset = this.constructor;
@@ -179,13 +186,15 @@ AssetSchema.pre('save', async function (next) {
     let hops = 0;
     while (cursor?.parentAsset && hops < 20) {
       if (String(cursor.parentAsset) === String(this._id)) {
-        return next(new Error('Cyclic relationship detected.'));
+        reject('Cyclic relationship detected.');
       }
       cursor = await Asset.findById(cursor.parentAsset).select('parentAsset').lean();
       hops++;
     }
   }
-  next();
+};
+AssetSchema.pre('save', async function () {
+  await this.validateParentRelationship();
 });
 
 module.exports = mongoose.model('Asset', AssetSchema, 'assets');

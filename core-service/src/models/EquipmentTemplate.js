@@ -67,7 +67,29 @@ const EquipmentTemplateSchema = new mongoose.Schema({
   mrSafetyStatus: { type: String, default: '' },
   issuingAgency: { type: String, default: '' }, // GS1/HIBCC/ICCBBA
   verified: { type: Boolean, default: false },
+  verifiedAt: { type: Date, default: null },
+  verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  verificationSource: { type: String, default: null },
   status: { type: String, default: 'Active' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  deletedAt: { type: Date, default: null },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  // Read compatibility only. New archives use deletedAt/deletedBy and Archived.
+  archivedAt: { type: Date },
+  archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isArchived: { type: Boolean },
+  // No expiry: an uncertain dependent write must continue to block archive.
+  templateReferenceReservation: {
+    type: new mongoose.Schema({
+      token: { type: String, required: true },
+      acquiredAt: { type: Date, required: true },
+      operation: { type: String, required: true },
+      destinationId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    }, { _id: false }),
+    default: undefined,
+    select: false,
+  },
 
   // Extra fields
   classificationName: { type: String, default: '' },
@@ -89,6 +111,17 @@ const EquipmentTemplateSchema = new mongoose.Schema({
   }
 
 }, { timestamps: true });
+
+EquipmentTemplateSchema.pre('init', function (raw) {
+  require('../services/templateArchiveState').remember(this, raw);
+});
+
+for (const method of ['toJSON', 'toObject']) EquipmentTemplateSchema.set(method, {
+  transform(_doc, result) {
+    delete result.templateReferenceReservation;
+    return result;
+  },
+});
 
 // Fast filtering and distincts
 EquipmentTemplateSchema.index(

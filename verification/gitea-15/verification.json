@@ -1,0 +1,60 @@
+{
+  "baseline": "d721ddb6840bc58d92986cd80889edfac2c5ffee",
+  "modified": [
+    "core-service/src/models/Asset.js",
+    "core-service/src/models/EquipmentTemplate.js",
+    "core-service/src/routers/assetsRouter.js",
+    "core-service/src/routers/templatesRouter.js",
+    "core-service/src/services/operationalOwnership.js",
+    "frontend/src/pages/AddTemplate/TemplateCreatePage.tsx",
+    "frontend/src/pages/EditTemplates/TemplateEditPage.tsx",
+    "frontend/src/pages/ListTemplates/TemplateListPage.tsx",
+    "frontend/src/services/templateAPI.ts",
+    "frontend/src/types/EquipmentTemplate.ts"
+  ],
+  "added": [
+    "core-service/src/routers/_tests_/templateLifecycle.test.mjs",
+    "core-service/src/services/templateArchiveState.js",
+    "core-service/src/services/templateLifecycle.js",
+    "frontend/src/pages/EditTemplates/templateLifecycle.test.tsx",
+    "frontend/src/services/templateLifecycle.test.ts",
+    "frontend/src/services/templatePolicy.ts"
+  ],
+  "backendTests": {
+    "focused": {
+      "passed": 152,
+      "suites": 1,
+      "suiteCounts": {
+        "templateLifecycle.test.mjs": 152
+      }
+    },
+    "compatibility": {
+      "passed": 745,
+      "suites": 8,
+      "suiteCounts": {
+        "operationalOwnership.test.mjs": 214,
+        "workOrderSubresourceSecurity.test.mjs": 295,
+        "testEquipmentPickerSecurity.test.mjs": 49,
+        "referenceLifecycleStandalone.test.mjs": 31,
+        "referenceLifecycle.test.mjs": 103,
+        "workOrderCosts.test.mjs": 21,
+        "facilityQueryIsolation.test.mjs": 29,
+        "lifecycle.util.test.mjs": 3
+      }
+    },
+    "authentication": {
+      "passed": 31,
+      "suites": 1,
+      "suiteCounts": {
+        "coreAuthentication.security.test.js": 31
+      }
+    }
+  },
+  "frontendTests": {
+    "passed": 73,
+    "newTemplateTests": 61,
+    "compatibilityTests": 12
+  },
+  "unchangedBaselineFiles": 406,
+  "frozenEvidence": "All #15 files match the frozen tar bundle; #14 evidence and implementation match authoritative main."
+}

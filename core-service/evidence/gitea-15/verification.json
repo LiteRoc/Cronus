@@ -1,0 +1,26 @@
+{
+  "baseline": "d721ddb6840bc58d92986cd80889edfac2c5ffee",
+  "verifiedUnchangedBaselineFiles": 406,
+  "reproduction": {
+    "passed": 29,
+    "intentionalFailures": [
+      "SECURITY: technician ordinary PUT must not undo admin archive",
+      "SECURITY: normal selection list must exclude archived Templates",
+      "SECURITY: archived Template must not acquire new Asset reference",
+      "SECURITY: archive must persist actor and timestamp"
+    ]
+  },
+  "compatibility": {
+    "passed": 134,
+    "failed": 0
+  },
+  "versions": {
+    "node": "v18.19.1",
+    "mongoose": "8.13.2",
+    "express": "4.21.1",
+    "jest": "30.4.2",
+    "supertest": "7.2.2",
+    "mongodb-memory-server": "11.2.0"
+  },
+  "scope": "Synthetic isolated persistence only; no application source edits or Git changes."
+}

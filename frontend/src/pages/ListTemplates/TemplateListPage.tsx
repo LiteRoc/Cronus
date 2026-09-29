@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {getTemplates, getManufactures } from "../../services/templateAPI";
+import { useUser } from '@/context/UserContext';
+import { canReadTemplates } from '@/services/templatePolicy';
 
 interface EquipmentTemplate {
   _id: string;
@@ -12,6 +14,8 @@ interface EquipmentTemplate {
 }
 
 const TemplateListPage: React.FC = () => {
+  const { user } = useUser();
+  const canRead = canReadTemplates(user?.role);
   const [templates, setTemplates] = useState<EquipmentTemplate[]>([]);
   const [search, setSearch] = useState("");
   const [manufacturer, setManufacturer] = useState("");
@@ -24,9 +28,10 @@ const TemplateListPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!canRead) return;
     fetchTemplates();
     fetchManufacturers();
-  }, [search, manufacturer, verifiedOnly, sortBy, currentPage]);
+  }, [search, manufacturer, verifiedOnly, sortBy, currentPage, canRead]);
 
   const fetchTemplates = async () => {
     try {
@@ -57,6 +62,8 @@ const TemplateListPage: React.FC = () => {
       console.error("Failed to fetch manufacturers", error);
     }
   };
+
+  if (!canRead) return <div role="alert">You do not have access to Templates.</div>;
 
   return (
     <div className="p-6 space-y-6">
