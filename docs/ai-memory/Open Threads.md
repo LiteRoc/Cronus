@@ -4,6 +4,14 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Post-deployment verification — September 29, 2026
 
+#9 deployed successfully at `41c470914b209925aad944e747d9939de3add801`. Controlled stop/update/start and startup/runtime verification passed; Mongo remained continuous and both schedulers remain disabled. No migration, backfill, index, topology, dependency or configuration change was required. Browser reload is required after rollout; backend validation remains authoritative for stale payloads. See the [#9 deployment journal](<../engineering-journal/2026-09-29-gitea-9-procedure-measurement-deployment.md>).
+
+**Authenticated #9 production smoke remains pending:** no approved session/safe record scope was available; no authenticated production measurement writes were performed. Future verification requires an approved existing session and explicitly authorized safe records/cleanup. Check snapshot preservation, canonical/derived agreement, required numeric completion, and recorded out-of-range failure. Do not create or extract credentials to fill the gap. This is an open operational verification item, not a code blocker.
+
+WorkOrder embedded procedure results are canonical; current TaskResult responses are derived, while legacy TaskResult documents remain untouched. After #9-aware writes begin, prefer roll-forward: fence old writers, preserve measurement snapshots plus #14/#15 lifecycle/reservation metadata, and never reconstruct current results from legacy TaskResult documents.
+
+### Prior #15 operational item — still open
+
 #15 deployed successfully at `a62c96686bcaad74bba00fa64fc5fba31996b8b4`. Controlled stop/update/start and startup/runtime verification passed; Mongo remained continuous and both schedulers remain disabled. No migration, backfill, topology, dependency or configuration change was required. Browser reload is required because frontend Archive behavior changed; backend protections remain authoritative. See the [#15 deployment journal](<../engineering-journal/2026-09-29-gitea-15-template-lifecycle-deployment.md>).
 
 **Authenticated #15 production smoke remains pending:** no approved session/source was available, and no authenticated production writes were performed. Verify active-reference creation, archived-reference/edit rejection, historical resolution and supported Archive behavior only with an approved existing session and authorized write scope. Do not create or extract credentials to fill the gap. After #15-aware writes begin, prefer roll-forward; do not delete lifecycle/audit/reservation metadata as rollback cleanup. Template uncertain-write recovery remains separately controlled; the #14 recovery tool does not govern Template reservations.
@@ -20,7 +28,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 - After #14 writes begin, prefer roll-forward. Blind downgrade can bypass coordination and expose private metadata; rollback needs a separately reviewed safe procedure.
 - The [#14 runbook](<../engineering-journal/2026-09-28-gitea-14-reference-reservations.md>) governs explicit recovery. Do not clear reservations or delete operation/fence evidence based on age.
 
-**Next development item: #9 — Procedure measurement units**, followed by lifecycle/Contract reconciliation and AHA 2023 benchmark evaluation. This documentation update starts none of that work. CRM/Interaction remains paused and separate.
+**Next planned phase: Lifecycle/Contract reconciliation.** Reconcile Asset/Template lifecycle calculations with Contract lifecycle intelligence; confirm Work Order costs flow into lifecycle and Contract analytics through the approved #7 canonical cost model; identify duplicated/inconsistent lifecycle and economic calculations. Then evaluate AHA 2023 Estimated Useful Lives of Depreciable Hospital Assets for lifecycle defaults and source attribution. This documentation update starts none of that work. CRM/Interaction remains paused and separate.
 
 #7 is closed and deployed; remaining operational work is separate from the completed software remediation:
 
@@ -29,7 +37,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 - **Authenticated business-path smoke checks:** still unverified; require an approved existing session. Do not create, reset or extract credentials to fill the gap.
 - **Scheduler enablement:** separately gated; both application schedulers remain disabled.
 
-The uploaded AHA guide may later inform Template lifecycle benchmark mapping and source attribution. Do not commit the PDF to Git or treat useful lives as an automatic replacement rule. No benchmark evaluation or issue implementation was performed for this checkpoint.
+AHA useful lives are benchmark/reference values, not automatic replacement mandates. Do not commit the AHA PDF to Git or bulk-copy copyrighted tables into source code without confirming permitted use. No benchmark evaluation or reconciliation implementation was performed for this checkpoint.
 
 See the [#7 deployment/operations record](<../engineering-journal/2026-09-25 - Work Order Cost Model Deployment.md>) for verification and boundaries. Prior P0 security/ownership stabilization remains complete; other unresolved items below retain their existing scope.
 

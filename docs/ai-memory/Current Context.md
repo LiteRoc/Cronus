@@ -4,11 +4,11 @@
 
 ## Post-deployment handoff — September 29, 2026
 
-**#15 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated #15 production smoke remains pending because no approved session was available. Next development item: #9 — Procedure measurement units. This documentation-only handoff starts no development, runtime or data action.**
+**#9 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated #9 production smoke remains pending because no approved session/safe record scope was available. Next planned phase: Lifecycle/Contract reconciliation. This documentation-only handoff starts no development, runtime or data action.**
 
 Authoritative state at this documentation-only handoff:
 
-- #15 checkpoint and deployed runtime: `a62c96686bcaad74bba00fa64fc5fba31996b8b4`. This handoff changes documentation only; it does not advance the runtime checkout.
+- Repository main before this documentation checkpoint and current deployed runtime: `41c470914b209925aad944e747d9939de3add801` (#9). This handoff changes documentation only; it does not advance the runtime checkout.
 - The stable checkout `/home/thecapt/apps/cronus-main` was clean at deployment verification. Core, Contract and frontend source mounts all match the deployed SHA.
 - #7 is closed as a completed software-remediation issue and deployed. Approved Decisions 1–9 remain authoritative.
 - Mary Rutan aggregate-repair preview: **91 assessed, 91 legacy-ambiguous, 0 repairable, 0 unchanged, 0 unsupported, 0 conflicts**. No apply is recommended. No database writes occurred during preview. Historical evidence review is separate follow-up work requiring authorization.
@@ -18,30 +18,34 @@ Authoritative state at this documentation-only handoff:
 - Frozen reproduction remains unchanged at `cae8e991137fdbf5ebfe52658512b03a4085aa17`.
 - Interaction remains separate, paused and unmerged at `807bc38122e771dacccbc23fca4a66363dd58d55`; #7 compatibility passed at that checkpoint. CRM remains paused.
 
-### #15 deployment verification
+### #9 deployment verification
 
-All three application containers stopped before the shared checkout advanced. Old processes and backend operations drained; Core, Contract and frontend started in order. Mongo remained continuously running and both schedulers remain disabled (`CRON_ENABLED=false`). Existing Compose overrides were preserved.
+All three application containers stopped before the shared checkout advanced. Old Node/watch processes exited and two drain samples found zero old-backend connections/operations. Core, Contract and frontend started in order. Mongo remained continuously running; both schedulers remain disabled (`CRON_ENABLED=false`). Compose overrides were preserved.
 
-- Source fingerprints, Mongo connectivity and startup/runtime checks passed. Twelve unauthenticated protected-route probes returned 401; frontend shell and ten modules returned 200. No new startup/index/topology errors or Mongo structural events appeared in the checked logs. The existing duplicate `workOrderId` index warning remains unchanged.
-- **Browser reload is required before normal use resumes:** Archive now uses the supported PATCH API, while old tabs may retain pre-#15 code. Backend protections remain authoritative for stale clients.
-- No authenticated production writes were performed. Authenticated #15 production smoke remains pending because no approved session/source was available; #14's authenticated first-use item also remains open.
-- No migration, backfill, topology, dependency or configuration change was required. No new transaction/replica-set or startup/index requirement was introduced.
-- **After #15-aware writes begin, prefer roll-forward; blind rollback is unsafe.** Preserve lifecycle/audit/reservation metadata. Old writers bypass the protections; any rollback/recovery requires controlled fencing and separate review.
-- Fresh-main verification passed 1,001 tests, including #14/#7 compatibility, plus syntax and TypeScript with the documented baseline workaround. Deployed database-free #7 pricing checks also passed; they do not replace authenticated production smoke.
+- Source fingerprints and startup/runtime checks passed: both backends connected to Mongo; 12 protected-route probes returned 401; frontend shell and five affected modules returned 200. No new startup/index errors or Mongo structural events were detected.
+- **Browser reload is required after rollout.** Stale tabs may submit obsolete result payloads; backend validation remains authoritative. Normal access may resume after reload.
+- Authenticated #9 production smoke remains pending because no approved session/safe record scope was available. No authenticated production measurement writes were performed. #14 and #15 authenticated first-use smoke also remain open operational verification items.
+- No migration, backfill, new collection/index, topology, dependency or configuration change was required; no new transaction/replica-set requirement exists.
+- WorkOrder embedded procedure results are canonical. Current TaskResult responses derive from WorkOrder; legacy TaskResult documents remain untouched. Execution snapshots preserve units/custom labels, bounds and required state independently of source Task edits; no automatic unit conversion or legacy inference/backfill occurs.
+- **After #9-aware writes begin, prefer roll-forward.** Fence old writers; they can omit/drop snapshots and resume conflicting TaskResult writes. Never reconstruct current results from legacy TaskResult documents. Preserve measurement snapshots and #14/#15 lifecycle/reservation metadata.
+- Fresh-main verification passed 927 tests, including #14/#15 and #7 compatibility, plus syntax, whitespace and TypeScript with `--ignoreDeprecations 5.0`. Exact-lock verification remained valid. Deployed database-free #7 pricing/snapshot and #9 measurement checks passed; these do not replace authenticated production smoke. All 276 frozen evidence checksums and the archive remained unchanged.
 
-### Planned continuation
+### Planned continuation — Lifecycle/Contract reconciliation
 
-Authenticated #15 production smoke and #14 first-use verification remain open operational items when an approved existing admin session and Facility context are available; they are not code blockers.
+This phase is planned, not started by this handoff:
 
-1. Gitea #9 — Procedure measurement units (next development item; not started by this handoff).
-2. Lifecycle/Contract reconciliation.
-3. Evaluate AHA 2023 Estimated Useful Lives as a lifecycle benchmark source.
+1. Reconcile Asset/Template lifecycle calculations with Contract lifecycle intelligence.
+2. Confirm Work Order cost flow into lifecycle and Contract analytics uses the approved #7 canonical cost model.
+3. Identify remaining duplicated or inconsistent lifecycle/economic calculations.
+4. Then evaluate **AHA 2023 Estimated Useful Lives of Depreciable Hospital Assets** as a benchmark/reference source for lifecycle defaults and source attribution.
 
-Do not commit the AHA PDF to Git. Treat AHA useful lives as a benchmark/reference, not an automatic replacement rule. The uploaded guide may later support Template lifecycle benchmark mapping and source attribution. Its suitability and mapping were not evaluated in this handoff.
+Do not commit the AHA PDF to Git. Treat useful lives as benchmark/reference values, not automatic replacement mandates. Do not bulk-copy copyrighted tables into source code without confirming permitted use. No AHA suitability/mapping evaluation or reconciliation implementation occurred in this handoff.
 
 Prior P0 security/ownership stabilization passed; #3, #4, #5, #6, #13 and #16 were closed. Preserve their authorization/ownership invariants during future work.
 
 Continuation records:
+
+- [#9 deployment and operational handoff](<../engineering-journal/2026-09-29-gitea-9-procedure-measurement-deployment.md>).
 
 - [#15 deployment and operational handoff](<../engineering-journal/2026-09-29-gitea-15-template-lifecycle-deployment.md>).
 
