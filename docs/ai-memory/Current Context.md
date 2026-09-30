@@ -4,7 +4,8 @@
 
 ## Rate publication hardening — September 30, 2026
 
-#18 adds permanent publication/snapshot regressions and a minimal corrupt-history
+#18 software is merged and verified (606 core and 60 Contract/authentication tests).
+It adds permanent publication/snapshot regressions and a minimal corrupt-history
 guard: ambiguous or invalid current rate history leaves new labor unknown. Valid
 #7 rate and snapshot semantics remain unchanged. Each publication supplies the full
 period set; starts are inclusive and ends exclusive. See the

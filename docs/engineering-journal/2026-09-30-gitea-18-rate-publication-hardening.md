@@ -126,8 +126,7 @@ Branch focused verification: **52/52**. Branch core compatibility: **606/606** a
 WorkOrder costs (52), operational ownership (214), subresource security (295),
 Facility query isolation (29), and Facility compatibility (16). Branch Contract gate:
 **60/60** across core authentication (31), Contract authentication (23), canonical
-cost adapter (3), and profitability safety (3). Merged-main verification is pending
-at this branch checkpoint and will be recorded only after execution.
+cost adapter (3), and profitability safety (3).
 
 Tests use fail-closed ephemeral Mongo harnesses, synthetic fixtures, mocked external
 providers and `CRON_ENABLED=false`. No configured real Mongo target is used.
@@ -135,13 +134,33 @@ Frontend files and contracts are unchanged; frontend verification is not require
 for this backend/test/documentation slice. Syntax and `git diff --check` pass;
 package/lockfile changes are absent. Existing installed dependencies are reused.
 
+## Merged-main verification
+
+Implementation commit: `b507950edd3655c213fc266704ce699beb4a6147`.
+Code merge: `2a8fe6b7271dc66ce70a4e36dc4d67a74c917910`.
+Both remote main heads were freshly fetched and matched the frozen baseline before
+merge. Only the dedicated #18 branch was merged; CRM was not merged.
+
+A fresh detached checkout of the code merge passed the same nine-suite gate:
+**606/606 core and 60/60 Contract/authentication**. The WorkOrder cost suite was
+**52/52**, including all 21 unchanged original cases and 31 additions. Syntax for
+both changed services and the test file passed; `git diff --check` passed. All six
+core/Contract/frontend package manifests and lockfiles exactly match baseline.
+The following closure-record commit changes documentation only; its executable
+source is identical to this verified merge. Final pushed SHA and issue closure are
+recorded in the Gitea #18 final verification comment.
+
+Frontend was not changed or tested. Deployed authenticated business paths, actual
+rate history and live corrupt-history behavior were not inspected or exercised.
+These remain outside this software-only verification boundary.
+
 ## Operational boundary and remaining work
 
 No real rate publication, business-data mutation, historical repair/backfill,
 scheduler/runtime/container/configuration change, deployment or CRM development.
 No schema, dependency, index or service-ownership change is introduced.
 
-Deployment is not required or performed for this software-hardening task. The safeguard is not
+Software merged; deployment not required/performed for #18. The safeguard is not
 claimed active in deployed runtime until a separately authorized future rollout.
 #17 labor-entry correction semantics remain separate and untouched. #19 operational
 publication remains **BLOCKED** on external governance and explicit authorization.
