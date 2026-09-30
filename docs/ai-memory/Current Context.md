@@ -2,6 +2,18 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Labor correction implementation — September 30, 2026
+
+#17 is implemented and verified on its dedicated branch from main `bcab77b`;
+merge/closure verification follows separately. Broad gates passed 1,414 core,
+116 Contract and 256 frontend tests. Description edits preserve economics;
+minute corrections retain captured authority; corrected work dates resolve only
+that date, with missing/ambiguous authority unknown. Legacy minutes never recover
+pricing; publication and status changes never reprice. See the
+[#17 correction and verification record](<../engineering-journal/2026-09-30-gitea-17-labor-corrections.md>).
+No deployment, real-rate publication, business-data action or CRM change.
+#19 remains **BLOCKED**; CRM remains paused at `807bc38122e771dacccbc23fca4a66363dd58d55`.
+
 ## Rate publication hardening — September 30, 2026
 
 #18 software is merged and verified (606 core and 60 Contract/authentication tests).
@@ -11,7 +23,7 @@ guard: ambiguous or invalid current rate history leaves new labor unknown. Valid
 period set; starts are inclusive and ends exclusive. See the
 [#18 verification and publication record](<../engineering-journal/2026-09-30-gitea-18-rate-publication-hardening.md>).
 No operational rate or historical recovery is authorized. #19 remains **BLOCKED**;
-#17 and CRM remain separate. Runtime stays at the prior deployment; #18 introduces
+CRM remains separate. Runtime stays at the prior deployment; #18 introduces
 no deployment, scheduler or real-data action. Lifecycle/Contract reconciliation
 remains the broader planned phase, not implementation authorized by this checkpoint.
 

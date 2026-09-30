@@ -860,3 +860,218 @@ test.each([
   }).expect(400);
   expect(await m.model('InternalCostRateSchedule').countDocuments({})).toBe(0);
 });
+
+// #17 corrections: HTTP contract and canonical economic snapshots.
+const laborPatch = (row, body, logId = row.timeLogs[0]._id) => request(app)
+  .patch(`/workorders/${row._id}/time-logs/${logId}`).set(headers()).send(body);
+const rawWO = row => W.collection.findOne({ _id: row._id });
+async function correctionFixture() {
+  await publishPeriods([ratePeriod('2026-10-01', '2027-01-01', 100), ratePeriod('2027-01-01', null, 120)]);
+  return addLabor(await native(), '2026-12-31');
+}
+function currentEconomics(row) {
+  expect(engine.read(row).cacheState).toBe('current');
+  expect(row.costs.inputFingerprint).toBe(engine.fingerprint(row));
+  expect(row.costs.inputRevision).toBe(row.economics.revision);
+}
+test('#17 description-only preserves all economics and original creation identity without lookup', async () => {
+  const row = await correctionFixture(), before = await rawWO(row);
+  const lookup = jest.spyOn(rates, 'resolve');
+  const response = await laborPatch(row, { description: 'Corrected description' }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toEqual({ ...before.timeLogs[0], description: 'Corrected description' });
+  expect(after.costs).toEqual(before.costs); expect(after.economics).toEqual(before.economics);
+  expect(String(after.updatedBy)).toBe(String(actor));
+  expect(response.body.workOrder.costs.cacheState).toBe('current');
+  expect(lookup).not.toHaveBeenCalled();
+});
+test.each([{ timeSpent: 90 }, { timeSpent: 90, description: 'Corrected minutes' },
+  { timeSpent: 90, workDate: '2026-12-31' }])('#17 minutes retain captured authority despite later publication: %j', async body => {
+  const row = await correctionFixture(), before = await rawWO(row);
+  await publishPeriods([ratePeriod('2026-10-01', null, 200)], 1);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, body).expect(200);
+  const after = await rawWO(row), entry = after.timeLogs[0];
+  expect(entry).toEqual({ ...before.timeLogs[0], ...body, laborCost: 150 });
+  expect(entry.pricing).toEqual(before.timeLogs[0].pricing);
+  expect(after.economics.revision).toBe(before.economics.revision + 1);
+  expect(after.costs.labor).toBe(150); currentEconomics(after);
+  expect(lookup).not.toHaveBeenCalled();
+});
+test('#17 minute correction uses deterministic cent rounding', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 100)]);
+  const row = await addLabor(await native(), '2026-12-31');
+  await laborPatch(row, { timeSpent: 1 }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0].laborCost).toBe(1.67); currentEconomics(after);
+});
+test('#17 explicitly approved zero remains known during minute correction', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 0)]);
+  const row = await addLabor(await native(), '2026-12-31');
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, { timeSpent: 90 }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toMatchObject({ laborRate: 0, laborCost: 0 });
+  expect(after.costs.components.internalLabor).toMatchObject({ total: 0, isComplete: true });
+  expect(lookup).not.toHaveBeenCalled(); currentEconomics(after);
+});
+test.each([
+  ['same period', { workDate: '2026-12-30' }, 100, 50, '2026-10-01'],
+  ['new period', { workDate: '2027-01-01' }, 120, 60, '2027-01-01'],
+  ['minutes and date', { timeSpent: 90, workDate: '2027-01-01' }, 120, 180, '2027-01-01'],
+  ['description and date', { description: 'Corrected date', workDate: '2027-01-01' }, 120, 60, '2027-01-01'],
+])('#17 date correction resolves %s and captures current authority', async (_name, body, rate, cost, from) => {
+  const row = await correctionFixture(), before = await rawWO(row);
+  await publishPeriods([ratePeriod('2026-10-01', '2027-01-01', 100), ratePeriod('2027-01-01', null, 120)], 1);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, body).expect(200);
+  const after = await rawWO(row), entry = after.timeLogs[0];
+  expect(entry).toMatchObject({ ...body, laborRate: rate, laborCost: cost,
+    pricing: { sourceRevision: 2, organizationId: String(org), effectiveFrom: from } });
+  expect(entry._id).toEqual(before.timeLogs[0]._id);
+  expect(entry.userId).toEqual(before.timeLogs[0].userId);
+  expect(entry.createdAt).toEqual(before.timeLogs[0].createdAt);
+  expect(entry.pricing).not.toEqual(before.timeLogs[0].pricing);
+  expect(lookup).toHaveBeenCalledTimes(1); expect(lookup.mock.calls[0].slice(0,2)).toEqual([f, body.workDate]);
+  expect(after.economics.revision).toBe(before.economics.revision + 1); currentEconomics(after);
+});
+test('#17 date correction into a gap removes old authority without fallback', async () => {
+  const row = await correctionFixture();
+  await laborPatch(row, { workDate: '2026-09-30' }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toMatchObject({ laborRate: null, laborCost: null,
+    pricing: { basis: 'unknown', unknownReason: 'no_applicable_rate' } });
+  expect(after.timeLogs[0].pricing.sourceId).toBeUndefined();
+  expect(after.costs.components.internalLabor).toMatchObject({ total: null, isComplete: false }); currentEconomics(after);
+});
+test.each(['overlap', 'duplicate revision', 'corrupt period'])('#17 date correction fails closed for %s', async kind => {
+  const row = await correctionFixture(), Schedule = m.model('InternalCostRateSchedule');
+  const raw = await Schedule.collection.findOne({ organizationId: org });
+  if (kind === 'overlap') raw.publishedRevisions[0].periods.push(ratePeriod('2027-01-01', null, 200));
+  else if (kind === 'duplicate revision') raw.publishedRevisions.push(raw.publishedRevisions[0]);
+  else raw.publishedRevisions[0].periods[0].rate = -1;
+  await Schedule.collection.updateOne({ _id: raw._id }, { $set: { publishedRevisions: raw.publishedRevisions } });
+  const beforeSchedule = await Schedule.collection.findOne({ _id: raw._id });
+  await laborPatch(row, { workDate: '2027-01-01' }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toMatchObject({ laborRate: null, laborCost: null,
+    pricing: { basis: 'unknown', unknownReason: kind === 'corrupt period' ? 'invalid_rate_schedule' : 'ambiguous_rate_schedule' } });
+  expect(after.costs.components.internalLabor.isComplete).toBe(false); currentEconomics(after);
+  expect(await Schedule.collection.findOne({ _id: raw._id })).toEqual(beforeSchedule);
+});
+test.each([{}, { description: '' }, { timeSpent: 30, workDate: '2026-12-31', description: '' }])('#17 no effective change preserves raw record and does not resolve: %j', async body => {
+  const row = await correctionFixture(), before = await rawWO(row);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, body).expect(200);
+  expect(await rawWO(row)).toEqual(before); expect(lookup).not.toHaveBeenCalled();
+});
+async function legacyLabor(kind) {
+  const row = await native();
+  const entry = { _id: id(), userId: actor, timeSpent: 60, description: 'Legacy', createdAt: new Date('2020-01-01') };
+  if (kind === 'unknown') Object.assign(entry, { workDate: '2026-12-31', laborRate: null, laborCost: null,
+    pricing: { basis: 'unknown', unknownReason: 'legacy_authority_unknown' } });
+  if (kind === 'unverified numeric') Object.assign(entry, { laborRate: 50, laborCost: 50 });
+  await W.collection.updateOne({ _id: row._id }, { $set: { timeLogs: [entry] }, $unset: { economics: '', costs: '' } });
+  return rawWO(row);
+}
+test.each(['missing', 'unknown', 'unverified numeric'])('#17 legacy %s minutes stay unpriced despite published authority', async kind => {
+  const row = await legacyLabor(kind), before = await rawWO(row);
+  await publishPeriods([ratePeriod('2026-10-01', null, 100)]);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, { timeSpent: 90 }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toEqual({ ...before.timeLogs[0], timeSpent: 90, laborRate: null, laborCost: null });
+  expect(after.costs.components.internalLabor.isComplete).toBe(false);
+  expect(after.economics.origin).toBe('legacy_mixed'); currentEconomics(after);
+  expect(lookup).not.toHaveBeenCalled();
+});
+test.each(['missing', 'unknown', 'unverified numeric'])('#17 legacy %s description edit preserves raw economic fields', async kind => {
+  const row = await legacyLabor(kind), before = await rawWO(row);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, { description: 'Fixed metadata' }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toEqual({ ...before.timeLogs[0], description: 'Fixed metadata' });
+  expect(after.economics).toEqual(before.economics); expect(after.costs).toEqual(before.costs);
+  expect(engine.read(after).components.internalLabor.isComplete).toBe(false); expect(lookup).not.toHaveBeenCalled();
+});
+test.each([['2027-01-01', 100], ['2026-09-30', null]])('#17 explicit legacy date correction %s resolves governed entry authority', async (day, rate) => {
+  const row = await legacyLabor('missing');
+  await publishPeriods([ratePeriod('2026-10-01', null, 100)]);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, { workDate: day }).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toMatchObject({ workDate: day, laborRate: rate, laborCost: rate });
+  expect(after.timeLogs[0].pricing.basis).toBe(rate === null ? 'unknown' : 'blended_internal');
+  // Legacy whole-record scope remains unresolved; this is not bulk repair.
+  expect(after.economics.origin).toBe('legacy_mixed'); expect(lookup).toHaveBeenCalledTimes(1); currentEconomics(after);
+});
+test('#17 later publications, completion, reopen and archive preserve edited snapshot', async () => {
+  const row = await correctionFixture();
+  await laborPatch(row, { timeSpent: 90 }).expect(200);
+  const before = await rawWO(row);
+  await publishPeriods([ratePeriod('2026-10-01', null, 200)], 1);
+  expect(await rawWO(row)).toEqual(before);
+  const lookup = jest.spyOn(rates, 'resolve');
+  for (const status of ['Completed', 'Open', 'In Progress']) {
+    await request(app).patch(`/workorders/${row._id}/status`).set(headers()).send({ status }).expect(200);
+  }
+  await request(app).patch(`/workorders/${row._id}/archive`).set(headers('admin')).expect(200);
+  const after = await rawWO(row);
+  expect(after.timeLogs).toEqual(before.timeLogs); expect(after.costs).toEqual(before.costs);
+  expect(after.economics).toEqual(before.economics); expect(lookup).not.toHaveBeenCalled();
+});
+test('#17 delete/re-add remains a new event with current lookup', async () => {
+  const row = await correctionFixture(), old = row.timeLogs[0];
+  await publishPeriods([ratePeriod('2026-10-01', null, 200)], 1);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await request(app).delete(`/workorders/${row._id}/time-logs/${old._id}`).set(headers()).expect(200);
+  const after = await addLabor({ id: String(row._id) }, '2026-12-31');
+  expect(after.timeLogs[0]._id).not.toEqual(old._id);
+  expect(after.timeLogs[0]).toMatchObject({ laborRate: 200, laborCost: 100, pricing: { sourceRevision: 2 } });
+  expect(lookup).toHaveBeenCalledTimes(1); currentEconomics(after);
+});
+test('#17 concurrent edit cannot overwrite an economic write; one returns safe 409', async () => {
+  const row = await correctionFixture(), before = await rawWO(row);
+  const original = W.collection.findOneAndUpdate.bind(W.collection);
+  let arrived = 0, release;
+  const barrier = new Promise(r => { release = r; });
+  jest.spyOn(W.collection, 'findOneAndUpdate').mockImplementation(async (...args) => {
+    if (++arrived === 2) release(); await barrier; return original(...args);
+  });
+  const results = await Promise.all([laborPatch(row, { timeSpent: 90 }), laborPatch(row, { timeSpent: 120 })]);
+  expect(results.map(r => r.status).sort()).toEqual([200, 409]);
+  expect(results.find(r => r.status === 409).body).toEqual({ error: 'Work order economics changed; retry' });
+  const after = await rawWO(row);
+  expect(after.timeLogs[0].laborCost).toBe(engine.amount(after.timeLogs[0].timeSpent, 100, 60));
+  expect(after.economics.revision).toBe(before.economics.revision + 1); currentEconomics(after);
+});
+test('#17 stale description edit cannot overwrite concurrent minute correction', async () => {
+  const row = await correctionFixture(), original = W.collection.findOneAndUpdate.bind(W.collection);
+  jest.spyOn(W.collection, 'findOneAndUpdate').mockImplementationOnce(async (...args) => {
+    await mut.updateLabor({ _id: row._id }, String(row.timeLogs[0]._id), { timeSpent: 90 }, admin());
+    return original(...args);
+  });
+  await laborPatch(row, { description: 'Stale correction' }).expect(409);
+  const after = await rawWO(row);
+  expect(after.timeLogs[0]).toMatchObject({ timeSpent: 90, laborCost: 150, description: '' }); currentEconomics(after);
+});
+test('#17 ambiguous embedded identities fail without writing', async () => {
+  const row = await correctionFixture();
+  await W.collection.updateOne({ _id: row._id }, { $push: { timeLogs: row.timeLogs[0] } });
+  const before = await rawWO(row);
+  await laborPatch(row, { timeSpent: 90 }).expect(409);
+  expect(await rawWO(row)).toEqual(before);
+});
+test.each(['Completed', 'reopened'])('#17 correction on %s retains original authority', async state => {
+  const row = await correctionFixture();
+  await request(app).patch(`/workorders/${row._id}/status`).set(headers()).send({ status: 'Completed' }).expect(200);
+  if (state === 'reopened') await request(app).patch(`/workorders/${row._id}/status`).set(headers()).send({ status: 'Open' }).expect(200);
+  const before = await rawWO(row);
+  await publishPeriods([ratePeriod('2026-10-01', null, 200)], 1);
+  const lookup = jest.spyOn(rates, 'resolve');
+  await laborPatch(row, { timeSpent: 90 }).expect(200);
+  const after = await rawWO(row);
+  expect(after.status).toBe(before.status);
+  expect(after.timeLogs[0]).toEqual({ ...before.timeLogs[0], timeSpent: 90, laborCost: 150 });
+  expect(lookup).not.toHaveBeenCalled(); currentEconomics(after);
+});

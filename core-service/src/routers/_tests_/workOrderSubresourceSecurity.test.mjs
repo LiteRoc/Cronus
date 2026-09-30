@@ -29,6 +29,7 @@ const snapshot = async id => JSON.stringify(await WorkOrder.collection.findOne({
 const operations = [
   { name: 'detail', method: 'get', path: w => `/${w._id}`, scoped: true, read: true, gate: false },
   { name: 'time add', method: 'post', path: w => `/${w._id}/time-logs`, scoped: true, payload: () => ({ timeSpent: 10, description: 'Added synthetic labor' }) },
+  { name: 'time edit', method: 'patch', path: w => `/${w._id}/time-logs/${w.timeLogs[0]._id}`, scoped: true, payload: () => ({ timeSpent: 90, description: 'Corrected synthetic labor' }) },
   { name: 'time remove', method: 'delete', path: w => `/${w._id}/time-logs/${w.timeLogs[0]._id}`, scoped: true },
   { name: 'travel add', method: 'post', path: w => `/${w._id}/travel-logs`, scoped: true, payload: () => ({ travelTime: 10, note: 'Added synthetic travel' }) },
   { name: 'travel remove', method: 'delete', path: w => `/${w._id}/travel-logs/${w.travelLogs[0]._id}`, scoped: true },
@@ -306,4 +307,42 @@ test('procedure attachment captures the Task unit under approved #9 policy', asy
   const wo=await WorkOrder.findById(wa._id);
   expect(taskB.unit).toBe('V');
   expect(wo.procedures.find(p=>p._id.equals(procB._id)).taskResults[0].unitOfMeasure).toBe('V');
+});
+
+// #17 strict edit contract and exact embedded identity addressing.
+const editLabor = (body, parent = wa._id, logId = wa.timeLogs[0]._id) => request(app)
+  .patch(`/workorders/${parent}/time-logs/${logId}`).set(headers()).send(body);
+test.each(['laborRate', 'laborCost', 'pricing', 'sourceKind', 'sourceId', 'sourceRevision', 'evidenceRef',
+  'organizationId', 'economics', 'costs', 'userId', 'createdAt', 'updatedAt', '_id', 'arbitrary', 'pricing.basis'])
+('#17 labor edit rejects caller field %s without mutation', async field => {
+  const before = await snapshot(wa._id);
+  await editLabor({ description: 'Safe', [field]: 'injected' }).expect(400);
+  expect(await snapshot(wa._id)).toBe(before);
+});
+test.each([['bad-id', 400], ['absent', 404]])('#17 labor edit handles %s WorkOrder ID safely', async (kind, status) => {
+  const before = await snapshot(wa._id);
+  await editLabor({timeSpent:90}, kind === 'absent' ? oid() : kind).expect(status);
+  expect(await snapshot(wa._id)).toBe(before);
+});
+test.each([['bad-id', 400], ['absent', 404]])('#17 labor edit handles %s log ID safely', async (kind, status) => {
+  const before = await snapshot(wa._id);
+  await editLabor({timeSpent:90}, wa._id, kind === 'absent' ? oid() : kind).expect(status);
+  expect(await snapshot(wa._id)).toBe(before);
+});
+test.each([[], {timeSpent:0}, {timeSpent:-1}, {timeSpent:'90'}, {timeSpent:null},
+  {description:{}}, {description:null}, {workDate:null}, {workDate:'2026-02-30'}, {workDate:''},
+  {workDate:'2026-10-01T00:00:00Z'}, {$set:{timeSpent:90}}])('#17 invalid labor edit payload rejected: %j', async body => {
+  const before = await snapshot(wa._id);
+  await editLabor(body).expect(400); expect(await snapshot(wa._id)).toBe(before);
+});
+test('#17 labor edit rechecks Facility ownership at the atomic write', async () => {
+  const original = WorkOrder.collection.findOneAndUpdate.bind(WorkOrder.collection);
+  jest.spyOn(WorkOrder.collection, 'findOneAndUpdate').mockImplementationOnce(async (...args) => {
+    await WorkOrder.collection.updateOne({_id:wa._id},{$set:{facilityId:b}});
+    return original(...args);
+  });
+  await editLabor({timeSpent:90}).expect(409);
+  const after = await WorkOrder.collection.findOne({_id:wa._id});
+  expect(after.timeLogs).toEqual(wa.timeLogs); expect(after.costs).toEqual(wa.costs);
+  expect(after.facilityId).toEqual(b);
 });

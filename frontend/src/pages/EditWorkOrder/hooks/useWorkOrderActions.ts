@@ -19,6 +19,7 @@ import {
 import { KeyedMutator } from "swr";
 import { updateNestedField } from "@/utils/updateNestedField";
 import { showSuccess } from "@/utils/toastUtils";
+import { TimeLogCorrection } from "@/types";
 
 export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
   // Optimistic update wrapper
@@ -64,16 +65,17 @@ export function useWorkOrderActions(mutate?: KeyedMutator<any>) {
       })
     ),
 
-    updateTimeLog: wrap(
-      (id: string, logId: string, updates: any) =>
-        updateTimeLog(id, logId, updates),
-      (current, _id, logId, updates) => ({
-        ...current,
-        timeLogs: current.timeLogs.map((log: any) =>
-          log._id === logId ? { ...log, ...updates } : log
-        ),
-      })
-    ),
+    updateTimeLog: async (id: string, logId: string, updates: TimeLogCorrection) => {
+      const workOrder = await updateTimeLog(id, logId, updates);
+      // Revalidation retains populated operational fields. The economic entry
+      // and aggregate become visible together, only after server confirmation.
+      if (mutate) await mutate((current: any) => current ? {
+        ...current, timeLogs: workOrder.timeLogs.map(log => ({
+          ...log, userId: current.timeLogs?.find((old: any) => old._id === log._id)?.userId ?? log.userId,
+        })), costs: workOrder.costs, economics: workOrder.economics,
+      } : current);
+      return workOrder;
+    },
 
     deleteTimeLog: wrap(
       (id: string, logId: string) => deleteTimeLog(id, logId),

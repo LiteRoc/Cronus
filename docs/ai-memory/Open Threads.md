@@ -2,6 +2,16 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
+## Labor correction software and operational boundary — September 30, 2026
+
+#17 implementation is verified on its dedicated branch; merged-main/issue closure
+is recorded separately in the [#17 journal](<../engineering-journal/2026-09-30-gitea-17-labor-corrections.md>).
+Deployment and authenticated operational smoke are not performed or authorized by
+software closure. Correction metadata records latest actor/time and economic
+revision but does not retain a full append-only before/after history; any ledger
+requires separate scope. #19 operational publication remains **BLOCKED**, with no
+approved rate/effective date. CRM remains paused and unmerged.
+
 ## Post-deployment verification — September 29, 2026
 
 #9 deployed successfully at `41c470914b209925aad944e747d9939de3add801`. Controlled stop/update/start and startup/runtime verification passed; Mongo remained continuous and both schedulers remain disabled. No migration, backfill, index, topology, dependency or configuration change was required. Browser reload is required after rollout; backend validation remains authoritative for stale payloads. See the [#9 deployment journal](<../engineering-journal/2026-09-29-gitea-9-procedure-measurement-deployment.md>).
