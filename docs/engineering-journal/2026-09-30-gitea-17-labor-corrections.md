@@ -207,3 +207,34 @@ deployment or CRM change. Only isolated test persistence is used. #19 remains
 BLOCKED on external governance and separate explicit publication authorization.
 Software merge and issue closure are recorded after merged-main verification;
 this branch verification alone does not establish deployment or closure.
+
+## Merged-main verification and software handoff
+
+Implementation branch commit: `d249b18601510d9c9c0bf53d43f274ba85481153`;
+pushed to Gitea and GitHub. Fresh remote main heads agreed with baseline `bcab77b`
+immediately before controlled merge. Code merge:
+`b93a93ecb526ad469af325755f616a3d047ebce4`. #18 remains included; CRM remains
+unchanged at its paused checkpoint.
+
+A fresh detached checkout of the code merge passed **1,414/1,414 core**,
+**116/116 Contract** and **256/256 frontend** again: **1,786 tests total**.
+The assertion sets and per-suite counts exactly match the branch tables above.
+Relevant merged-main subsets: costs **84**, subresource security **339**,
+operational ownership **214**, Facility queries **29**, Facility compatibility
+**16** (combined **682**); core authentication **31**, Contract authentication
+**23**, cost adapter **3**, profitability **3** (combined **60**); labor frontend
+**8** and cost summary **2** (combined **10**).
+
+Fresh TypeScript app check with documented override, independent Vite build,
+**six/six** changed JavaScript syntax checks, working-tree and baseline-diff
+whitespace checks all passed. All **six/six** package/lockfiles remain byte-identical
+to baseline. Frozen reproduction checksums are unchanged. Temporary dependency
+links are removed from task and verification worktrees after tests. Main, the task
+branch and original CRM worktree are clean at handoff.
+
+The following main commit records verified results in documentation only;
+executable source is identical to the freshly tested code merge. Final pushed
+main SHA, remote equality and actual #17 closure are recorded in the Gitea final
+verification comment after publication. No deployment or real-data verification
+is claimed. **#17 software complete; deployment not performed.** Stop after issue
+closure; #19 remains BLOCKED and is not started.

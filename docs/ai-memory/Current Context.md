@@ -2,11 +2,12 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Labor correction implementation — September 30, 2026
+## Labor correction software completion — September 30, 2026
 
-#17 is implemented and verified on its dedicated branch from main `bcab77b`;
-merge/closure verification follows separately. Broad gates passed 1,414 core,
-116 Contract and 256 frontend tests. Description edits preserve economics;
+#17 software is merged and verified from baseline main `bcab77b`. Fresh merged-main
+gates passed 1,414 core, 116 Contract and 256 frontend tests. Final pushed SHA and
+issue closure are verified separately in Gitea. Deployment was not performed.
+Description edits preserve economics;
 minute corrections retain captured authority; corrected work dates resolve only
 that date, with missing/ambiguous authority unknown. Legacy minutes never recover
 pricing; publication and status changes never reprice. See the
