@@ -2,6 +2,35 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
+## Deferred work at development stop — September 30, 2026
+
+No implementation is selected. #17/#18 are closed software work, neither deployed;
+CRM is paused. #19 remains open/**BLOCKED** and must not be started.
+
+**External labor-rate governance:** the approximate $111.09/productive-hour
+Cronus-compatible candidate is unapproved; the approximate $128.37 fully absorbed
+Sigma productive-effort cost is not the WorkOrder internalLabor rate. Neither is
+publication authority. Seven accounting categories remain externally unresolved:
+Equipment calibrations; Test equipment; Parts & Equipment; Insurance; Postage;
+Professional fees; Depreciation. Also required: independent analytical QA,
+Finance/HR cost-boundary confirmation, Operations concurrence, Commercial/Pricing
+concurrence where required, final `FAPW-PRICE-D-002` disposition, exact rate/precision
+and prospective effective-date approval, and Cronus publication governance.
+Historical applicability is **NONE unless separately certified**. No rate
+publication or historical bulk repair/backfill is authorized.
+
+**Lifecycle/Contract policy work:** the user reports that an earlier read-only
+reconciliation assessment is complete. Deferred policy questions concern unknown
+service age collapsing toward zero; acquisition/book-value basis versus replacement
+benchmark; capital completeness and unknown-versus-zero semantics; maintenance
+metric naming/scope; lifecycle cache freshness; expected-life provenance;
+vendor-link coverage semantics; and the lifecycle scheduler defect before any
+future re-enable. These are assessment follow-ups, not newly verified findings
+from this documentation review. Do not implement them or enable scheduling now.
+
+Explicitly choose and authorize the next task before resuming any development,
+CRM, deployment, publication, data action or new issue.
+
 ## Labor correction software and operational boundary — September 30, 2026
 
 #17 software is merged and verified; its correction defect is resolved. Merged-main

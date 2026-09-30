@@ -2,6 +2,38 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Development stopped — September 30, 2026
+
+Documentation-only stopping checkpoint from software main
+`be7f71991dc8425a5d099097274ff10fa5a10b7d`. #17 and #18 are implemented,
+merged, pushed, verified and **closed**; neither was deployed. #17 final closure:
+[verification comment](http://192.168.1.185:3000/LiteRoc/cronus/issues/17#issuecomment-129).
+No labor rate was published. #19 remains open/**BLOCKED**; do not begin it.
+CRM remains separately paused at `807bc38122e771dacccbc23fca4a66363dd58d55`.
+**Choose the next work explicitly before implementation.** Prior lifecycle plans
+are deferred context, not an instruction to resume development, deployment or CRM.
+
+Software infrastructure is ready for a future governed internal labor rate, but
+external approval remains incomplete. User-provided external analysis identifies
+approximately **$128.37/productive hour** as fully absorbed Sigma productive-effort
+cost for business cases, pricing, make/buy, capacity/staffing and lifecycle planning;
+**it is not the Cronus WorkOrder internalLabor rate**. Approximately
+**$111.09/productive hour** is a Cronus-compatible analytical candidate only,
+**unapproved and not publishable**. Accounting/governance blockers are recorded in
+[Open Threads](<Open Threads.md>). Historical applicability is **NONE unless
+separately certified**; no silent backfill.
+
+#7 remains authoritative: entry snapshots are canonical; `WorkOrder.costs` is a
+reproducible/versioned cache; null is unknown and numeric zero is known zero.
+No silent repricing or current-rate fallback into historical periods. Internal
+labor, travel, parts and vendor-direct costs remain distinct; downstream consumers
+use canonical named scopes. Preserve the #17/#18 guarantees documented below.
+
+Environment handoff, as reported by the user: Ubuntu AppArmor bubblewrap support
+was repaired by installing/loading `/etc/apparmor.d/bwrap-userns-restrict`;
+direct bubblewrap exited 0 and fresh Codex sandbox `pwd`/`git status --short`
+succeeded. This checkpoint does not re-test or alter that system configuration.
+
 ## Labor correction software completion — September 30, 2026
 
 #17 software is merged and verified from baseline main `bcab77b`. Fresh merged-main
