@@ -34,7 +34,8 @@ function envelope(actor, source) {
 async function labor(w, body, actor) {
   if (!engine.finite(body.timeSpent) || body.timeSpent < 1) throw error(400, 'Invalid labor minutes');
   const day = await rates.workDate(w.facilityId, body.workDate);
-  const rate = await rates.resolve(w.facilityId, day);
+  const diagnostics = {};
+  const rate = await rates.resolve(w.facilityId, day, diagnostics);
   const pricing = envelope(actor, rate ? {
     basis: 'blended_internal',
     sourceKind: 'rate_schedule',
@@ -43,7 +44,7 @@ async function labor(w, body, actor) {
   } : {
     basis: 'unknown',
     sourceKind: 'rate_schedule',
-    unknownReason: day ? 'no_applicable_rate' : 'work_date_unknown'
+    unknownReason: diagnostics.unknownReason || (day ? 'no_applicable_rate' : 'work_date_unknown')
   });
   return {
     _id: new mongoose.Types.ObjectId(),

@@ -57,6 +57,7 @@ beforeAll(async () => {
   app.use(express.json());
   app.use('/workorders', require('../workOrderRouter'));
   app.use('/rates', require('../internalCostRateRouter'));
+  app.use('/internal-cost-rates', require('../internalCostRateRouter'));
   org = id();
   f = id();
   other = id();
@@ -83,6 +84,7 @@ beforeAll(async () => {
   });
 });
 afterEach(async () => {
+  jest.restoreAllMocks();
   await W.deleteMany({});
   await P.deleteMany({});
   await m.connection.collection('internalcostrateschedules').deleteMany({});
@@ -675,4 +677,186 @@ test('non-economic document save preserves legacy raw economics',async()=>{
 test('imports reject foreign currency instead of silently converting it',async()=>{
   const source={system:'synthetic',recordId:'currency',documentRef:'source',facilityId:String(f),currency:'EUR'};
   await expect(imports.prepare({assetId:String(asset),description:'Currency'},source,admin())).rejects.toMatchObject({status:400});
+});
+
+// #18 amounts are synthetic, never operational rate authority.
+const ratePeriod = (effectiveFrom, effectiveTo, rate) => ({ effectiveFrom, effectiveTo, rate, evidenceRef: `synthetic-${rate}` });
+const publishPeriods = (periods, expectedRevision = 0) => rates.publish({ organizationId: org, expectedRevision, periods, reason: 'Synthetic #18 approval' }, admin());
+const addLabor = async (w, workDate) => {
+  await request(app).post(`/workorders/${w.id}/time-logs`).set(headers()).send({ timeSpent: 30, workDate }).expect(200);
+  return W.findById(w.id).lean();
+};
+
+test('#18 inclusive starts, exclusive adjacent ends and open-ended successor', async () => {
+  await publishPeriods([ratePeriod('2026-07-01', '2026-10-01', 40), ratePeriod('2026-10-01', null, 60)]);
+  expect(await rates.resolve(f, '2026-06-30')).toBeNull();
+  for (const [day, rate] of [['2026-07-01', 40], ['2026-09-30', 40], ['2026-10-01', 60], ['2030-01-01', 60]]) {
+    expect(await rates.resolve(f, day)).toMatchObject({ rate, sourceRevision: 1 });
+  }
+  expect(await rates.resolve(other, '2026-10-01')).toMatchObject({ rate: 60, organizationId: String(org) });
+});
+
+test('#18 revisions replace full active period sets, not append-only deltas', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const original = await m.model('InternalCostRateSchedule').findOne({ organizationId: org }).lean();
+  await publishPeriods([ratePeriod('2027-01-01', null, 90)], 1);
+  expect(await rates.resolve(f, '2026-10-15')).toBeNull();
+  expect(await rates.resolve(f, '2027-01-01')).toMatchObject({ rate: 90, sourceRevision: 2 });
+  await publishPeriods([ratePeriod('2026-10-01', '2027-01-01', 60), ratePeriod('2027-01-01', null, 90)], 2);
+  expect(await rates.resolve(f, '2026-10-15')).toMatchObject({ rate: 60, sourceRevision: 3 });
+  expect(await rates.resolve(f, '2027-01-01')).toMatchObject({ rate: 90, sourceRevision: 3 });
+  const current = await m.model('InternalCostRateSchedule').findById(original._id).lean();
+  expect(current.publishedRevisions[0]).toEqual(original.publishedRevisions[0]);
+  expect(current.publishedRevisions.map(p => p.revision)).toEqual([1, 2, 3]);
+});
+
+test('#18 competing later publications produce one winner and a stale-revision conflict', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const results = await Promise.allSettled([40, 90].map(rate => publishPeriods([ratePeriod('2026-10-01', null, rate)], 1)));
+  const winners = results.filter(r => r.status === 'fulfilled');
+  expect(winners).toHaveLength(1);
+  expect(results.find(r => r.status === 'rejected').reason).toMatchObject({ status: 409, message: 'Schedule changed' });
+  const current = await m.model('InternalCostRateSchedule').findOne({ organizationId: org }).lean();
+  expect(current.revision).toBe(2);
+  expect(current.publishedRevisions.map(p => p.revision)).toEqual([1, 2]);
+  expect(current.publishedRevisions[1].periods).toEqual(winners[0].value.publishedRevisions[1].periods);
+});
+
+test('#18 prospective, replacement and historical publications never mutate raw WorkOrders', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const priced = await native(); await addLabor(priced, '2026-10-15');
+  const stale = await native(); await addLabor(stale, '2026-10-15');
+  await W.collection.updateOne({ _id: stale._id }, { $set: { 'costs.total': 999 } });
+  expect(engine.read(await W.findById(stale.id).lean()).cacheState).toBe('stale');
+  const completed = await native(); await addLabor(completed, '2026-10-15');
+  await request(app).patch(`/workorders/${completed.id}/status`).set(headers()).send({ status: 'Completed' }).expect(200);
+  const reopened = await native(); await addLabor(reopened, '2026-10-15');
+  for (const status of ['Completed', 'Open']) await request(app).patch(`/workorders/${reopened.id}/status`).set(headers()).send({ status }).expect(200);
+  const legacyId = id();
+  await W.collection.insertOne({ _id: legacyId, assetId: asset, facilityId: f, status: 'Open',
+    timeLogs: [{ _id: id(), userId: actor, timeSpent: 30, workDate: '2026-09-15' }], partsUsed: [], travelLogs: [], costs: { labor: null } });
+  const raw = () => W.collection.find({}).sort({ _id: 1 }).toArray();
+  const before = await raw();
+  for (const [revision, periods] of [
+    [1, [ratePeriod('2026-10-01', '2027-01-01', 60), ratePeriod('2027-01-01', null, 90)]],
+    [2, [ratePeriod('2026-10-01', '2027-01-01', 90), ratePeriod('2027-01-01', null, 40)]],
+    [3, [ratePeriod('2026-07-01', '2026-10-01', 40), ratePeriod('2026-10-01', null, 90)]],
+  ]) {
+    await publishPeriods(periods, revision);
+    expect(await raw()).toEqual(before);
+  }
+  expect(await rates.resolve(f, '2026-09-15')).toMatchObject({ rate: 40 });
+  expect(engine.read(await W.collection.findOne({ _id: legacyId })).components.internalLabor.total).toBeNull();
+});
+
+test('#18 backdated labor before prospective coverage stays unknown without fallback', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const row = await addLabor(await native(), '2026-09-15');
+  expect(row.timeLogs[0]).toMatchObject({ workDate: '2026-09-15', laborRate: null, laborCost: null,
+    pricing: { basis: 'unknown', unknownReason: 'no_applicable_rate' } });
+  expect(engine.read(row).components.internalLabor).toMatchObject({ total: null, knownSubtotal: 0, isComplete: false });
+});
+
+test('#18 captured rate and provenance survive revision changes; canonical reads never resolve', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const w = await native(), before = await addLabor(w, '2026-10-15');
+  expect(before.timeLogs[0]).toMatchObject({ laborRate: 60, laborCost: 30, pricing: { sourceRevision: 1, evidenceRef: 'synthetic-60' } });
+  await publishPeriods([ratePeriod('2026-10-01', null, 90)], 1);
+  const after = await W.findById(w.id).lean();
+  expect(after.timeLogs).toEqual(before.timeLogs);
+  const lookup = jest.spyOn(rates, 'resolve').mockImplementation(() => { throw new Error('Read must not resolve'); });
+  expect(engine.read(after).components.internalLabor.total).toBe(30);
+  expect(lookup).not.toHaveBeenCalled();
+});
+
+test('#18 completing and reopening preserve snapshots, economics and cache without lookup', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const w = await native(), before = await addLabor(w, '2026-10-15');
+  await publishPeriods([ratePeriod('2026-10-01', null, 90)], 1);
+  const lookup = jest.spyOn(rates, 'resolve').mockImplementation(() => { throw new Error('Status must not resolve'); });
+  for (const status of ['Completed', 'Open', 'In Progress']) {
+    await request(app).patch(`/workorders/${w.id}/status`).set(headers()).send({ status }).expect(200);
+    const after = await W.findById(w.id).lean();
+    expect(after.timeLogs).toEqual(before.timeLogs);
+    expect(after.economics).toEqual(before.economics);
+    expect(after.costs).toEqual(before.costs);
+    expect(engine.read(after).components.internalLabor.total).toBe(30);
+  }
+  expect(lookup).not.toHaveBeenCalled();
+});
+
+test('#18 rate endpoint authorization, publication audit and server-owned Organization', async () => {
+  const body = { expectedRevision: 0, reason: 'Synthetic approval', periods: [ratePeriod('2026-10-01', null, 60)] };
+  for (const path of ['/internal-cost-rates', '/internal-cost-rates/publish']) {
+    const call = () => path.endsWith('publish') ? request(app).post(path).send(body) : request(app).get(path);
+    await call().expect(401);
+    for (const role of ['technician', 'customer']) await call().set(headers(role)).expect(403);
+  }
+  await request(app).post('/internal-cost-rates/publish').set(headers('admin')).send({ ...body, organizationId: String(id()) }).expect(400);
+  await request(app).get('/internal-cost-rates').set({ Authorization: headers('admin').Authorization }).expect(400);
+  await request(app).post('/internal-cost-rates/publish').set(headers('admin')).send(body).expect(201);
+  const result = await request(app).get('/internal-cost-rates').set(headers('admin', other)).expect(200);
+  expect(result.body).toMatchObject({ organizationId: String(org), purpose: 'internal_labor_cost', currency: 'USD', revision: 1 });
+  expect(result.body.publishedRevisions[0]).toMatchObject({ approvedBy: String(actor), reason: body.reason });
+  expect(Number.isFinite(Date.parse(result.body.publishedRevisions[0].approvedAt))).toBe(true);
+});
+
+test('#18 ambiguous stored periods cannot create trusted labor or repair stored history', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const Schedule = m.model('InternalCostRateSchedule');
+  await Schedule.collection.updateOne({ organizationId: org }, { $push: { 'publishedRevisions.0.periods': ratePeriod('2026-10-10', null, 90) } });
+  const corrupt = await Schedule.collection.findOne({ organizationId: org });
+  expect(await rates.resolve(f, '2026-10-15')).toBeNull();
+  const row = await addLabor(await native(), '2026-10-15');
+  expect(row.timeLogs[0]).toMatchObject({ laborRate: null, laborCost: null, pricing: { basis: 'unknown', unknownReason: 'ambiguous_rate_schedule' } });
+  expect(engine.read(row).components.internalLabor).toMatchObject({ total: null, isComplete: false });
+  expect(await Schedule.collection.findOne({ organizationId: org })).toEqual(corrupt);
+});
+
+test.each([
+  ['missing periods', p => { delete p.periods; }],
+  ['invalid date', p => { p.periods[0].effectiveFrom = '2026-02-30'; }],
+  ['invalid rate', p => { p.periods[0].rate = -1; }],
+  ['missing evidence', p => { delete p.periods[0].evidenceRef; }],
+  ['invalid interval', p => { p.periods[0].effectiveTo = '2026-09-01'; }],
+])('#18 malformed stored history (%s) remains unknown', async (_name, corrupt) => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const Schedule = m.model('InternalCostRateSchedule'), raw = await Schedule.collection.findOne({ organizationId: org });
+  corrupt(raw.publishedRevisions[0]);
+  await Schedule.collection.updateOne({ _id: raw._id }, { $set: { publishedRevisions: raw.publishedRevisions } });
+  const row = await addLabor(await native(), '2026-10-15');
+  expect(row.timeLogs[0]).toMatchObject({ laborRate: null, laborCost: null, pricing: { basis: 'unknown', unknownReason: 'invalid_rate_schedule' } });
+  expect(engine.read(row).components.internalLabor.isComplete).toBe(false);
+});
+
+test('#18 duplicate current publications cannot certify a rate', async () => {
+  await publishPeriods([ratePeriod('2026-10-01', null, 60)]);
+  const Schedule = m.model('InternalCostRateSchedule'), raw = await Schedule.collection.findOne({ organizationId: org });
+  await Schedule.collection.updateOne({ _id: raw._id }, { $push: { publishedRevisions: raw.publishedRevisions[0] } });
+  const row = await addLabor(await native(), '2026-10-15');
+  expect(row.timeLogs[0]).toMatchObject({ laborRate: null, laborCost: null, pricing: { unknownReason: 'ambiguous_rate_schedule' } });
+});
+
+test.each([
+  ['empty periods', { periods: [] }],
+  ['invalid date', { periods: [ratePeriod('invalid', null, 60)] }],
+  ['impossible date', { periods: [ratePeriod('2026-02-30', null, 60)] }],
+  ['equal end', { periods: [ratePeriod('2026-10-01', '2026-10-01', 60)] }],
+  ['earlier end', { periods: [ratePeriod('2026-10-01', '2026-09-30', 60)] }],
+  ['negative rate', { periods: [ratePeriod('2026-10-01', null, -1)] }],
+  ['nonnumeric rate', { periods: [ratePeriod('2026-10-01', null, '60')] }],
+  ['missing reason', { reason: undefined }],
+  ['blank reason', { reason: ' ' }],
+  ['missing evidence', { periods: [{ effectiveFrom: '2026-10-01', rate: 60 }] }],
+  ['unexpected period field', { periods: [{ ...ratePeriod('2026-10-01', null, 60), approvedBy: 'caller' }] }],
+  ['unexpected body field', { approvedAt: '2026-10-01' }],
+  ['negative revision', { expectedRevision: -1 }],
+  ['fractional revision', { expectedRevision: 0.5 }],
+  ['string revision', { expectedRevision: '0' }],
+  ['missing revision', { expectedRevision: undefined }],
+])('#18 publication rejects %s without schedule writes', async (_name, patch) => {
+  await request(app).post('/internal-cost-rates/publish').set(headers('admin')).send({
+    expectedRevision: 0, reason: 'Synthetic authority', periods: [ratePeriod('2026-10-01', null, 60)], ...patch,
+  }).expect(400);
+  expect(await m.model('InternalCostRateSchedule').countDocuments({})).toBe(0);
 });
