@@ -3,6 +3,7 @@ import type { WorkOrderCosts, EconomicPricing } from './WorkOrderCosts';
 
 export interface WorkOrder {
   costs?: WorkOrderCosts;
+  economics?: { schemaVersion: number; revision: number; origin: string; changedAt?: string; changedBy?: string; unresolvedLegacyComponents?: string[] };
   _id: string;
   workOrderNumber: number;
   assetId: {
@@ -68,6 +69,8 @@ export interface NewTimeLog {
   timeSpent: number;
   description: string;
 };
+
+export type TimeLogCorrection = Partial<Pick<NewTimeLog, 'timeSpent' | 'description' | 'workDate'>>;
 
 export interface NewTravelLog {
   travelTime: number;

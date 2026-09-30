@@ -5,6 +5,7 @@ const referenceLifecycle = require('../referenceLifecycle');
 const rates = require('../internalCostRates');
 const context = require('./context');
 const engine = require('./calculate');
+const ownership = require('../operationalOwnership');
 const error = rates.error;
 const roots = ['timeLogs', 'travelLogs', 'partsUsed', 'vendorService', 'economics'];
 function revisionPredicate(w) {
@@ -57,6 +58,36 @@ async function labor(w, body, actor) {
     laborCost: rate ? engine.amount(body.timeSpent, rate.rate, 60) : null,
     pricing
   };
+}
+// Corrections retain entry identity and creation metadata. Only a changed work
+// date authorizes a new effective-dated snapshot; minutes use captured authority.
+async function updateLabor(filter, logId, input, actor) {
+  if (typeof logId !== 'string' || !/^[a-f\d]{24}$/i.test(logId)) throw error(400, 'Invalid log ID');
+  const body = ownership.pick(input, ['timeSpent', 'description', 'workDate'], true);
+  if (Object.hasOwn(body, 'timeSpent') && (!engine.finite(body.timeSpent) || body.timeSpent < 1)) throw error(400, 'Invalid labor minutes');
+  if (Object.hasOwn(body, 'description') && typeof body.description !== 'string') throw error(400, 'Invalid labor description');
+  if (Object.hasOwn(body, 'workDate')) rates.date(body.workDate);
+  return mutate(filter, actor, async w => {
+    const matches = w.timeLogs.map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => String(entry._id).toLowerCase() === logId.toLowerCase());
+    if (!matches.length) throw error(404, 'Log not found');
+    if (matches.length !== 1) throw error(409, 'Ambiguous labor entry');
+    const { entry, index } = matches[0];
+    const next = { ...entry, ...body };
+    if (Object.hasOwn(body, 'workDate') && body.workDate !== entry.workDate) {
+      const snapshot = await labor(w, next, actor);
+      for (const key of ['workDate', 'laborRate', 'laborCost', 'pricing']) next[key] = snapshot[key];
+    } else if (Object.hasOwn(body, 'timeSpent') && body.timeSpent !== entry.timeSpent) {
+      if (engine.trusted(entry.pricing, entry.laborRate)) {
+        next.laborCost = engine.amount(next.timeSpent, entry.laborRate, 60);
+      } else {
+        // Unverified legacy numbers are not historical rate authority.
+        next.laborRate = null;
+        next.laborCost = null;
+      }
+    }
+    w.timeLogs[index] = next;
+  });
 }
 async function part(w, body, actor, handle) {
   if (!mongoose.isValidObjectId(body.partId) || !engine.finite(body.quantity) || body.quantity < 1) throw error(400, 'Invalid Part or quantity');
@@ -205,6 +236,7 @@ async function addPart(filter, body, actor) {
 }
 
 module.exports = {
+  updateLabor,
   addPart,
   mutate,
   createNative,

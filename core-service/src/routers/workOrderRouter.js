@@ -497,6 +497,13 @@ for (const [path, field, allowed] of [
   });
 }
 
+router.patch('/:id/time-logs/:logId', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
+  try {
+    const { workOrder } = await costMutations.updateLabor(req.workOrderFilter, req.params.logId, req.body, req.user);
+    res.json({ message: 'Labor corrected', workOrder });
+  } catch (error) { return subresourceError(res, error); }
+});
+
 // ---------- Attach procedure (internal) ----------
 router.patch('/:id/procedure', authenticateToken, authorizeRoles('admin', 'tech'), ensureTenantOwnsWorkOrder, async (req, res) => {
   try {

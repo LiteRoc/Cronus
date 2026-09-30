@@ -1,7 +1,7 @@
 //src/services/workOrderAPI.ts
 
 import apiClient from "./apiClient";
-import { WorkOrder, WorkOrderCreatePayload, WorkOrderFilters, Procedure, TaskResult, TimeLog, TravelLog } from "@/types";
+import { WorkOrder, WorkOrderCreatePayload, WorkOrderFilters, Procedure, TaskResult, TimeLogCorrection, TravelLog } from "@/types";
 
 export async function fetchWorkOrders(
   facilityId: string | undefined,
@@ -111,9 +111,12 @@ export const addTravelLog = async (
   return response.data;
 };
 
-export const updateTimeLog = async (workOrderId: string, timeLogId: string, updates: Partial<TimeLog>): Promise<TimeLog> => {
-  const response = await apiClient.patch<TimeLog>(`/workorders/${workOrderId}/time-logs/${timeLogId}`, updates);
-  return response.data;
+export const updateTimeLog = async (workOrderId: string, timeLogId: string, updates: TimeLogCorrection): Promise<WorkOrder> => {
+  const payload = Object.fromEntries(['timeSpent', 'description', 'workDate']
+    .filter(key => Object.prototype.hasOwnProperty.call(updates, key))
+    .map(key => [key, updates[key as keyof TimeLogCorrection]]));
+  const response = await apiClient.patch<{ message: string; workOrder: WorkOrder }>(`/workorders/${workOrderId}/time-logs/${timeLogId}`, payload);
+  return response.data.workOrder;
 }
 
 export const updateTravelLog = async (workOrderId: string, travelLogId: string, updates: Partial<TravelLog>): Promise<TravelLog> => {
