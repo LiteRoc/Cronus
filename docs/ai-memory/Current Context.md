@@ -2,6 +2,18 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Rate publication hardening — September 30, 2026
+
+#18 adds permanent publication/snapshot regressions and a minimal corrupt-history
+guard: ambiguous or invalid current rate history leaves new labor unknown. Valid
+#7 rate and snapshot semantics remain unchanged. Each publication supplies the full
+period set; starts are inclusive and ends exclusive. See the
+[#18 verification and publication record](<../engineering-journal/2026-09-30-gitea-18-rate-publication-hardening.md>).
+No operational rate or historical recovery is authorized. #19 remains **BLOCKED**;
+#17 and CRM remain separate. Runtime stays at the prior deployment; #18 introduces
+no deployment, scheduler or real-data action. Lifecycle/Contract reconciliation
+remains the broader planned phase, not implementation authorized by this checkpoint.
+
 ## Post-deployment handoff — September 29, 2026
 
 **#9 deployed successfully; controlled stop/update/start and startup/runtime verification passed. Authenticated #9 production smoke remains pending because no approved session/safe record scope was available. Next planned phase: Lifecycle/Contract reconciliation. This documentation-only handoff starts no development, runtime or data action.**

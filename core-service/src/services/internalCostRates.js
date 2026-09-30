@@ -34,7 +34,7 @@ async function workDate(facilityId, supplied, now = new Date()) {
     return null;
   }
 }
-async function resolve(facilityId, day) {
+async function resolve(facilityId, day, diagnostics = {}) {
   if (!day) return null;
   date(day);
   const f = await facilityContext(facilityId);
@@ -42,8 +42,30 @@ async function resolve(facilityId, day) {
   const schedule = await Schedule.findOne({
     organizationId: f.organizationId
   }).lean();
-  const publication = schedule?.publishedRevisions.find(p => p.revision === schedule.revision);
-  const period = publication?.periods.find(p => p.effectiveFrom <= day && (!p.effectiveTo || day < p.effectiveTo));
+  if (!schedule) return null;
+  // Preserve the nullable resolver contract. Only new-entry callers need the
+  // non-sensitive reason; corrupt history is never repaired or repriced here.
+  const unavailable = reason => {
+    diagnostics.unknownReason = reason;
+    return null;
+  };
+  if (!Array.isArray(schedule.publishedRevisions)) return unavailable('invalid_rate_schedule');
+  const publications = schedule.publishedRevisions.filter(p => p && p.revision === schedule.revision);
+  if (publications.length > 1) return unavailable('ambiguous_rate_schedule');
+  const publication = publications[0];
+  if (!Array.isArray(publication?.periods) || !publication.periods.length) return unavailable('invalid_rate_schedule');
+  try {
+    for (const p of publication.periods) {
+      if (!p || !finite(p.rate) || typeof p.evidenceRef !== 'string' || !p.evidenceRef.trim()) return unavailable('invalid_rate_schedule');
+      date(p.effectiveFrom);
+      if (p.effectiveTo != null && date(p.effectiveTo) <= p.effectiveFrom) return unavailable('invalid_rate_schedule');
+    }
+  } catch (_) {
+    return unavailable('invalid_rate_schedule');
+  }
+  const periods = publication.periods.filter(p => p.effectiveFrom <= day && (p.effectiveTo == null || day < p.effectiveTo));
+  if (periods.length > 1) return unavailable('ambiguous_rate_schedule');
+  const period = periods[0];
   return period ? {
     rate: period.rate,
     sourceId: String(schedule._id),
