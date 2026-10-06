@@ -4,7 +4,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Lifecycle implementation and unresolved policy — October 6, 2026
 
-Lifecycle direction is owner-approved; #20 Asset assessment is implemented and branch-verified, with delivery/closure tracked in #20. See the
+Lifecycle direction is owner-approved; #20 Asset assessment is merged/closed. #21 current coverage/vendor responsibility is implemented and branch-verified, with delivery/closure tracked in #21. See the [#21 journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>). See the
 [policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
 #17/#18 remain closed software work, neither deployed; CRM remains paused.
 #19 remains open/**BLOCKED** and must not be started.
@@ -24,17 +24,17 @@ publication or historical bulk repair/backfill is authorized.
 **Lifecycle follow-up backlog:** #20 supplies the canonical live Asset assessment;
 its [implementation journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>)
 records verification and transitional compatibility. It does not reconcile every
-fleet consumer. [#21 Contract/vendor coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21),
-[#11 Template/Contract aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11)
+fleet consumer. [#11 Template/Contract aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11)
 and [#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8)
-remain open and unstarted. #11 depends on #20 and #21 coverage; #8 depends on #20/#11.
+remain open and unstarted. #11 depends on completed #20 and #21 coverage; #8 depends on #20/#11.
 #10 retains numeric-filter/URL behavior and coordinates with #8 freshness contracts.
 
 Canonical live Asset age/capital/recommendation semantics are corrected and tested.
 Legacy Template/cache age/price/recommendation paths, partial Contract capital sums,
 aggregation terminology/populations, stored-filter freshness, scheduler's unimported
-mongoose reference and vendor-union population remain deliberately deferred. They
-must not be mistaken for newly corrected behavior. #20 adds no organization policy
+mongoose reference remain deliberately deferred and must not be mistaken for corrected
+behavior. #21 corrects the vendor-union population; current membership now comes only
+from the coverage snapshot. #20 adds no organization policy
 publication workflow, accounting source or real-data recovery. Missing legacy currency
 remains unspecified; provisional life does not become adopted recommendation policy.
 
@@ -43,6 +43,12 @@ coverage evidence design. Support authoritative current snapshot first; do not p
 historical/as-of reconstruction. No new maintenance-based replacement-economic
 threshold is approved; do not invent one. Existing vendor anomalies require an audit
 before separately authorized correction, never automatic pruning or Contract expansion.
+#21 exposes anomalies using current responsibility intersections and blocks conflicting
+membership changes until explicit disposition; it performs no real-data audit/cleanup.
+Prospective responsibility edits retain history, but legacy history is not reconstructed.
+Overlaps other than the clearly complementary parts/labor pair are surfaced for review;
+exclusivity is not configured. Old writers must be fenced on future rollout so they
+cannot bypass membership validation, version guards or responsibility history.
 Cross-tenant/global operational benchmarks require separate authorization/policy.
 
 Explicitly assign scoped implementation before starting any issue. Real-data operations,

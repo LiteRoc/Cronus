@@ -1,0 +1,63 @@
+{
+  "baseline": "5e9fdfdef16f4b0afac87d31ef70612fc39f2646",
+  "assertions": 8,
+  "rows": [
+    {
+      "name": "out_of_coverage",
+      "status": 201,
+      "stored": [
+        "000000000000000000000002"
+      ]
+    },
+    {
+      "name": "missing_asset",
+      "status": 201,
+      "stored": [
+        "000000000000000000000002"
+      ]
+    },
+    {
+      "name": "cross_facility_asset",
+      "status": 201,
+      "stored": [
+        "000000000000000000000002"
+      ]
+    },
+    {
+      "name": "invalid_id",
+      "status": 201,
+      "stored": []
+    },
+    {
+      "name": "duplicate_ids",
+      "status": 201,
+      "stored": [
+        "000000000000000000000001",
+        "000000000000000000000001"
+      ]
+    },
+    {
+      "name": "update_out_of_coverage",
+      "stored": [
+        "000000000000000000000001",
+        "000000000000000000000002"
+      ]
+    },
+    {
+      "name": "vendor_expands_lifecycle",
+      "coveredAssetCount": 2
+    },
+    {
+      "name": "applied_remove_leaves_responsibility",
+      "coverage": [],
+      "responsibility": [
+        [
+          "000000000000000000000001"
+        ],
+        [
+          "000000000000000000000001"
+        ]
+      ]
+    }
+  ]
+}

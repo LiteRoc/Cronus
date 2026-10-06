@@ -1,0 +1,46 @@
+export const updateVendorLinkAssets = async (req, res) => {
+  try {
+    const tenantFilter = buildTenantFilter(req);
+    const { id: contractId, linkId } = req.params;
+
+    if (!isValidId(contractId)) return res.status(400).json({ error: "Invalid contractId" });
+    if (!isValidId(linkId)) return res.status(400).json({ error: "Invalid linkId" });
+
+    const contract = await Contract.findOne({ _id: contractId, ...tenantFilter });
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+    if (contract.type !== "customer") {
+      return res.status(400).json({ error: "vendorLinks are only supported on customer contracts" });
+    }
+
+    const link = contract.vendorLinks?.id(linkId);
+    if (!link) return res.status(404).json({ error: "Vendor link not found" });
+
+    const add = Array.isArray(req.body?.add) ? req.body.add : [];
+    const remove = Array.isArray(req.body?.remove) ? req.body.remove : [];
+
+    const addIds = add.map(String).filter(isValidId);
+    const removeIds = remove.map(String).filter(isValidId);
+
+    const current = new Set((link.coveredAssetIds ?? []).map((x) => String(x)));
+
+    for (const id of addIds) current.add(id);
+    for (const id of removeIds) current.delete(id);
+
+    link.coveredAssetIds = [...current];
+
+    await contract.save();
+
+    return res.json({
+      success: true,
+      data: {
+        linkId: String(link._id),
+        coveredAssetIds: link.coveredAssetIds.map(String),
+        added: addIds,
+        removed: removeIds,
+      },
+    });
+  } catch (error) {
+    console.error("updateVendorLinkAssets failed:", error?.response?.data ?? error);
+    return res.status(500).json({ error: "Failed to update vendor link assets" });
+  }
+}

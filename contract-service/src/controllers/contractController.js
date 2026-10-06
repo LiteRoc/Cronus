@@ -22,6 +22,8 @@ import {
 import { calculateAnnualValueAsOf, proratedValueBetween, calculateCalendarYearRevenueAsOf } from "../services/contractValueService.js";
 import { fetchAssetsByIds } from "../services/coreAssetService.js";
 
+import { resolveCurrentContractCoverage, resolveVendorResponsibility, inspectVendorCoverage, normalizeAssetIds, assertResponsibilityContained, validateVendorAssetAdditions, sendCoverageError } from '../services/currentContractCoverage.js';
+
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(String(id));
 
 async function fetchVendorSnapshot(coreClient, vendorId) {
@@ -162,7 +164,7 @@ export const getAssetCoverage = async (req, res) => {
     // 2) Find any contracts that have ever referenced this asset
     const contractsTouchingAsset = await Contract.find({
       ...tenantFilter,
-      $or: [{ coveredAssets: assetObjectId }, { "amendments.items.assetId": assetObjectId }],
+      $and: [tenantFilter, {$or: [{ coveredAssets: assetObjectId }, { "amendments.items.assetId": assetObjectId }]}],
     })
       .select("_id name status startDate endDate amendments")
       .lean();
@@ -448,6 +450,7 @@ export const applyAmendment = async (req, res) => {
     await contract.save();
     return sendSuccess(res, contract);
   } catch (err) {
+    if (sendCoverageError(res,err)) return;
     console.error("applyAmendment failed:", err);
     return sendError(res, err, 500);
   }
@@ -699,6 +702,7 @@ export const previewApplyAmendment = async (req, res) => {
       contractNumber: contract.contractNumber ?? null,
 
       amendmentIndex: idx,
+      coverageDisposition:inspectVendorCoverage(plainAfter),
       amendmentStatus: amendment.status ?? null,
       effectiveDate: effectiveDate.toISOString(),
       changeType: impact.changeType,
@@ -770,9 +774,8 @@ export const addVendorLink = async (req, res) => {
       });
     }
 
-    const cleanAssetIds = (Array.isArray(coveredAssetIds) ? coveredAssetIds : [])
-      .map(String)
-      .filter(isValidId);
+    if (!['full','pm-only','parts-only','labor-only','t&m','other'].includes(coverageType)) return res.status(400).json({error:'Invalid coverageType'});
+    const cleanAssetIds = await validateVendorAssetAdditions({contract,assetIds:coveredAssetIds,coreClient:req.core,facilityId:resolveAuthorizedFacilityId(req)});
 
     // prevent duplicate vendor links for same vendor (optional; remove if you want duplicates)
     const alreadyLinked = (contract.vendorLinks ?? []).some(
@@ -797,8 +800,9 @@ export const addVendorLink = async (req, res) => {
 
     await contract.save();
     const created = contract.vendorLinks[contract.vendorLinks.length - 1];
-    return res.status(201).json({ success: true, data: created });
+    return res.status(201).json({ success: true, data: created, coverage:inspectVendorCoverage(contract) });
   } catch (err) {
+      if (sendCoverageError(res,err)) return;
       console.error("addVendorLink failed:", err?.response?.data ?? err);
       return res.status(500).json({ error: "Failed to create Vendor Link" });
   }
@@ -831,6 +835,9 @@ export const updateVendorLink = async (req, res) => {
       // allow changing vendorId? usually no; if yes, validate like addVendorLink
     } = req.body ?? {};
 
+    await validateVendorAssetAdditions({contract,assetIds:[],coreClient:req.core,facilityId:resolveAuthorizedFacilityId(req)});
+    assertResponsibilityContained(contract, normalizeAssetIds(link.coveredAssetIds ?? []));
+    if (coverageType !== undefined && !['full','pm-only','parts-only','labor-only','t&m','other'].includes(coverageType)) return res.status(400).json({error:'Invalid coverageType'});
     if (coverageType !== undefined) link.coverageType = coverageType;
     if (annualCost !== undefined) link.annualCost = Number(annualCost || 0);
     if (startDate !== undefined) link.startDate = startDate ? new Date(startDate) : undefined;
@@ -839,8 +846,9 @@ export const updateVendorLink = async (req, res) => {
 
     await contract.save();
 
-    return res.json({ success: true, data: link });
+    return res.json({ success: true, data: link, coverage:inspectVendorCoverage(contract) });
   } catch (error) {
+    if (sendCoverageError(res,error)) return;
     console.error("updateVendorLink failed:", error?.response?.data ?? error);
     return res.status(500).json({ error: "Failed to update vendor link" });
   }
@@ -865,18 +873,19 @@ export const updateVendorLinkAssets = async (req, res) => {
     const link = contract.vendorLinks?.id(linkId);
     if (!link) return res.status(404).json({ error: "Vendor link not found" });
 
-    const add = Array.isArray(req.body?.add) ? req.body.add : [];
-    const remove = Array.isArray(req.body?.remove) ? req.body.remove : [];
-
-    const addIds = add.map(String).filter(isValidId);
-    const removeIds = remove.map(String).filter(isValidId);
-
-    const current = new Set((link.coveredAssetIds ?? []).map((x) => String(x)));
-
+    const addIds = await validateVendorAssetAdditions({contract,assetIds:req.body?.add === undefined ? [] : req.body.add,coreClient:req.core,facilityId:resolveAuthorizedFacilityId(req)});
+    const removeIds = normalizeAssetIds(req.body?.remove === undefined ? [] : req.body.remove, 'remove');
+    if (addIds.some(id=>removeIds.includes(id))) return res.status(400).json({error:'An Asset cannot be added and removed in the same request',code:'ambiguous_asset_mutation'});
+    const before = normalizeAssetIds(link.coveredAssetIds ?? []);
+    const current = new Set(before);
     for (const id of addIds) current.add(id);
-    for (const id of removeIds) current.delete(id);
-
-    link.coveredAssetIds = [...current];
+    for (const id of removeIds) current.delete(id); // absent removals are explicitly idempotent
+    const after = [...current];
+    assertResponsibilityContained(contract, after);
+    if (before.join(',') !== after.join(',')) {
+      link.responsibilityHistory.push({beforeAssetIds:before,afterAssetIds:after,changedBy:req.user.id,changedAt:new Date()});
+    }
+    link.coveredAssetIds = after;
 
     await contract.save();
 
@@ -888,8 +897,10 @@ export const updateVendorLinkAssets = async (req, res) => {
         added: addIds,
         removed: removeIds,
       },
+      coverage:inspectVendorCoverage(contract),
     });
   } catch (error) {
+    if (sendCoverageError(res,error)) return;
     console.error("updateVendorLinkAssets failed:", error?.response?.data ?? error);
     return res.status(500).json({ error: "Failed to update vendor link assets" });
   }
@@ -941,9 +952,7 @@ export const getContractProfitability = async (req, res) => {
     const contractStart = contract.startDate ? new Date(contract.startDate) : ytdStart;
     const contractEnd = contract.endDate ? new Date(contract.endDate) : now;
 
-    const contractAssetIds = (contract.coveredAssets || [])
-      .map(String)
-      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const contractAssetIds = resolveCurrentContractCoverage(contract).assetIds;
 
     // 1) Total cost-to-serve for ALL covered assets (YTD)
     const allAnalytics = await buildAssetAnalyticsOverview({
@@ -969,9 +978,7 @@ export const getContractProfitability = async (req, res) => {
       const payout = prorateAnnualCost(vl.annualCost || 0, ytdStart, now, vlStart, vlEnd);
       vendorPayoutYTD += payout;
 
-      const ids = (vl.coveredAssetIds || [])
-        .map(String)
-        .filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const ids = resolveVendorResponsibility(contract,vl).assetIds;
 
       ids.forEach((id) => vendorCoveredAssetIds.add(id));
 
@@ -992,6 +999,7 @@ export const getContractProfitability = async (req, res) => {
         annualCost: Number(vl.annualCost || 0),
         payoutYTD: Number(payout.toFixed(2)),
         coveredAssetsCount: ids.length,
+        responsibility:resolveVendorResponsibility(contract,vl),
         workOrdersYTD: vendorAnalytics.workOrdersSummary.totalYTD,
         costToServeYTD: vendorAnalytics.performance.costToServeYTD,
       });
@@ -1049,6 +1057,7 @@ export const getContractProfitability = async (req, res) => {
           vendorCovered: vendorCoveredAssetIds.size,
           nonVendorCovered: nonVendorAssetIds.length,
         },
+        coverage: {...resolveCurrentContractCoverage(contract),vendorResponsibility:inspectVendorCoverage(contract)},
         byVendor,
       },
     });

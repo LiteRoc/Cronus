@@ -1,0 +1,14 @@
+export function applyApprovedAmendmentToContract(contract, idx, actorId) {
+  const amendment = contract.amendments?.[idx];
+  if (!amendment) throw new Error(`Amendment not found at idx=${idx}`);
+  if (!amendment.amendmentNumber) {
+    throw new Error("Amendment must have a number before it can be applied");
+  }
+
+  const impact = computeAmendmentImpact(contract.toObject({ depopulate: true }), idx);
+  contract.coveredAssets = Array.isArray(impact.nextContract.coveredAssets)
+    ? impact.nextContract.coveredAssets
+    : [];
+  transitionAmendment(contract, idx, "applied", actorId);
+  return impact;
+}

@@ -147,6 +147,11 @@ const vendorLinkSchema = new Schema(
 
     // the *subset* of assets the vendor is responsible for
     coveredAssetIds: [{ type: Schema.Types.ObjectId, default: [] }],
+    // Prospective explicit responsibility edits; never reconstruct legacy history.
+    responsibilityHistory: {type:[new Schema({
+      beforeAssetIds:[Schema.Types.ObjectId],afterAssetIds:[Schema.Types.ObjectId],
+      changedBy:Schema.Types.ObjectId,changedAt:Date,
+    },{_id:false})],default:[]},
 
     // optional: track invoices (nice later, but cheap to add now)
     invoices: {
@@ -208,7 +213,7 @@ const contractSchema = new Schema({
   amendmentSeq: { type: Number, default: 0 }, // for generating amendment IDs
   linkedWorkOrders: [{ type: Schema.Types.ObjectId }],
   notes: String,
-}, { timestamps: true, collection: 'contracts' });
+}, { timestamps: true, collection: 'contracts', optimisticConcurrency: ['coveredAssets', 'vendorLinks'] });
 
 
 
@@ -221,6 +226,16 @@ contractSchema.index({ facilityId: 1, "amendments.items.assetId": 1 });
 /** -----------------------------
  * Guardrails
  * ------------------------------*/
+
+// Guard the first coverage/responsibility write to a legacy versionless document.
+// Later writes use the existing __v optimistic-concurrency predicate.
+contractSchema.pre('save', function(next) {
+  if (!this.isNew && this.__v === undefined && (this.isModified('coveredAssets') || this.isModified('vendorLinks'))) {
+    this.$locals._coverageVersionlessGuard = true;
+    this.$where = {...this.$where, __v: {$exists: false}};
+  }
+  next();
+});
 
 // Track original contract status so we can validate transitions on save
 contractSchema.pre('init', function(doc) {
@@ -326,6 +341,10 @@ contractSchema.pre("save", function(next) {
 });
 
 contractSchema.post("save", function(doc) {
+  if (doc.$locals._coverageVersionlessGuard) {
+    delete doc.$where.__v;
+    delete doc.$locals._coverageVersionlessGuard;
+  }
   doc.$locals._originalStatus = doc.status;
   doc.$locals._originalAmendments = new Map(
     (doc.amendments || []).map((amendment) => [String(amendment._id), {

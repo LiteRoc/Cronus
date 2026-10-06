@@ -1,3 +1,4 @@
+import {resolveCurrentContractCoverage,resolveVendorResponsibility,inspectVendorCoverage} from './currentContractCoverage.js';
 import {canonicalCosts} from './workOrderCostAdapter.js';
 // src/services/contractOverviewService.js
 import mongoose from "mongoose";
@@ -166,9 +167,7 @@ export const getContractOverviewService = async ({
   if (!contract) return null;
 
   // 2) Covered assets (IDs)
-  const coveredAssetsIds = (contract.coveredAssets || [])
-    .map(String)
-    .filter((id) => id && id !== "undefined" && id !== "null");
+  const coveredAssetsIds = resolveCurrentContractCoverage(contract).assetIds;
 
   // 3) Fetch work orders (Option A: by contractId + contract date range)
   const now = new Date();
@@ -283,7 +282,7 @@ export const getContractOverviewService = async ({
   // Batch fetch ALL assets referenced by vendorLinks (so we don't N+1 calls)
   const vendorAssetIds = [
     ...new Set(
-      vendorLinks.flatMap(vl => (vl.coveredAssetIds || []).map(String))
+      vendorLinks.flatMap(vl => resolveVendorResponsibility(contract,vl).assetIds)
     ),
   ].filter((id) => mongoose.Types.ObjectId.isValid(id));
 
@@ -300,7 +299,8 @@ export const getContractOverviewService = async ({
   const vendorAssetById = new Map(vendorAssets.map(a => [String(a._id), a]));
 
   const enrichedVendorLinks = vendorLinks.map((vl) => {
-    const coveredIds = (vl.coveredAssetIds || []).map(String);
+    const responsibility=resolveVendorResponsibility(contract,vl);
+    const coveredIds = responsibility.assetIds;
 
     const coveredAssets = coveredIds
       .map((id) => vendorAssetById.get(id))
@@ -324,7 +324,8 @@ export const getContractOverviewService = async ({
       endDate: vl.endDate,
       annualCost: vl.annualCost ?? 0,
       notes: vl.notes ?? "",
-      coveredAssetIds: coveredIds,
+      coveredAssetIds: [...new Set((vl.coveredAssetIds ?? []).map(String))], // retain anomalous evidence for explicit disposition
+      responsibility,
       coveredAssetsCount: coveredIds.length,
       coveredAssets, // ✅ UI-ready
     };
@@ -356,6 +357,7 @@ export const getContractOverviewService = async ({
       endDate: contract.endDate,
       totalValue: contract.totalValue,
       coveredAssets: coveredAssetsIds,
+      coverage: {...resolveCurrentContractCoverage(contract),vendorResponsibility:inspectVendorCoverage(contract)},
 
       amendments: contract.amendments ?? [],
       amendmentSeq: contract.amendmentSeq ?? 0,
@@ -434,9 +436,8 @@ export const getVendorLinkOverviewService = async ({
   const now = new Date();
   const ytdStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));
 
-  const assetIds = (link.coveredAssetIds || [])
-    .map(String)
-    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+  const responsibility=resolveVendorResponsibility(contract,link);
+  const assetIds = responsibility.assetIds;
 
   const assets = await fetchAssetsBatch(coreClient, assetIds);
   const enrichedAssets = assets.map((a) => ({
@@ -467,7 +468,8 @@ export const getVendorLinkOverviewService = async ({
       startDate: link.startDate,
       endDate: link.endDate,
       annualCost: link.annualCost ?? 0,
-      coveredAssetIds: assetIds,
+      coveredAssetIds: (link.coveredAssetIds ?? []).map(String),
+      responsibility,
     },
     assets: enrichedAssets,
     assetCosts: analytics.assetCosts,
