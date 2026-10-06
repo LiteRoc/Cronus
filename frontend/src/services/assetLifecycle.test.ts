@@ -1,0 +1,12 @@
+import {beforeEach,afterEach,expect,test} from 'vitest';
+import type {AxiosAdapter} from 'axios';
+import apiClient from './apiClient';
+import {getAssetLifecycle,updateAsset} from './assetAPI';
+const old=apiClient.defaults.adapter;
+let url:string|undefined,body:unknown;
+const result={assetId:'synthetic',purchase:null,metrics:{replacementRecommended:null,replacementAssessmentState:'insufficient_data'},assessment:{schemaVersion:'asset-lifecycle-v2',serviceAge:{years:null,status:'unknown'}}};
+beforeEach(()=>{apiClient.defaults.adapter=(async config=>{url=config.url;body=config.data?JSON.parse(config.data):undefined;return {data:result,status:200,statusText:'OK',headers:{},config};}) satisfies AxiosAdapter;});
+afterEach(()=>{apiClient.defaults.adapter=old;});
+test('lifecycle API preserves canonical and nullable compatibility fields',async()=>{const r=await getAssetLifecycle('synthetic');expect(url).toBe('/assets/synthetic/lifecycle');expect(r).toEqual(result);expect(r.metrics.replacementRecommended).toBeNull();});
+test('confirmed service date edit retained',async()=>{await updateAsset('synthetic',{serviceStartDate:'2025-01-01'});expect(body).toEqual({serviceStartDate:'2025-01-01'});});
+test('service date clearing remains null',async()=>{await updateAsset('synthetic',{serviceStartDate:null});expect(body).toEqual({serviceStartDate:null});});

@@ -10,7 +10,9 @@ const WorkOrder = require('../models/WorkOrder'); // Import the WorkOrder model
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware'); // Middleware for authentication/authorization
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
-const { computeLifecycleMetrics } = require('../utils/lifecycle');
+const { buildAssetLifecycleAssessment, lifecycleCompatibilityMetrics, isLifecycleDate } = require('../services/assetLifecycleAssessment');
+const Facility = require('../models/Facility');
+const Organization = require('../models/Organization');
 const { getMaintenanceTotals } = require('../services/lifecycleMaintenance.js').default;
 const { computeBenchmarkComparison } = require('../utils/lifecycleBenchmark');
 
@@ -406,6 +408,23 @@ assetRouter.put('/:id', authenticateToken, authorizeRoles('admin', 'tech'), asyn
     if (!asset) return res.status(404).json({ error: 'Asset not found' });
     const patch = ownership.pick(req.body, ownership.assetEditFields, true);
     if (!Object.keys(patch).length) ownership.fail(400, 'No editable fields');
+    if (Object.hasOwn(patch, 'serviceStartDate') && patch.serviceStartDate !== null && !isLifecycleDate(patch.serviceStartDate)) ownership.fail(400, 'Invalid confirmed service start');
+    if (Object.hasOwn(patch, 'lifecyclePolicy')) {
+      if (req.user.role !== 'admin') ownership.fail(403, 'Lifecycle policy approval requires admin');
+      if (patch.lifecyclePolicy !== null) {
+        const policy = ownership.pick(patch.lifecyclePolicy, ['expectedLifeYears', 'ageRuleEnabled', 'sourceType', 'reference'], true);
+        if (Object.hasOwn(policy, 'ageRuleEnabled') && typeof policy.ageRuleEnabled !== 'boolean') ownership.fail(400, 'Invalid age policy state');
+        if (policy.ageRuleEnabled !== false && !(typeof policy.expectedLifeYears === 'number' && Number.isFinite(policy.expectedLifeYears) && policy.expectedLifeYears > 0)) ownership.fail(400, 'Expected life must be positive');
+        if (typeof policy.reference !== 'string' || !policy.reference.trim()) ownership.fail(400, 'Policy evidence reference is required');
+        if (policy.sourceType != null && !['asset_override', 'adopted_benchmark'].includes(policy.sourceType)) ownership.fail(400, 'Invalid lifecycle policy source');
+        const templateId = Object.hasOwn(patch, 'templateId') ? patch.templateId : asset.templateId;
+        if (policy.sourceType === 'adopted_benchmark' && !templateId) ownership.fail(400, 'Benchmark adoption requires a Template');
+        ownership.id(req.user.id);
+        patch.lifecyclePolicy = { ...policy, sourceType: policy.sourceType ?? 'asset_override',
+          ...(policy.sourceType === 'adopted_benchmark' ? { templateId } : {}),
+          approvedBy: req.user.id, approvedAt: new Date() };
+      }
+    }
     const previousTemplateId = asset.templateId;
     await ownership.assetReferences(patch, asset.facilityId, asset._id, previousTemplateId);
     const newTemplateId = patch.templateId && String(patch.templateId) !== String(previousTemplateId)
@@ -620,7 +639,7 @@ assetRouter.get('/:id/lifecycle', authenticateToken, async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid asset ID format' });
 
-    const asset = await Asset.findOne({ _id: id, ...buildTenantFilter(req) })
+    const asset = await Asset.findOne({ _id: id, ...ownership.visibility(req) })
       .populate('templateId')
       .lean();
 
@@ -628,22 +647,26 @@ assetRouter.get('/:id/lifecycle', authenticateToken, async (req, res) => {
 
     const template = asset.templateId || null // in case we want to pull lifecycle defaults from the template;
 
-    const maintenanceTotals = await getMaintenanceTotals(asset._id);
-
-    const metrics = computeLifecycleMetrics({
-      asset,
-      template,
-      lifetimeMaintenanceTotal: maintenanceTotals.lifetime.total,
-      last12MonthMaintenanceTotal: maintenanceTotals.last12Months.total,
-      maintenanceScopes: {lifetime:maintenanceTotals.lifetime.scopes,last12Months:maintenanceTotals.last12Months.scopes},
-    });
-    
-    res.json({ 
+    const asOf = new Date();
+    const windowStart = new Date(asOf.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const maintenanceTotals = await getMaintenanceTotals(asset._id, { now: asOf, windowStart, facilityId: asset.facilityId });
+    const facility = await Facility.findById(asset.facilityId).select('organizationId').lean();
+    const organization = facility?.organizationId
+      ? await Organization.findById(facility.organizationId).select('lifecyclePolicies').lean() : null;
+    const policies = (organization?.lifecyclePolicies ?? []).filter(policy =>
+      policy.templateId && String(policy.templateId) === String(template?._id ?? ''));
+    // Conflicting organization evidence must not be chosen arbitrarily.
+    const organizationPolicy = policies.length === 1 ? policies[0] : policies.length > 1 ? { ambiguous: true } : null;
+    const assessment = buildAssetLifecycleAssessment({ asset, template, organizationPolicy, maintenanceTotals, asOf });
+    res.json({
       assetId: asset._id,
-      templateId: asset.templateId?._id || null,
-      purchase: asset.purchase || null,
-      metrics });
+      templateId: template?._id ?? null,
+      purchase: asset.purchase ?? null,
+      assessment,
+      metrics: lifecycleCompatibilityMetrics(assessment, maintenanceTotals),
+    });
   } catch (err) {
+    if (err.status) return ownership.respond(res, err);
     console.error('GET /assets/:id/lifecycle failed:', err);
     return res.status(500).json({ error: 'Failed to calculate lifecycle' });
   }

@@ -1,0 +1,53 @@
+{
+  "baseline": "e8ccfe1831016a781dabd08ec696e6cc25a0b5a3",
+  "passed": 7,
+  "rows": [
+    {
+      "name": "missing start is zero and young",
+      "observed": {
+        "yearsInService": 0,
+        "currentBookValue": 100000
+      }
+    },
+    {
+      "name": "future start becomes zero",
+      "observed": {
+        "yearsInService": 0
+      }
+    },
+    {
+      "name": "invalid start becomes zero",
+      "observed": {
+        "yearsInService": 0
+      }
+    },
+    {
+      "name": "replacement benchmark becomes depreciation basis",
+      "observed": {
+        "currentBookValue": 80013.69,
+        "annualDepreciation": 20000
+      }
+    },
+    {
+      "name": "missing acquisition basis becomes zero",
+      "observed": {
+        "currentBookValue": 0,
+        "annualDepreciation": 0
+      }
+    },
+    {
+      "name": "missing evidence becomes negative boolean",
+      "observed": {
+        "replacementRecommended": false,
+        "replacementReason": null
+      }
+    },
+    {
+      "name": "low book versus maintenance triggers default recommendation",
+      "observed": {
+        "replacementRecommended": true,
+        "replacementReason": "Book value low vs maintenance trend"
+      }
+    }
+  ]
+}
