@@ -1,0 +1,71 @@
+export const addVendorLink = async (req, res) => {
+  try {
+    const tenantFilter = buildTenantFilter(req);
+    const { id: contractId } = req.params;
+
+    const {
+      vendorId,
+      coverageType = "full",
+      annualCost = 0,
+      startDate,
+      endDate,
+      coveredAssetIds = [],
+      notes
+    } = req.body ?? {};
+
+    if (!isValidId(contractId)) return res.status(400).json({ error: "Invalid contractId" });
+    if (!isValidId(vendorId)) return res.status(400).json({ error: "Invalid vendorId" });
+
+    const contract = await Contract.findOne({
+      _id: contractId,
+      ... tenantFilter
+    });
+    if (!contract) return res.status(404).json({ error: 'Contract not found' });
+    if (contract.type !== "customer") {
+      return res.status(400).json({ error: "vendorLinks are only supported on customer contracts" });
+    }
+
+    // validate vendor exists in core-service + snapshot name
+    let vendorSnap;
+    try {
+      vendorSnap = await fetchVendorSnapshot(req.core, vendorId);
+    } catch (e) {
+      return res.status(400).json({
+        error: "Vendor not found in core-service",
+        details: e?.response?.data ?? e?.message,
+      });
+    }
+
+    const cleanAssetIds = (Array.isArray(coveredAssetIds) ? coveredAssetIds : [])
+      .map(String)
+      .filter(isValidId);
+
+    // prevent duplicate vendor links for same vendor (optional; remove if you want duplicates)
+    const alreadyLinked = (contract.vendorLinks ?? []).some(
+      (vl) => String(vl.vendorId) === String(vendorId)
+    );
+    if (alreadyLinked) {
+      return res.status(409).json({ error: "Vendor is already linked to this contract "});
+    }
+
+    contract.vendorLinks = contract.vendorLinks ?? [];
+    contract.vendorLinks.push({
+      vendorId: vendorSnap.vendorId,
+      nameSnapshot: vendorSnap.nameSnapshot,
+      coverageType,
+      annualCost: Number(annualCost || 0),
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      notes: notes ?? "",
+      coveredAssetIds: cleanAssetIds,
+      invoices: [],
+    });
+
+    await contract.save();
+    const created = contract.vendorLinks[contract.vendorLinks.length - 1];
+    return res.status(201).json({ success: true, data: created });
+  } catch (err) {
+      console.error("addVendorLink failed:", err?.response?.data ?? err);
+      return res.status(500).json({ error: "Failed to create Vendor Link" });
+  }
+};

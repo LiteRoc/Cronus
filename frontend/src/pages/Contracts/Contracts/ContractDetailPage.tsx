@@ -1,6 +1,7 @@
 // src/pages/Contracts/Contracts/ContractDetailPage.tsx
 
 import React from "react";
+import VendorResponsibilityPicker from '../components/VendorResponsibilityPicker';
 import { useNavigate, useParams } from "react-router-dom";
 import { createDraftAmendment, getContractLifecycleIntelligence } from "@/services/contractAPI";
 import { previewApplyAmendment, applyApprovedAmendment } from "@/services/contractAPI";
@@ -20,7 +21,7 @@ import { TimelineEventDetailsModal } from "../Modals/TimelineEventDetailModal";
 import type { ContractValueTimelineEvent } from "@/types/ContractValue";
 import { fmtMoney, safeDiv } from "@/utils/format";
 import { ytdFraction } from "@/utils/dateUtils";
-import { showSuccess } from "@/utils/toastUtils";
+import { showSuccess, showError } from "@/utils/toastUtils";
 import { useVendors } from "@/hooks/useVendors";
 import ContractLifecycleIntelligenceCard from "../components/ContractLifecycleIntelligenceCard"
 import useSWR from "swr";
@@ -46,6 +47,7 @@ export default function ContractDetailPage() {
   const [previewError, setPreviewError] = React.useState<string | null>(null);
 
   const { vendors } = useVendors();
+  const [vendorError,setVendorError]=React.useState<string|null>(null);
   const [vendorModalOpen, setVendorModalOpen] = React.useState(false);
   const [vendorModalMode, setVendorModalMode] = React.useState<"add" | "edit">("add");
   const [vendorForm, setVendorForm] = React.useState({
@@ -108,6 +110,7 @@ export default function ContractDetailPage() {
   };
 
   const openAddVendorLink = () => {
+    setVendorError(null);
     setVendorModalMode("add");
     setVendorForm({
       linkId: "",
@@ -125,6 +128,7 @@ export default function ContractDetailPage() {
   };
 
   const openEditVendorLink = (link: any) => {
+    setVendorError(null);
     setVendorModalMode("edit");
     setVendorForm({
       linkId: link._id ?? "",
@@ -162,48 +166,43 @@ export default function ContractDetailPage() {
     if (!contractId) return;
     if (!vendorForm.vendorId) return;
 
-    const selectedVendor = vendors?.find((v: any) => v._id === vendorForm.vendorId);
-    const basePayload = {
-      vendorId: vendorForm.vendorId,
-      nameSnapshot: selectedVendor?.name,
-      coverageType: vendorForm.coverageType,
-      startDate: vendorForm.startDate,
-      endDate: vendorForm.endDate,
-      annualCost: Number(vendorForm.annualCost || 0),
-      deductible: vendorForm.deductible ? Number(vendorForm.deductible) : undefined,
-      notes: vendorForm.notes || undefined,
-    };
+    setVendorError(null);
+    try {
+      const selectedVendor = vendors?.find((v: any) => v._id === vendorForm.vendorId);
+      const basePayload = {
+        vendorId: vendorForm.vendorId,
+        nameSnapshot: selectedVendor?.name,
+        coverageType: vendorForm.coverageType,
+        startDate: vendorForm.startDate,
+        endDate: vendorForm.endDate,
+        annualCost: Number(vendorForm.annualCost || 0),
+        deductible: vendorForm.deductible ? Number(vendorForm.deductible) : undefined,
+        notes: vendorForm.notes || undefined,
+      };
 
-    let linkId = vendorForm.linkId;
-    if (vendorModalMode === "add") {
-      const res = await addVendorLink(contractId, {
-        ...basePayload,
-        coveredAssetIds: vendorForm.coveredAssetIds,
-      });
-      linkId =
-        res?.vendorLink?._id ??
-        res?.link?._id ??
-        res?.vendorLinkId ??
-        res?._id ??
-        linkId;
-      showSuccess("Vendor link created");
-    } else {
-      await updateVendorLink(contractId, vendorForm.linkId, basePayload);
-      showSuccess("Vendor link updated");
-    }
-
-    if (linkId && vendorModalMode === "edit") {
-      const prev = new Set(vendorForm.originalAssetIds || []);
-      const next = new Set(vendorForm.coveredAssetIds || []);
-      const add = Array.from(next).filter((id) => !prev.has(id));
-      const remove = Array.from(prev).filter((id) => !next.has(id));
-      if (add.length || remove.length) {
-        await updateVendorLinkAssets(contractId, linkId, { add, remove });
+      if (vendorModalMode === "add") {
+        await addVendorLink(contractId, {
+          ...basePayload,
+          coveredAssetIds: vendorForm.coveredAssetIds,
+        });
+        showSuccess("Vendor link created");
+      } else {
+        // Explicitly dispose anomalous assignments before a commercial PATCH.
+        const prev = new Set(vendorForm.originalAssetIds || []);
+        const next = new Set(vendorForm.coveredAssetIds || []);
+        const add = Array.from(next).filter(id=>!prev.has(id));
+        const remove = Array.from(prev).filter(id=>!next.has(id));
+        if(add.length||remove.length) await updateVendorLinkAssets(contractId,vendorForm.linkId,{add,remove});
+        await updateVendorLink(contractId, vendorForm.linkId, basePayload);
+        showSuccess("Vendor link updated");
       }
-    }
 
-    setVendorModalOpen(false);
-    await mutate();
+      setVendorModalOpen(false);
+      await mutate();
+    } catch(error:any) {
+      setVendorError(`${error?.response?.data?.error ?? 'Vendor edits could not be completed'}. Reload to review saved state before retrying.`);
+      await mutate();
+    }
   };
 
   if (!contractId) return <div className="p-6 text-red-600">Missing contract ID.</div>;
@@ -237,32 +236,37 @@ export default function ContractDetailPage() {
     const allowed = AMENDMENT_TRANSITIONS[status] ?? [];
     if (!allowed.includes(nextStatus)) return;
 
-    switch (nextStatus) {
-      case "submitted":
-        await submitAmendment(contractId, amendmentIndex);
-        showSuccess("Amendment submitted");
-        break;
-      case "approved":
-        await approveAmendment(contractId, amendmentIndex);
-        showSuccess("Amendment approved");
-        break;
-      case "applied":
-        await applyApprovedAmendment(contractId, amendmentIndex);
-        showSuccess("Amendment applied");
-        break;
-      case "declined":
-        await declineAmendment(contractId, amendmentIndex);
-        showSuccess("Amendment declined");
-        break;
-      case "voided":
-        await voidAmendment(contractId, amendmentIndex);
-        showSuccess("Amendment voided");
-        break;
-      default:
-        return;
-    }
+    try {
+      switch (nextStatus) {
+        case "submitted":
+          await submitAmendment(contractId, amendmentIndex);
+          showSuccess("Amendment submitted");
+          break;
+        case "approved":
+          await approveAmendment(contractId, amendmentIndex);
+          showSuccess("Amendment approved");
+          break;
+        case "applied":
+          await applyApprovedAmendment(contractId, amendmentIndex);
+          showSuccess("Amendment applied");
+          break;
+        case "declined":
+          await declineAmendment(contractId, amendmentIndex);
+          showSuccess("Amendment declined");
+          break;
+        case "voided":
+          await voidAmendment(contractId, amendmentIndex);
+          showSuccess("Amendment voided");
+          break;
+        default:
+          return;
+      }
 
-    await mutate();
+      await mutate();
+    } catch(error:any) {
+      showError(error?.response?.data?.error ?? 'Amendment could not be applied. Reload and review responsibility assignments.');
+      await mutate();
+    }
   };
 
   function PreviewModal({
@@ -304,6 +308,7 @@ export default function ContractDetailPage() {
             <div className="p-5">
               {loading && <p className="text-sm text-gray-600">Loading preview…</p>}
               {error && <p className="text-sm text-red-600">{error}</p>}
+              {data?.coverageDisposition?.isConsistent===false&&<p role="alert" className="text-amber-800">Applying this amendment requires explicit vendor responsibility disposition first.</p>}
 
               {!loading && !error && data && (
                 <div className="space-y-4">
@@ -563,37 +568,8 @@ export default function ContractDetailPage() {
 
               <div>
                 <label className="text-sm font-medium">Covered Assets</label>
-                <div className="mt-2 max-h-56 overflow-auto border rounded p-3 space-y-2">
-                  {assets?.length ? (
-                    assets.map((a: any) => {
-                      const label =
-                        a.ctrlNumber ||
-                        a.serialNumber ||
-                        `${a.manufacturer ?? ""} ${a.model ?? ""}`.trim() ||
-                        "Asset";
-                      const checked = form.coveredAssetIds.includes(a._id);
-                      return (
-                        <label key={a._id} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={(e) => {
-                              setForm((f) => {
-                                const next = new Set(f.coveredAssetIds);
-                                if (e.target.checked) next.add(a._id);
-                                else next.delete(a._id);
-                                return { ...f, coveredAssetIds: Array.from(next) };
-                              });
-                            }}
-                          />
-                          <span>{label}</span>
-                        </label>
-                      );
-                    })
-                  ) : (
-                    <div className="text-sm text-gray-500">No assets available.</div>
-                  )}
-                </div>
+                <VendorResponsibilityPicker assets={assets} coverage={overview?.contract.coveredAssets ?? []} selected={form.coveredAssetIds} onChange={ids=>setForm(f=>({...f,coveredAssetIds:ids}))}/>
+                {vendorError&&<p role="alert" className="text-red-700">{vendorError}</p>}
               </div>
             </div>
 
@@ -980,7 +956,8 @@ export default function ContractDetailPage() {
                     </td>
                     <td className="px-3 py-2">{fmtMoney(link.annualCost ?? 0)}</td>
                     <td className="px-3 py-2">
-                      {link.coveredAssetIds?.length ?? 0}
+                      {link.coveredAssetsCount ?? link.coveredAssetIds?.length ?? 0}
+                      {(!!link.responsibility?.outOfCoverageAssetIds?.length || !!link.responsibility?.invalidReferenceCount)&&<p role="alert" className="text-amber-800">Out-of-coverage assignments retained; review required.</p>}
                     </td>
                     <td className="px-3 py-2 flex gap-2">
                       <button
@@ -1012,6 +989,7 @@ export default function ContractDetailPage() {
         error={previewError}
       />
 
+      {contract.coverage?.vendorResponsibility.overlaps.some(item=>item.status==='requires_review')&&<p role="alert" className="text-amber-800">Overlapping vendor responsibilities require review; exclusivity is not configured.</p>}
       <VendorLinkModal
         open={vendorModalOpen}
         onClose={() => setVendorModalOpen(false)}

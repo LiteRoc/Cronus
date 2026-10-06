@@ -61,10 +61,12 @@ export interface Contract {
   linkedWorkOrders?: string[];
   notes?: string;
   vendorLinks?: VendorLink[];
+  coverage?: {basis:'current_snapshot';assetIds:string[];invalidReferenceCount:number;historicalReconstructionSupported:false;vendorResponsibility:{isConsistent:boolean;anomalies:VendorResponsibility[];overlaps:Array<{status:'complementary'|'requires_review';assetIds:string[]}>;exclusivityPolicy:'not_configured'}};
   createdAt?: string;
   updatedAt?: string;
 };
 
+export type VendorResponsibility = {assetIds:string[];outOfCoverageAssetIds:string[];invalidReferenceCount:number};
 export type VendorLink = {
   _id?: string;
   vendorId: string;
@@ -77,6 +79,7 @@ export type VendorLink = {
   notes?: string;
   coveredAssetIds?: string[];
   coveredAssetsCount?: number;
+  responsibility?:VendorResponsibility;
   coveredAssets?: Array<{
     _id: string;
     ctrlNumber?: string;

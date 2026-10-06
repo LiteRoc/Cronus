@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { AMENDMENT_TRANSITIONS, assertTransition } from "../models/Contract.js";
 import { computeAmendmentImpact } from "./amendmentImpactService.js";
 
+import { assertCoverageChangeSafe } from './currentContractCoverage.js';
+
 const AUDIT_FIELDS = {
   submitted: ["submittedAt", "submittedBy"],
   approved: ["approvedAt", "approvedBy"],
@@ -75,6 +77,8 @@ export function applyApprovedAmendmentToContract(contract, idx, actorId) {
   }
 
   const impact = computeAmendmentImpact(contract.toObject({ depopulate: true }), idx);
+  if (amendment.status !== 'approved') throw new Error('Only approved amendments can be applied');
+  assertCoverageChangeSafe(contract, impact.nextContract.coveredAssets ?? []);
   contract.coveredAssets = Array.isArray(impact.nextContract.coveredAssets)
     ? impact.nextContract.coveredAssets
     : [];

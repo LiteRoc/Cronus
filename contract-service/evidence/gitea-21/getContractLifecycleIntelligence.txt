@@ -1,9 +1,3 @@
-import mongoose from "mongoose";
-import Contract from "../models/Contract.js";
-import { buildTenantFilter } from "../middleware/tenantScope.js";
-
-import { resolveCurrentContractCoverage, inspectVendorCoverage } from '../services/currentContractCoverage.js';
-
 export async function getContractLifecycleIntelligence(req, res) {
   try {
     const { id } = req.params;
@@ -23,8 +17,19 @@ export async function getContractLifecycleIntelligence(req, res) {
       return res.status(404).json({ message: "Contract not found" });
     }
 
-    const coverage=resolveCurrentContractCoverage(contract);
-    const assetIds=coverage.assetIds;
+    const coveredAssetIds = new Set();
+
+    for (const assetId of contract.coveredAssets ?? []) {
+      coveredAssetIds.add(String(assetId));
+    }
+
+    for (const link of contract.vendorLinks ?? []) {
+      for (const assetId of link.coveredAssetIds ?? []) {
+        coveredAssetIds.add(String(assetId));
+      }
+    }
+
+    const assetIds = [...coveredAssetIds];
 
     let assets = [];
 
@@ -33,9 +38,6 @@ export async function getContractLifecycleIntelligence(req, res) {
     assets = Array.isArray(data) ? data : data?.assets ?? [];
     }
 
-    // A malformed upstream batch must not expand current membership either.
-    const membership=new Set(assetIds), seen=new Set();
-    assets=assets.filter(asset=>{const id=String(asset._id).toLowerCase();if(!membership.has(id)||seen.has(id))return false;seen.add(id);return true;});
     // Fetch current canonical lifecycle economics; Asset caches alone do not prove freshness.
     assets = await Promise.all(assets.map(async asset => {
       try { const {data}=await req.core.get(`/assets/${asset._id}/lifecycle`); return {...asset,metrics:data.metrics}; }
@@ -129,11 +131,9 @@ export async function getContractLifecycleIntelligence(req, res) {
 
             assetsMissingReplacementValue,
         },
-        coverage: {...coverage,vendorResponsibility:inspectVendorCoverage(contract)},
         replacementCandidates,
         });
   } catch (err) {
-    if (err.message?.startsWith('Forbidden:')) return res.status(403).json({message:'Facility access denied'});
     console.error("GET /contracts/:id/lifecycle-intelligence failed:", err);
     return res.status(500).json({
       message: "Failed to compute contract lifecycle intelligence",

@@ -1,4 +1,5 @@
 // src/types/ContractLifecycle.ts
+import type {Contract} from './Contract';
 
 export interface ContractLifecycleSummary {
   coveredAssetCount: number;
@@ -35,6 +36,7 @@ export interface ContractLifecycleIntelligenceResponse {
     endDate: string;
     totalValue: number;
   };
+  coverage?:Contract['coverage'];
   summary: ContractLifecycleSummary;
   replacementCandidates: ContractLifecycleReplacementCandidate[];
 }

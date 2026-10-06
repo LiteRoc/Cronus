@@ -2,46 +2,48 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Canonical Asset lifecycle assessment — October 6, 2026
+## Contract coverage / vendor responsibility — October 6, 2026
 
-**#20 implemented and branch-verified; deployment not performed.** Delivery SHAs,
-fresh merged-main verification and closure status are tracked in
-[#20](http://192.168.1.185:3000/LiteRoc/cronus/issues/20); no subsequent issue is selected.
-See the [#20 implementation journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>)
+**#21 implemented and branch-verified; deployment not performed.** Delivery SHAs,
+fresh merged-main verification and closure status are recorded in
+[#21](http://192.168.1.185:3000/LiteRoc/cronus/issues/21). No subsequent issue is selected.
+Baseline main: `5e9fdfdef16f4b0afac87d31ef70612fc39f2646` (#20 merged/closed).
+See the [#21 implementation journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>)
 and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
-Baseline main: `e8ccfe1831016a781dabd08ec696e6cc25a0b5a3`.
 
-Live `GET /assets/:id/lifecycle` adds `assessment` (`asset-lifecycle-v2`), computed
-by core's `buildAssetLifecycleAssessment`. Service age is nullable with confirmed
-start/installation or explicitly estimated acquisition/purchase proxies. Expected
-life retains governed/adopted provenance; raw legacy values are provisional and
-external benchmarks are reference-only. Capital distinguishes acquisition basis,
-planning depreciation, unavailable accounting book value and replacement evidence.
-Unknown capital remains null; assumed zero salvage is explicit. Replacement review
-is tri-state; the low-book-value maintenance heuristic is absent from the canonical
-assessment. Asset detail consumes the assessment and exposes a confirmed-date editor.
+`resolveCurrentContractCoverage` resolves only current `contract.coveredAssets`.
+Vendor responsibility overlays cannot add members. Creation/add batches validate IDs,
+current membership and visible same-Facility Assets through authenticated core APIs.
+Malformed/missing/out-of-coverage/inaccessible additions fail before saving. Explicit
+removals retain prospective before/after responsibility history. Applied coverage
+changes fail with a disposition conflict while vendor references would remain outside
+coverage; no assignments or Contract membership are silently pruned/expanded.
 
-`purchase`/`metrics` remain temporary response compatibility fields. `currentBookValue`
-now aliases estimated depreciated value, not accounting value; unknown returns null.
-`replacementRecommended` is null for insufficient data with an explicit companion
-state. `projectedAnnualMaintenance` retains observed internal labor + parts semantics.
-The primary UI metric is direct maintenance over an explicit rolling 365-day window.
-No GET persistence, backfill or real-data migration occurs.
+Lifecycle, overview and profitability use current membership; vendor analytics use
+its intersection with responsibility. Raw anomalous references remain visible in
+response metadata/UI. Parts/labor overlap is complementary; other overlaps, including
+full/full, require review. No exclusive allocation rule is inferred. Conditional
+saves protect concurrent coverage/responsibility changes, including versionless legacy
+Contracts. Asset coverage receipts retain their Facility filter.
 
-Legacy Template calculations and persisted Asset.metrics/filter/forecast paths are
-intentionally unchanged; their known inconsistencies remain for #11/#8. Contract
-coverage remains for #21. #11 depends on #20/#21; #8 depends on #20/#11. #10 retains
-numeric-filter/URL work. Do not begin any of these issues without assignment.
-Historical/as-of Contract coverage and new maintenance recommendation thresholds
-remain unresolved. Organization policy evidence can be resolved per Template;
-organization-wide policy publication workflow is not introduced by #20.
+Branch gates passed: core 1,516 / 21 suites; Contract 199 / 13; frontend 292 / 36;
+TypeScript with the existing ignoreDeprecations 5.0 override; Vite; syntax/whitespace;
+frozen evidence checksums. Package/lockfiles remain byte-identical to baseline.
+No real-data discovery/remediation, migration, cache refresh, scheduler enablement,
+deployment or runtime/container action occurred. #19 remains open/**BLOCKED**, with
+no approved rate. CRM remains paused/untouched at
+`807bc38122e771dacccbc23fca4a66363dd58d55`.
 
-Branch gates passed: core 1,516; Contract 116; frontend 279; TypeScript with the
-existing ignoreDeprecations 5.0 override; Vite build; syntax/whitespace checks.
-Package/lockfiles are byte-identical to baseline. #17/#18 remain closed/undeployed.
-#19 remains open/**BLOCKED**; no rate is approved or published. CRM remains paused
-at `807bc38122e771dacccbc23fca4a66363dd58d55`, with its checkout untouched.
-No cache refresh, scheduler enablement, deployment or runtime/container change.
+#20 live `GET /assets/:id/lifecycle` remains canonical (`asset-lifecycle-v2`): nullable
+service age/provenance, governed expected life, acquisition/planning/accounting/
+replacement separation, explicit salvage assumptions and tri-state replacement review.
+Its compatibility aliases and Asset UI are documented in the
+[#20 journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>).
+#7 economics are unchanged. Legacy Template/cache calculations and Contract aggregate
+completeness/terminology remain for #11/#8. #11 depends on completed #20/#21; #8 depends
+on #20/#11. Do not begin either without assignment. Historical/as-of Contract coverage
+and new maintenance recommendation thresholds remain unresolved. #20/#21 are software
+completion, not deployment authority; #17/#18 likewise remain undeployed.
 
 Software infrastructure is ready for a future governed internal labor rate, but
 external approval remains incomplete. User-provided external analysis identifies
