@@ -13,6 +13,8 @@ const MaintenanceScheduleSchema = new Schema({
 
 const PurchaseSchema = new Schema({
   price: { type: Number, min: 0 },
+  currency: { type: String, match: /^[A-Z]{3}$/ },
+  salvageEvidenceRef: { type: String, trim: true },
   date: { type: Date },
   expectedLifeYears: { type: Number, min: 0 },
   salvageValue: { type: Number, min: 0, default: 0 },
@@ -70,6 +72,8 @@ const AssetSchema = new Schema({
   // (optional) store the resolved expected life source
   // metricsMeta: { expectedLifeSource: { type: String, enum: ['asset', 'template', 'none'], default: 'none' } },
 
+  serviceStartDate: { type: Date },
+  lifecyclePolicy: { type: require('./lifecyclePolicySchema'), default: null },
   acquisitionDate: { type: Date },
   installationDate: { type: Date },
   retirementDate: { type: Date },

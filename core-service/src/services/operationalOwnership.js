@@ -76,7 +76,7 @@ async function department(value, facilityId, session = null) {
   return (await reference(Department, value, { facilityId }, session))._id;
 }
 const assetCreateFields = ['templateId','ctrlNumber','departmentId','locationNote','notes','manufacturer','model','description','serialNumber','parentAsset','relationToParent','maintenanceSchedule','attributes'];
-const assetEditFields = [...assetCreateFields, 'revisionNumber','status','purchase','acquisitionDate','installationDate','retirementDate','purchaseDate','purchaseCost','budgetValue','contractValue','manufacturerRecommendedPMFrequency','equipmentClass','classificationName','regulationNumber','panel','recordStatus','prescriptionRequired','otc','submissionNumber','manufacturerDUNS','gmdnDefinition','riskLevel','isHIPAARelevant','isAlarmed','isSecuritySensitive','isAEMExcluded','documents','images'];
+const assetEditFields = [...assetCreateFields, 'revisionNumber','status','serviceStartDate','lifecyclePolicy','purchase','acquisitionDate','installationDate','retirementDate','purchaseDate','purchaseCost','budgetValue','contractValue','manufacturerRecommendedPMFrequency','equipmentClass','classificationName','regulationNumber','panel','recordStatus','prescriptionRequired','otc','submissionNumber','manufacturerDUNS','gmdnDefinition','riskLevel','isHIPAARelevant','isAlarmed','isSecuritySensitive','isAEMExcluded','documents','images'];
 async function assetReferences(payload, facilityId, ownId = null, existingTemplateId = null) {
   if (Object.hasOwn(payload, 'departmentId')) payload.departmentId = await department(payload.departmentId, facilityId);
   if (payload.templateId) {
@@ -95,7 +95,7 @@ async function assetReferences(payload, facilityId, ownId = null, existingTempla
     if (payload.maintenanceSchedule.procedure) await reference(Procedure, payload.maintenanceSchedule.procedure);
     else if (payload.maintenanceSchedule.procedure === '') payload.maintenanceSchedule.procedure = null;
   }
-  if (payload.purchase != null) payload.purchase = pick(payload.purchase, ['price','date','expectedLifeYears','salvageValue'], true);
+  if (payload.purchase != null) payload.purchase = pick(payload.purchase, ['price','currency','date','expectedLifeYears','salvageValue','salvageEvidenceRef'], true);
 }
 function respond(res, error) {
   if (error instanceof OwnershipError) return res.status(error.status).json({ error: error.message });

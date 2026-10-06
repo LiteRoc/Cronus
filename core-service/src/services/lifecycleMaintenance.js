@@ -18,6 +18,7 @@ export async function getMaintenanceTotalsBatch(assetIds, opts = {}) {
   const now = opts.now || new Date(),
     start = new Date(now);
   start.setDate(start.getDate() - 365);
+  if (opts.windowStart) start.setTime(new Date(opts.windowStart).getTime());
   const filter = {
     assetId: {
       $in: assetIds
@@ -33,6 +34,7 @@ export async function getMaintenanceTotalsBatch(assetIds, opts = {}) {
     const all = rows.filter(w => String(w.assetId) === String(id));
     return [String(id), {
       lifetime: period(all),
+      excludedCompletionDateCount: all.filter(w => !w.completionDate || !Number.isFinite(new Date(w.completionDate).getTime())).length,
       last12Months: period(all.filter(w => w.completionDate && new Date(w.completionDate) >= start && new Date(w.completionDate) <= now))
     }];
   }));

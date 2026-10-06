@@ -2,40 +2,46 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Lifecycle policy approved; implementation not started — October 6, 2026
+## Canonical Asset lifecycle assessment — October 6, 2026
 
-Owner-approved lifecycle direction and implementation trackers are recorded in the
-[policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
-The policy/design pass inspected frozen main
-`5a0d5ec3b4473f1b76f07ea3eadf0f289365ae02`; this checkpoint changes documentation
-and issue tracking only, not application behavior or runtime.
+**#20 implemented and branch-verified; deployment not performed.** Delivery SHAs,
+fresh merged-main verification and closure status are tracked in
+[#20](http://192.168.1.185:3000/LiteRoc/cronus/issues/20); no subsequent issue is selected.
+See the [#20 implementation journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>)
+and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+Baseline main: `e8ccfe1831016a781dabd08ec696e6cc25a0b5a3`.
 
-- Service age uses confirmed in-service/installation evidence; acquisition/purchase
-  proxies must be explicitly estimated. Unknown/invalid/not-started age is not zero.
-- Expected life is governed/adopted policy; AHA/ECRI/OEM remain references until adopted.
-- Acquisition basis, estimated depreciated value, accounting book value and replacement
-  value are separate; unknown capital stays null and zero salvage assumptions are labeled.
-- Replacement intelligence is tri-state replacement review; the default low-book-value
-  heuristic will be retired. Vendor responsibility cannot expand Contract coverage.
-- Template current fleet is authorized Facility Active + Inactive; Pending is separate.
-  Capital completeness, named direct-maintenance scope and versioned derived caches follow.
+Live `GET /assets/:id/lifecycle` adds `assessment` (`asset-lifecycle-v2`), computed
+by core's `buildAssetLifecycleAssessment`. Service age is nullable with confirmed
+start/installation or explicitly estimated acquisition/purchase proxies. Expected
+life retains governed/adopted provenance; raw legacy values are provisional and
+external benchmarks are reference-only. Capital distinguishes acquisition basis,
+planning depreciation, unavailable accounting book value and replacement evidence.
+Unknown capital remains null; assumed zero salvage is explicit. Replacement review
+is tri-state; the low-book-value maintenance heuristic is absent from the canonical
+assessment. Asset detail consumes the assessment and exposes a confirmed-date editor.
 
-Implementation order: [#20 Asset assessment](http://192.168.1.185:3000/LiteRoc/cronus/issues/20)
-and [#21 coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21) can proceed in
-parallel when separately assigned; then [#11 aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11),
-then [#8 cache/refresh](http://192.168.1.185:3000/LiteRoc/cronus/issues/8).
-#11/#8 reuse existing trackers; #10 retains numeric-filter/URL work.
-Historical/as-of coverage remains blocked on future/backdated amendment policy and
-evidence design. No new maintenance-based replacement threshold is approved.
+`purchase`/`metrics` remain temporary response compatibility fields. `currentBookValue`
+now aliases estimated depreciated value, not accounting value; unknown returns null.
+`replacementRecommended` is null for insufficient data with an explicit companion
+state. `projectedAnnualMaintenance` retains observed internal labor + parts semantics.
+The primary UI metric is direct maintenance over an explicit rolling 365-day window.
+No GET persistence, backfill or real-data migration occurs.
 
-#17/#18 remain closed, with neither deployed; #17 final closure:
-[verification comment](http://192.168.1.185:3000/LiteRoc/cronus/issues/17#issuecomment-129).
-#19 remains open/**BLOCKED**, unrelated to lifecycle; no labor rate is approved for
-publication. CRM remains separately paused at
-`807bc38122e771dacccbc23fca4a66363dd58d55`.
-This checkpoint authorizes no implementation, real-data repair/migration, metric
-refresh, scheduler enablement, deployment, rate publication or CRM work. Earlier
-lifecycle policy deferral below is historical; the approved journal now governs.
+Legacy Template calculations and persisted Asset.metrics/filter/forecast paths are
+intentionally unchanged; their known inconsistencies remain for #11/#8. Contract
+coverage remains for #21. #11 depends on #20/#21; #8 depends on #20/#11. #10 retains
+numeric-filter/URL work. Do not begin any of these issues without assignment.
+Historical/as-of Contract coverage and new maintenance recommendation thresholds
+remain unresolved. Organization policy evidence can be resolved per Template;
+organization-wide policy publication workflow is not introduced by #20.
+
+Branch gates passed: core 1,516; Contract 116; frontend 279; TypeScript with the
+existing ignoreDeprecations 5.0 override; Vite build; syntax/whitespace checks.
+Package/lockfiles are byte-identical to baseline. #17/#18 remain closed/undeployed.
+#19 remains open/**BLOCKED**; no rate is approved or published. CRM remains paused
+at `807bc38122e771dacccbc23fca4a66363dd58d55`, with its checkout untouched.
+No cache refresh, scheduler enablement, deployment or runtime/container change.
 
 Software infrastructure is ready for a future governed internal labor rate, but
 external approval remains incomplete. User-provided external analysis identifies

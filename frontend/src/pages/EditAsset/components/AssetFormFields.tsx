@@ -78,6 +78,12 @@ const AssetFormFields: React.FC<Props> = ({ asset, isReadOnly, handleChange, upd
         <Input id="Relation to Parent" value={asset.relationToParent ?? ""} disabled={isReadOnly} onChange={e => handleChange("relationToParent", e.target.value)} />
       </FormCard>
 
+      <FormCard title="Service Start">
+        <label htmlFor="confirmed-service-start">Confirmed In-Service Date</label>
+        <Input id="confirmed-service-start" type="date" value={formatISODate(asset.serviceStartDate ?? undefined)} disabled={isReadOnly} onChange={e => handleChange("serviceStartDate", e.target.value || null)} />
+        <p className="text-sm text-gray-600">Enter confirmed in-service evidence. Acquisition and purchase dates remain estimated proxies when no service or installation date is available.</p>
+      </FormCard>
+
       {/* 💰 Financial */}
       <FormCard title="Financial Details">
         <Input id="Purchase Date" type="date" value={formatISODate(asset.purchaseDate)} disabled={isReadOnly} onChange={e => handleChange("purchaseDate", e.target.value)} />

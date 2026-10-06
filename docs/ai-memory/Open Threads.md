@@ -4,7 +4,7 @@ This file records verified defects and clearly unresolved engineering work. Runt
 
 ## Lifecycle implementation and unresolved policy — October 6, 2026
 
-Lifecycle direction is owner-approved; implementation has not started. See the
+Lifecycle direction is owner-approved; #20 Asset assessment is implemented and branch-verified, with delivery/closure tracked in #20. See the
 [policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
 #17/#18 remain closed software work, neither deployed; CRM remains paused.
 #19 remains open/**BLOCKED** and must not be started.
@@ -21,19 +21,22 @@ and prospective effective-date approval, and Cronus publication governance.
 Historical applicability is **NONE unless separately certified**. No rate
 publication or historical bulk repair/backfill is authorized.
 
-**Lifecycle implementation backlog:** approved service-age provenance, governed expected
-life, separate capital meanings, tri-state replacement review, vendor containment
-and Template cohorts are no longer open policy questions. Track implementation in
-[#20 canonical Asset assessment](http://192.168.1.185:3000/LiteRoc/cronus/issues/20),
-[#21 Contract/vendor coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21),
-[#11 aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11) and
-[#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8).
-#11 depends on #20 and the #21 coverage contract; #8 depends on #20/#11.
+**Lifecycle follow-up backlog:** #20 supplies the canonical live Asset assessment;
+its [implementation journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>)
+records verification and transitional compatibility. It does not reconcile every
+fleet consumer. [#21 Contract/vendor coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21),
+[#11 Template/Contract aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11)
+and [#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8)
+remain open and unstarted. #11 depends on #20 and #21 coverage; #8 depends on #20/#11.
 #10 retains numeric-filter/URL behavior and coordinates with #8 freshness contracts.
-The frozen-source assessment confirmed unknown-to-zero and capital conflation paths,
-partial capital sums, mismatched maintenance scopes, distinct live/stored read paths,
-the scheduler's unimported mongoose reference and vendor-union population expansion.
-This checkpoint adds no new runtime reproduction and fixes none of these paths.
+
+Canonical live Asset age/capital/recommendation semantics are corrected and tested.
+Legacy Template/cache age/price/recommendation paths, partial Contract capital sums,
+aggregation terminology/populations, stored-filter freshness, scheduler's unimported
+mongoose reference and vendor-union population remain deliberately deferred. They
+must not be mistaken for newly corrected behavior. #20 adds no organization policy
+publication workflow, accounting source or real-data recovery. Missing legacy currency
+remains unspecified; provisional life does not become adopted recommendation policy.
 
 **Still unresolved:** future/backdated amendment effective-date behavior and historical
 coverage evidence design. Support authoritative current snapshot first; do not promise

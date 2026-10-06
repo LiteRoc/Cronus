@@ -48,12 +48,13 @@ export interface AssetLifecycleMetrics {
   costRecommendationStatus?: string;
   totalMaintenanceCost?: number | null;
   last12MonthsMaintenanceCost?: number | null;
-  currentBookValue?: number;
+  currentBookValue?: number | null;
   projectedAnnualMaintenance?: number | null;
-  replacementRecommended?: boolean;
+  replacementRecommended?: boolean | null;
+  replacementAssessmentState?: "recommended" | "not_recommended" | "insufficient_data";
   replacementReason?: string | null;
-  yearsInService?: number;
-  annualDepreciation?: number;
+  yearsInService?: number | null;
+  annualDepreciation?: number | null;
   computedAt?: string;
 }
 
@@ -91,6 +92,7 @@ export interface Asset {
   isSecuritySensitive?: boolean;
   isAEMExcluded?: boolean;
 
+  serviceStartDate?: string | null;
   purchaseDate?: string;
   purchaseCost?: number;
   budgetValue?: number;
@@ -118,6 +120,7 @@ export interface Asset {
 }
 
 export interface AssetLifecycleResponse {
+  assessment?: import("./AssetLifecycleAssessment").AssetLifecycleAssessment;
   assetId: string;
   templateId?: string | AssetTemplateRef | null;
   purchase: Record<string, string | number | boolean | null> | null;
