@@ -2,10 +2,12 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Deferred work at development stop — September 30, 2026
+## Lifecycle implementation and unresolved policy — October 6, 2026
 
-No implementation is selected. #17/#18 are closed software work, neither deployed;
-CRM is paused. #19 remains open/**BLOCKED** and must not be started.
+Lifecycle direction is owner-approved; implementation has not started. See the
+[policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+#17/#18 remain closed software work, neither deployed; CRM remains paused.
+#19 remains open/**BLOCKED** and must not be started.
 
 **External labor-rate governance:** the approximate $111.09/productive-hour
 Cronus-compatible candidate is unapproved; the approximate $128.37 fully absorbed
@@ -19,17 +21,30 @@ and prospective effective-date approval, and Cronus publication governance.
 Historical applicability is **NONE unless separately certified**. No rate
 publication or historical bulk repair/backfill is authorized.
 
-**Lifecycle/Contract policy work:** the user reports that an earlier read-only
-reconciliation assessment is complete. Deferred policy questions concern unknown
-service age collapsing toward zero; acquisition/book-value basis versus replacement
-benchmark; capital completeness and unknown-versus-zero semantics; maintenance
-metric naming/scope; lifecycle cache freshness; expected-life provenance;
-vendor-link coverage semantics; and the lifecycle scheduler defect before any
-future re-enable. These are assessment follow-ups, not newly verified findings
-from this documentation review. Do not implement them or enable scheduling now.
+**Lifecycle implementation backlog:** approved service-age provenance, governed expected
+life, separate capital meanings, tri-state replacement review, vendor containment
+and Template cohorts are no longer open policy questions. Track implementation in
+[#20 canonical Asset assessment](http://192.168.1.185:3000/LiteRoc/cronus/issues/20),
+[#21 Contract/vendor coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21),
+[#11 aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11) and
+[#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8).
+#11 depends on #20 and the #21 coverage contract; #8 depends on #20/#11.
+#10 retains numeric-filter/URL behavior and coordinates with #8 freshness contracts.
+The frozen-source assessment confirmed unknown-to-zero and capital conflation paths,
+partial capital sums, mismatched maintenance scopes, distinct live/stored read paths,
+the scheduler's unimported mongoose reference and vendor-union population expansion.
+This checkpoint adds no new runtime reproduction and fixes none of these paths.
 
-Explicitly choose and authorize the next task before resuming any development,
-CRM, deployment, publication, data action or new issue.
+**Still unresolved:** future/backdated amendment effective-date behavior and historical
+coverage evidence design. Support authoritative current snapshot first; do not promise
+historical/as-of reconstruction. No new maintenance-based replacement-economic
+threshold is approved; do not invent one. Existing vendor anomalies require an audit
+before separately authorized correction, never automatic pruning or Contract expansion.
+Cross-tenant/global operational benchmarks require separate authorization/policy.
+
+Explicitly assign scoped implementation before starting any issue. Real-data operations,
+metric refresh, scheduler enablement, deployment, publication and CRM remain separately
+gated; issue creation and policy approval do not authorize them.
 
 ## Labor correction software and operational boundary — September 30, 2026
 

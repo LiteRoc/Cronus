@@ -2,16 +2,40 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Development stopped — September 30, 2026
+## Lifecycle policy approved; implementation not started — October 6, 2026
 
-Documentation-only stopping checkpoint from software main
-`be7f71991dc8425a5d099097274ff10fa5a10b7d`. #17 and #18 are implemented,
-merged, pushed, verified and **closed**; neither was deployed. #17 final closure:
+Owner-approved lifecycle direction and implementation trackers are recorded in the
+[policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+The policy/design pass inspected frozen main
+`5a0d5ec3b4473f1b76f07ea3eadf0f289365ae02`; this checkpoint changes documentation
+and issue tracking only, not application behavior or runtime.
+
+- Service age uses confirmed in-service/installation evidence; acquisition/purchase
+  proxies must be explicitly estimated. Unknown/invalid/not-started age is not zero.
+- Expected life is governed/adopted policy; AHA/ECRI/OEM remain references until adopted.
+- Acquisition basis, estimated depreciated value, accounting book value and replacement
+  value are separate; unknown capital stays null and zero salvage assumptions are labeled.
+- Replacement intelligence is tri-state replacement review; the default low-book-value
+  heuristic will be retired. Vendor responsibility cannot expand Contract coverage.
+- Template current fleet is authorized Facility Active + Inactive; Pending is separate.
+  Capital completeness, named direct-maintenance scope and versioned derived caches follow.
+
+Implementation order: [#20 Asset assessment](http://192.168.1.185:3000/LiteRoc/cronus/issues/20)
+and [#21 coverage](http://192.168.1.185:3000/LiteRoc/cronus/issues/21) can proceed in
+parallel when separately assigned; then [#11 aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11),
+then [#8 cache/refresh](http://192.168.1.185:3000/LiteRoc/cronus/issues/8).
+#11/#8 reuse existing trackers; #10 retains numeric-filter/URL work.
+Historical/as-of coverage remains blocked on future/backdated amendment policy and
+evidence design. No new maintenance-based replacement threshold is approved.
+
+#17/#18 remain closed, with neither deployed; #17 final closure:
 [verification comment](http://192.168.1.185:3000/LiteRoc/cronus/issues/17#issuecomment-129).
-No labor rate was published. #19 remains open/**BLOCKED**; do not begin it.
-CRM remains separately paused at `807bc38122e771dacccbc23fca4a66363dd58d55`.
-**Choose the next work explicitly before implementation.** Prior lifecycle plans
-are deferred context, not an instruction to resume development, deployment or CRM.
+#19 remains open/**BLOCKED**, unrelated to lifecycle; no labor rate is approved for
+publication. CRM remains separately paused at
+`807bc38122e771dacccbc23fca4a66363dd58d55`.
+This checkpoint authorizes no implementation, real-data repair/migration, metric
+refresh, scheduler enablement, deployment, rate publication or CRM work. Earlier
+lifecycle policy deferral below is historical; the approved journal now governs.
 
 Software infrastructure is ready for a future governed internal labor rate, but
 external approval remains incomplete. User-provided external analysis identifies
