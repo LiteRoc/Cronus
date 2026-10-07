@@ -1,0 +1,492 @@
+{
+  "fixed": false,
+  "equal": false,
+  "result": {
+    "template": {
+      "live": {
+        "schemaVersion": "asset-lifecycle-v2",
+        "assetId": "000000000000000000000001",
+        "asOf": "2026-10-07T00:00:00.000Z",
+        "computedAt": "2026-10-07T00:00:00.000Z",
+        "versions": {
+          "lifecycleCalculation": "asset-lifecycle-v2.0",
+          "lifecyclePolicy": "approved-lifecycle-2026-10-06",
+          "economicCalculation": "wo-cost-v1"
+        },
+        "serviceAge": {
+          "startDate": "2010-01-01T00:00:00.000Z",
+          "years": 16.763860369609855,
+          "status": "resolved",
+          "source": {
+            "type": "service_start",
+            "field": "serviceStartDate"
+          },
+          "isProxy": false
+        },
+        "expectedLife": {
+          "years": 8,
+          "status": "provisional",
+          "isAdopted": false,
+          "source": {
+            "type": "legacy_template_default",
+            "field": "template.lifecycleDefaults.expectedLifeYears",
+            "reference": null,
+            "adoptionStatus": "provisional"
+          }
+        },
+        "capital": {
+          "acquisitionBasis": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          },
+          "salvage": {
+            "rawAmount": null,
+            "recordedAmount": null,
+            "planningAmount": 0,
+            "basis": "assumption",
+            "reference": "approved-lifecycle-2026-10-06"
+          },
+          "estimatedDepreciatedValue": {
+            "amount": null,
+            "currency": null,
+            "annualDepreciation": null,
+            "method": "straight_line",
+            "status": "insufficient_data",
+            "missingInputs": [
+              "acquisition_basis"
+            ]
+          },
+          "accountingBookValue": {
+            "amount": null,
+            "currency": null,
+            "status": "not_available",
+            "source": null
+          },
+          "replacementValue": {
+            "amount": 5000,
+            "currency": null,
+            "status": "estimated",
+            "estimateScope": "like_for_like_equipment",
+            "source": {
+              "type": "template_average_quoted_price",
+              "reference": "synthetic",
+              "sourceDate": "2025-01-01T00:00:00.000Z",
+              "validThrough": null,
+              "confidence": null
+            },
+            "resolutionVersion": "asset-lifecycle-v2.0"
+          }
+        },
+        "maintenance": {
+          "primaryScope": "directMaintenance",
+          "window": {
+            "start": "2025-10-07T00:00:00.000Z",
+            "end": "2026-10-07T00:00:00.000Z",
+            "startInclusive": true,
+            "endInclusive": true,
+            "dateField": "completionDate",
+            "statuses": [
+              "Completed"
+            ]
+          },
+          "lifetime": null,
+          "last365Days": null,
+          "eligibleLifetimeWorkOrderCount": 0,
+          "periodWorkOrderCount": 0,
+          "dateExcludedWorkOrderCount": null
+        },
+        "replacementAssessment": {
+          "state": "insufficient_data",
+          "meaning": "replacement_review",
+          "reasonCodes": [
+            "policy_not_configured"
+          ],
+          "displayText": "No adopted age-based replacement policy is configured.",
+          "rules": [
+            {
+              "code": "adopted_expected_life",
+              "status": "insufficient_data",
+              "triggered": null,
+              "reasonCode": "policy_not_configured",
+              "inputs": {
+                "serviceYears": 16.763860369609855,
+                "expectedLifeYears": 8
+              }
+            }
+          ]
+        },
+        "quality": {
+          "missingFields": [
+            "acquisition_basis",
+            "replacement_currency",
+            "replacement_validity"
+          ],
+          "assumptions": [
+            "provisional_legacy_expected_life",
+            "zero_planning_salvage"
+          ],
+          "conflicts": []
+        }
+      },
+      "refresh": {
+        "schemaVersion": "asset-lifecycle-v2",
+        "assetId": "000000000000000000000001",
+        "asOf": "2026-10-07T00:00:00.000Z",
+        "computedAt": "2026-10-07T00:00:00.000Z",
+        "versions": {
+          "lifecycleCalculation": "asset-lifecycle-v2.0",
+          "lifecyclePolicy": "approved-lifecycle-2026-10-06",
+          "economicCalculation": "wo-cost-v1"
+        },
+        "serviceAge": {
+          "startDate": "2010-01-01T00:00:00.000Z",
+          "years": 16.763860369609855,
+          "status": "resolved",
+          "source": {
+            "type": "service_start",
+            "field": "serviceStartDate"
+          },
+          "isProxy": false
+        },
+        "expectedLife": {
+          "years": null,
+          "status": "unknown",
+          "isAdopted": false,
+          "source": null
+        },
+        "capital": {
+          "acquisitionBasis": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          },
+          "salvage": {
+            "rawAmount": null,
+            "recordedAmount": null,
+            "planningAmount": 0,
+            "basis": "assumption",
+            "reference": "approved-lifecycle-2026-10-06"
+          },
+          "estimatedDepreciatedValue": {
+            "amount": null,
+            "currency": null,
+            "annualDepreciation": null,
+            "method": "straight_line",
+            "status": "insufficient_data",
+            "missingInputs": [
+              "acquisition_basis",
+              "expected_life"
+            ]
+          },
+          "accountingBookValue": {
+            "amount": null,
+            "currency": null,
+            "status": "not_available",
+            "source": null
+          },
+          "replacementValue": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          }
+        },
+        "maintenance": {
+          "primaryScope": "directMaintenance",
+          "window": {
+            "start": "2025-10-07T00:00:00.000Z",
+            "end": "2026-10-07T00:00:00.000Z",
+            "startInclusive": true,
+            "endInclusive": true,
+            "dateField": "completionDate",
+            "statuses": [
+              "Completed"
+            ]
+          },
+          "lifetime": null,
+          "last365Days": null,
+          "eligibleLifetimeWorkOrderCount": 0,
+          "periodWorkOrderCount": 0,
+          "dateExcludedWorkOrderCount": null
+        },
+        "replacementAssessment": {
+          "state": "insufficient_data",
+          "meaning": "replacement_review",
+          "reasonCodes": [
+            "expected_life_unknown"
+          ],
+          "displayText": "Usable expected life is unavailable.",
+          "rules": [
+            {
+              "code": "adopted_expected_life",
+              "status": "insufficient_data",
+              "triggered": null,
+              "reasonCode": "expected_life_unknown",
+              "inputs": {
+                "serviceYears": 16.763860369609855,
+                "expectedLifeYears": null
+              }
+            }
+          ]
+        },
+        "quality": {
+          "missingFields": [
+            "expected_life",
+            "acquisition_basis",
+            "replacement_estimate"
+          ],
+          "assumptions": [
+            "zero_planning_salvage"
+          ],
+          "conflicts": []
+        }
+      }
+    },
+    "policy": {
+      "live": {
+        "schemaVersion": "asset-lifecycle-v2",
+        "assetId": "000000000000000000000001",
+        "asOf": "2026-10-07T00:00:00.000Z",
+        "computedAt": "2026-10-07T00:00:00.000Z",
+        "versions": {
+          "lifecycleCalculation": "asset-lifecycle-v2.0",
+          "lifecyclePolicy": "approved-lifecycle-2026-10-06",
+          "economicCalculation": "wo-cost-v1"
+        },
+        "serviceAge": {
+          "startDate": "2010-01-01T00:00:00.000Z",
+          "years": 16.763860369609855,
+          "status": "resolved",
+          "source": {
+            "type": "service_start",
+            "field": "serviceStartDate"
+          },
+          "isProxy": false
+        },
+        "expectedLife": {
+          "years": 6,
+          "status": "resolved",
+          "isAdopted": true,
+          "source": {
+            "type": "organization_policy",
+            "reference": "synthetic-approved",
+            "adoptionStatus": "approved",
+            "approvedAt": "2025-01-01T00:00:00.000Z",
+            "approvedBy": "000000000000000000000001"
+          }
+        },
+        "capital": {
+          "acquisitionBasis": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          },
+          "salvage": {
+            "rawAmount": null,
+            "recordedAmount": null,
+            "planningAmount": 0,
+            "basis": "assumption",
+            "reference": "approved-lifecycle-2026-10-06"
+          },
+          "estimatedDepreciatedValue": {
+            "amount": null,
+            "currency": null,
+            "annualDepreciation": null,
+            "method": "straight_line",
+            "status": "insufficient_data",
+            "missingInputs": [
+              "acquisition_basis"
+            ]
+          },
+          "accountingBookValue": {
+            "amount": null,
+            "currency": null,
+            "status": "not_available",
+            "source": null
+          },
+          "replacementValue": {
+            "amount": 5000,
+            "currency": null,
+            "status": "estimated",
+            "estimateScope": "like_for_like_equipment",
+            "source": {
+              "type": "template_average_quoted_price",
+              "reference": "synthetic",
+              "sourceDate": "2025-01-01T00:00:00.000Z",
+              "validThrough": null,
+              "confidence": null
+            },
+            "resolutionVersion": "asset-lifecycle-v2.0"
+          }
+        },
+        "maintenance": {
+          "primaryScope": "directMaintenance",
+          "window": {
+            "start": "2025-10-07T00:00:00.000Z",
+            "end": "2026-10-07T00:00:00.000Z",
+            "startInclusive": true,
+            "endInclusive": true,
+            "dateField": "completionDate",
+            "statuses": [
+              "Completed"
+            ]
+          },
+          "lifetime": null,
+          "last365Days": null,
+          "eligibleLifetimeWorkOrderCount": 0,
+          "periodWorkOrderCount": 0,
+          "dateExcludedWorkOrderCount": null
+        },
+        "replacementAssessment": {
+          "state": "recommended",
+          "meaning": "replacement_review",
+          "reasonCodes": [
+            "expected_life_reached"
+          ],
+          "displayText": "Adopted expected-life threshold reached; replacement review recommended.",
+          "rules": [
+            {
+              "code": "adopted_expected_life",
+              "status": "evaluated",
+              "triggered": true,
+              "reasonCode": "expected_life_reached",
+              "inputs": {
+                "serviceYears": 16.763860369609855,
+                "expectedLifeYears": 6
+              }
+            }
+          ]
+        },
+        "quality": {
+          "missingFields": [
+            "acquisition_basis",
+            "replacement_currency",
+            "replacement_validity"
+          ],
+          "assumptions": [
+            "zero_planning_salvage"
+          ],
+          "conflicts": []
+        }
+      },
+      "refresh": {
+        "schemaVersion": "asset-lifecycle-v2",
+        "assetId": "000000000000000000000001",
+        "asOf": "2026-10-07T00:00:00.000Z",
+        "computedAt": "2026-10-07T00:00:00.000Z",
+        "versions": {
+          "lifecycleCalculation": "asset-lifecycle-v2.0",
+          "lifecyclePolicy": "approved-lifecycle-2026-10-06",
+          "economicCalculation": "wo-cost-v1"
+        },
+        "serviceAge": {
+          "startDate": "2010-01-01T00:00:00.000Z",
+          "years": 16.763860369609855,
+          "status": "resolved",
+          "source": {
+            "type": "service_start",
+            "field": "serviceStartDate"
+          },
+          "isProxy": false
+        },
+        "expectedLife": {
+          "years": null,
+          "status": "unknown",
+          "isAdopted": false,
+          "source": null
+        },
+        "capital": {
+          "acquisitionBasis": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          },
+          "salvage": {
+            "rawAmount": null,
+            "recordedAmount": null,
+            "planningAmount": 0,
+            "basis": "assumption",
+            "reference": "approved-lifecycle-2026-10-06"
+          },
+          "estimatedDepreciatedValue": {
+            "amount": null,
+            "currency": null,
+            "annualDepreciation": null,
+            "method": "straight_line",
+            "status": "insufficient_data",
+            "missingInputs": [
+              "acquisition_basis",
+              "expected_life"
+            ]
+          },
+          "accountingBookValue": {
+            "amount": null,
+            "currency": null,
+            "status": "not_available",
+            "source": null
+          },
+          "replacementValue": {
+            "amount": null,
+            "currency": null,
+            "status": "unknown",
+            "source": null
+          }
+        },
+        "maintenance": {
+          "primaryScope": "directMaintenance",
+          "window": {
+            "start": "2025-10-07T00:00:00.000Z",
+            "end": "2026-10-07T00:00:00.000Z",
+            "startInclusive": true,
+            "endInclusive": true,
+            "dateField": "completionDate",
+            "statuses": [
+              "Completed"
+            ]
+          },
+          "lifetime": null,
+          "last365Days": null,
+          "eligibleLifetimeWorkOrderCount": 0,
+          "periodWorkOrderCount": 0,
+          "dateExcludedWorkOrderCount": null
+        },
+        "replacementAssessment": {
+          "state": "insufficient_data",
+          "meaning": "replacement_review",
+          "reasonCodes": [
+            "expected_life_unknown"
+          ],
+          "displayText": "Usable expected life is unavailable.",
+          "rules": [
+            {
+              "code": "adopted_expected_life",
+              "status": "insufficient_data",
+              "triggered": null,
+              "reasonCode": "expected_life_unknown",
+              "inputs": {
+                "serviceYears": 16.763860369609855,
+                "expectedLifeYears": null
+              }
+            }
+          ]
+        },
+        "quality": {
+          "missingFields": [
+            "expected_life",
+            "acquisition_basis",
+            "replacement_estimate"
+          ],
+          "assumptions": [
+            "zero_planning_salvage"
+          ],
+          "conflicts": []
+        }
+      }
+    }
+  }
+}

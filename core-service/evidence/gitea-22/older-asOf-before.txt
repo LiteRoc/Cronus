@@ -1,0 +1,43 @@
+
+> core-services@1.0.0 test
+> NODE_ENV=test node --experimental-vm-modules --experimental-specifier-resolution=node node_modules/jest/bin/jest.js --runInBand src/services/_tests_/lifecycleCacheOperator.test.mjs -t explicitly older
+
+(node:599547) ExperimentalWarning: The Node.js specifier resolution flag is experimental. It could change or be removed at any time.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  console.warn
+    Using NodeJS below 20.19.0
+
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/util/MongoInstance.ts:28:11)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/MongoMemoryServer.ts:16:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server-core/src/index.ts:2:1)
+      at Object.<anonymous> (../../../home/thecapt/apps/cronus/core-service/node_modules/mongodb-memory-server/index.js:4:20)
+
+(node:599547) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+FAIL src/services/_tests_/lifecycleCacheOperator.test.mjs
+  ● an explicitly older asOf cannot replace an already observed newer supported cache
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Map {
+    -   "00000000000000000000000a" => "conflict",
+    +   "00000000000000000000000a" => "refreshed",
+      }
+
+      160 |   const a=await seed();await fresh(a);const stored=await A.findById(a._id).lean();
+      161 |   const older=new Date(Date.parse(stored.lifecycleCache.assessmentAsOf)-1000);
+    > 162 |   expect(await cache.materializePage([stored],{asOf:older})).toEqual(new Map([[id(10),'conflict']]));
+          |                                                              ^
+      163 |   expect((await A.findById(a._id).lean()).lifecycleCache).toEqual(stored.lifecycleCache);
+      164 | });
+      165 | test('CAS failure is a conflict', async () => {await seed();jest.spyOn(A.collection,'updateOne').mockResolvedValueOnce({matchedCount:0});expect((await run({mode:'apply',assetIds:[id(10)]})).conflicted).toBe(1);});
+
+      at Object.<anonymous> (src/services/_tests_/lifecycleCacheOperator.test.mjs:162:62)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 52 skipped, 53 total
+Snapshots:   0 total
+Time:        0.902 s, estimated 2 s
+Ran all test suites matching src/services/_tests_/lifecycleCacheOperator.test.mjs with tests matching "explicitly older".

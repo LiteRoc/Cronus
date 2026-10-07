@@ -15,7 +15,7 @@ const SCHEMA = 'asset-lifecycle-cache-v1',
   CALCULATION = 'asset-lifecycle-v2.0',
   ECONOMICS = 'wo-cost-v1';
 const ASSET_FIELDS = ['_id', 'facilityId', 'templateId', 'serviceStartDate', 'installationDate', 'acquisitionDate', 'purchaseDate', 'purchase', 'purchaseCost', 'lifecyclePolicy', 'status', 'isArchived', 'deletedAt', 'lifecycleSourceRevision'];
-const { TEMPLATE_FIELDS } = require('./lifecycleTemplateShape');
+const TEMPLATE_FIELDS = ['_id', 'benchmark', 'lifecycleDefaults', 'eolYears'];
 function stable(value) {
   if (value == null) return value;
   if (value instanceof Date) return value.toISOString();
@@ -235,17 +235,6 @@ async function materializePage(assets, {
       continue;
     }
     if (!latest || latest.deletedAt || latest.isArchived || evidence.get(key).sourceFingerprint !== after.get(key)?.sourceFingerprint) {
-      outcomes.set(key, 'conflict');
-      continue;
-    }
-    // CAS protects races; also refuse an older evaluation that already observed
-    // a newer supported envelope. Historical asOf must not roll a cache backwards.
-    const previous = latest.lifecycleCache;
-    if (previous?.schemaVersion === SCHEMA && previous.calculationVersion === CALCULATION &&
-        previous.policyVersion === POLICY_VERSION && previous.economicCalculationVersion === ECONOMICS &&
-        previous.assessment?.assetId === key && previous.assessment?.asOf === previous.assessmentAsOf &&
-        previous.assessmentFingerprint === digest({assessment: previous.assessment, materialized: previous.materialized}) &&
-        Date.parse(previous.assessmentAsOf) > Date.parse(row.assessment.asOf)) {
       outcomes.set(key, 'conflict');
       continue;
     }
