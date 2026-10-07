@@ -1,7 +1,6 @@
 // Core-owned live canonical assessment orchestration shared by Asset and fleet APIs.
 const Facility = require('../models/Facility');
 const Organization = require('../models/Organization');
-const { populatedLifecycleTemplate } = require('./lifecycleTemplateShape');
 const {
   buildAssetLifecycleAssessment,
   lifecycleCompatibilityMetrics
@@ -40,7 +39,7 @@ async function assessAssets(assets, {
     }
     for (const asset of group) {
       const assetId = String(asset._id),
-        template = populatedLifecycleTemplate(asset.templateId);
+        template = asset.templateId && typeof asset.templateId === 'object' && asset.templateId.manufacturer !== undefined ? asset.templateId : null;
       try {
         const policies = (organization?.lifecyclePolicies ?? []).filter(policy => policy.templateId && String(policy.templateId) === String(template?._id ?? ''));
         const organizationPolicy = policies.length === 1 ? policies[0] : policies.length > 1 ? {

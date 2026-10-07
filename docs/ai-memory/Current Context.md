@@ -2,6 +2,24 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Bounded lifecycle cache operations — October 7, 2026
+
+#22 fixes confirmed live/refresh Template projection divergence and supplies a
+preview-first offline CLI with exact IDs, assigned-Facility administrator scope,
+mandatory maximum, bounded pages and per-member outcomes. Canonical #20 assessment
+and #8 materialization remain the authority/writer; no lifecycle, coverage,
+aggregation or economic policy changed. The older-asOf overwrite guard extends
+the existing optimistic cache write protection. Synthetic five-member proof shows
+zero preview writes, three refreshes/two fresh skips and no sixth/source changes.
+See the [#22 journal](<../engineering-journal/2026-10-07 - Gitea 22 Bounded Lifecycle Cache Refresh.md>)
+and [operator runbook](<../operations/lifecycle-cache-refresh.md>).
+
+Final delivery/closure is tracked in [#22](http://192.168.1.185:3000/LiteRoc/cronus/issues/22).
+#23 remains the separate deployment/cache-validation issue: no operational work
+or real-data invocation is authorized by #22 completion. No production connection,
+refresh, scheduler invocation/enablement, deployment or runtime change occurred.
+#19 remains blocked; CRM remains paused at `807bc38122e771dacccbc23fca4a66363dd58d55`.
+
 ## Lifecycle cache consistency — October 7, 2026
 
 **#8 implementation verified; final delivery and closure are tracked in

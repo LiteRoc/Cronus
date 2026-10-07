@@ -1,0 +1,82 @@
+{
+  "baseline": "cf0fbfd89f8bf427e1402f38007b6c8a6306be1d",
+  "gates": {
+    "baseline": {
+      "passed": 54,
+      "suites": 2,
+      "failed": 0,
+      "files": [
+        "core-service/src/routers/_tests_/lifecycleCache.endpoint.test.mjs",
+        "core-service/src/services/_tests_/lifecycleCache.test.mjs"
+      ]
+    },
+    "focused": {
+      "passed": 92,
+      "suites": 2,
+      "failed": 0,
+      "files": [
+        "core-service/src/services/_tests_/lifecycleCacheOperator.test.mjs",
+        "core-service/src/routers/_tests_/lifecycleCache.endpoint.test.mjs"
+      ]
+    },
+    "core": {
+      "passed": 1501,
+      "suites": 22,
+      "failed": 0,
+      "files": [
+        "core-service/src/routers/_tests_/operationalOwnership.test.mjs",
+        "core-service/src/routers/_tests_/workOrderSubresourceSecurity.test.mjs",
+        "core-service/src/routers/_tests_/templateLifecycle.test.mjs",
+        "core-service/src/routers/_tests_/testEquipmentPickerSecurity.test.mjs",
+        "core-service/src/routers/_tests_/procedureMeasurements.test.mjs",
+        "core-service/src/routers/_tests_/workOrderCosts.test.mjs",
+        "core-service/src/routers/_tests_/referenceLifecycleStandalone.test.mjs",
+        "core-service/src/routers/_tests_/referenceLifecycle.test.mjs",
+        "core-service/src/services/_tests_/lifecycleCacheOperator.test.mjs",
+        "core-service/src/routers/_tests_/lifecycleCache.endpoint.test.mjs",
+        "core-service/src/routers/_tests_/vendorSecurity.test.mjs",
+        "core-service/src/routers/_tests_/facilityQueryIsolation.test.mjs",
+        "core-service/src/routers/_tests_/facilityIsolationCompatibility.test.mjs",
+        "core-service/src/routers/_tests_/assetLifecycleAssessment.endpoint.test.mjs",
+        "core-service/src/routers/_tests_/supplierSecurity.test.mjs",
+        "core-service/src/routers/_tests_/ticketPromotionStandalone.test.mjs",
+        "core-service/src/cronJobs/_tests_/lifecycleNative.test.mjs",
+        "core-service/src/services/_tests_/lifecycleCache.test.mjs",
+        "core-service/src/services/_tests_/assetLifecycleAssessment.test.mjs",
+        "core-service/src/services/_tests_/lifecycleAggregation.test.mjs",
+        "core-service/src/cronJobs/_tests_/schedulerRegistration.test.mjs",
+        "core-service/src/utils/_tests_/lifecycle.util.test.mjs"
+      ]
+    },
+    "contract": {
+      "passed": 205,
+      "suites": 13,
+      "failed": 0,
+      "files": [
+        "contract-service/src/routes/_tests_/vendorCoverage.endpoint.test.js",
+        "contract-service/src/routes/_tests_/amendmentLifecycle.endpoint.test.js",
+        "contract-service/src/security/_tests_/contractAuthentication.security.test.js",
+        "contract-service/src/security/_tests_/coreAuthentication.security.test.js",
+        "contract-service/src/jobs/_tests_/contractLifecycleJob.test.js",
+        "contract-service/src/services/_tests_/contractOverview.service.test.js",
+        "contract-service/src/services/_tests_/contractValue.service.test.js",
+        "contract-service/src/services/_tests_/currentContractCoverage.test.js",
+        "contract-service/src/security/_tests_/vendorHistory.security.test.js",
+        "contract-service/src/routes/_tests_/contractValue.endpoint.test.js",
+        "contract-service/src/controllers/_tests_/costProfitability.test.js",
+        "contract-service/src/services/_tests_/workOrderCostAdapter.test.js",
+        "contract-service/config/_tests_/dbLogging.test.js"
+      ]
+    }
+  },
+  "checks": {
+    "syntax": true,
+    "diffCheck": true,
+    "packageLockfilesUnchanged": 6,
+    "dependenciesUnchanged": true,
+    "frozenProbeParity": true,
+    "productionTouched": false,
+    "frontendChanged": false
+  },
+  "operatorTests": 55
+}

@@ -13,6 +13,18 @@ and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Deci
 #17/#18 remain closed; no deployment authority is supplied by #20/#21/#11.
 CRM remains paused. #19 remains open/**BLOCKED** and must not be started.
 
+**#22 bounded-operation software blocker:** confirmed Template projection/recognition
+divergence is corrected and frozen before/after parity evidence is preserved.
+The offline bounded CLI and isolated five-Asset proof are verified; final
+merge/closure are tracked in [#22](http://192.168.1.185:3000/LiteRoc/cronus/issues/22).
+See the [#22 journal](<../engineering-journal/2026-10-07 - Gitea 22 Bounded Lifecycle Cache Refresh.md>).
+Do not carry the projection defect forward as unresolved after closure.
+#23's native dependency on #22 is verified and becomes satisfied on #22 closure;
+#23 remains open for **separately authorized** deployment/read-only smoke/pilot.
+No #23 execution, real preview/apply, production refresh or deployment occurred.
+Production-scale workload, distributed refresh coordination and the existing
+cross-document recheck window remain operational limitations, not new authority.
+
 **External labor-rate governance:** the approximate $111.09/productive-hour
 Cronus-compatible candidate is unapproved; the approximate $128.37 fully absorbed
 Sigma productive-effort cost is not the WorkOrder internalLabor rate. Neither is

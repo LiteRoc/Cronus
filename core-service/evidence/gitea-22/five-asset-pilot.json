@@ -1,0 +1,111 @@
+{
+  "preview": {
+    "mode": "preview",
+    "facilityId": "000000000000000000000001",
+    "actorId": "000000000000000000000003",
+    "asOf": "2026-10-07T16:04:18.195Z",
+    "selected": 5,
+    "considered": 5,
+    "refreshed": 0,
+    "skippedFresh": 0,
+    "failed": 0,
+    "conflicted": 0,
+    "expired": 0,
+    "nextCursor": null,
+    "hasMore": false,
+    "outcomes": [
+      {
+        "assetId": "00000000000000000000000a",
+        "facilityId": "000000000000000000000001",
+        "cacheState": "missing",
+        "cacheReason": "cache_missing",
+        "eligible": true,
+        "wouldAttempt": true,
+        "skipReason": null
+      },
+      {
+        "assetId": "00000000000000000000000b",
+        "facilityId": "000000000000000000000001",
+        "cacheState": "fresh",
+        "cacheReason": null,
+        "eligible": true,
+        "wouldAttempt": false,
+        "skipReason": "fresh"
+      },
+      {
+        "assetId": "00000000000000000000000c",
+        "facilityId": "000000000000000000000001",
+        "cacheState": "missing",
+        "cacheReason": "cache_missing",
+        "eligible": true,
+        "wouldAttempt": true,
+        "skipReason": null
+      },
+      {
+        "assetId": "00000000000000000000000d",
+        "facilityId": "000000000000000000000001",
+        "cacheState": "fresh",
+        "cacheReason": null,
+        "eligible": true,
+        "wouldAttempt": false,
+        "skipReason": "fresh"
+      },
+      {
+        "assetId": "00000000000000000000000e",
+        "facilityId": "000000000000000000000001",
+        "cacheState": "missing",
+        "cacheReason": "cache_missing",
+        "eligible": true,
+        "wouldAttempt": true,
+        "skipReason": null
+      }
+    ],
+    "state": "completed"
+  },
+  "apply": {
+    "mode": "apply",
+    "facilityId": "000000000000000000000001",
+    "actorId": "000000000000000000000003",
+    "asOf": "2026-10-07T16:04:18.209Z",
+    "selected": 5,
+    "considered": 5,
+    "refreshed": 3,
+    "skippedFresh": 2,
+    "failed": 0,
+    "conflicted": 0,
+    "expired": 0,
+    "nextCursor": null,
+    "hasMore": false,
+    "outcomes": [
+      {
+        "assetId": "00000000000000000000000a",
+        "facilityId": "000000000000000000000001",
+        "outcome": "refreshed"
+      },
+      {
+        "assetId": "00000000000000000000000b",
+        "facilityId": "000000000000000000000001",
+        "outcome": "skipped"
+      },
+      {
+        "assetId": "00000000000000000000000c",
+        "facilityId": "000000000000000000000001",
+        "outcome": "refreshed"
+      },
+      {
+        "assetId": "00000000000000000000000d",
+        "facilityId": "000000000000000000000001",
+        "outcome": "skipped"
+      },
+      {
+        "assetId": "00000000000000000000000e",
+        "facilityId": "000000000000000000000001",
+        "outcome": "refreshed"
+      }
+    ],
+    "state": "completed"
+  },
+  "previewWrites": 0,
+  "sourceFactsUnchanged": true,
+  "sixthUnchanged": true
+}
