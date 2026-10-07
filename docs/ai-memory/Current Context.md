@@ -2,48 +2,41 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Contract coverage / vendor responsibility — October 6, 2026
+## Lifecycle aggregation alignment — October 7, 2026
 
-**#21 implemented and branch-verified; deployment not performed.** Delivery SHAs,
-fresh merged-main verification and closure status are recorded in
-[#21](http://192.168.1.185:3000/LiteRoc/cronus/issues/21). No subsequent issue is selected.
-Baseline main: `5e9fdfdef16f4b0afac87d31ef70612fc39f2646` (#20 merged/closed).
-See the [#21 implementation journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>)
-and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+**#11 implementation completed; final delivery gates and issue closure are tracked in
+[#11](http://192.168.1.185:3000/LiteRoc/cronus/issues/11). Deployment is not authorized.**
+Baseline main: `cf862e5218172ba274799b4287d20dea38198f74` (#20/#21 merged/closed).
+See the [#11 journal](<../engineering-journal/2026-10-07 - Gitea 11 Lifecycle Aggregation Alignment.md>)
+and [approved lifecycle policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
 
-`resolveCurrentContractCoverage` resolves only current `contract.coveredAssets`.
-Vendor responsibility overlays cannot add members. Creation/add batches validate IDs,
-current membership and visible same-Facility Assets through authenticated core APIs.
-Malformed/missing/out-of-coverage/inaccessible additions fail before saving. Explicit
-removals retain prospective before/after responsibility history. Applied coverage
-changes fail with a disposition conflict while vendor references would remain outside
-coverage; no assignments or Contract membership are silently pruned/expanded.
+Core owns `lifecycle-aggregate-v1`, consuming live #20 `asset-lifecycle-v2` facts.
+Template operational summaries and local benchmarks share Active + Inactive,
+selected authorized Facility, non-archived/non-deleted population; Pending is separate.
+Contract lifecycle uses #21 current `coveredAssets` resolution only. Vendor overlays
+never add members. Missing assessments remain in all population/completeness counts.
+Capital measures have independent nullable totals, known compatible subtotals,
+currency groups and missing reasons. No FX or invented legacy currency. Replacement
+review retains all three states plus unavailable assessments; percentage denominators
+are explicit and empty percentages null. Primary maintenance is **Direct Maintenance
+Cost — Last 365 Days**, canonical #7 scope, Completed/completionDate, inclusive window.
+Complete-record sample means are separate from complete fleet means.
 
-Lifecycle, overview and profitability use current membership; vendor analytics use
-its intersection with responsibility. Raw anomalous references remain visible in
-response metadata/UI. Parts/labor overlap is complementary; other overlaps, including
-full/full, require review. No exclusive allocation rule is inferred. Conditional
-saves protect concurrent coverage/responsibility changes, including versionless legacy
-Contracts. Asset coverage receipts retain their Facility filter.
+A read-only Facility-authorized core batch API serves Contract aggregates: at most
+2,000 requested IDs, chunks of 200, no persistence. Canonical Asset detail shares
+orchestration with fleet assessments. Frontend Template/Contract cards consume canonical
+aggregates and drill into exact assessment members, avoiding legacy filter disagreement.
+Deprecated narrow internal labor/parts aliases retain scope; capital scalar aliases are
+null when incomplete. Cross-Facility/global operational benchmarking is not authorized.
 
-Branch gates passed: core 1,516 / 21 suites; Contract 199 / 13; frontend 292 / 36;
-TypeScript with the existing ignoreDeprecations 5.0 override; Vite; syntax/whitespace;
-frozen evidence checksums. Package/lockfiles remain byte-identical to baseline.
-No real-data discovery/remediation, migration, cache refresh, scheduler enablement,
-deployment or runtime/container action occurred. #19 remains open/**BLOCKED**, with
-no approved rate. CRM remains paused/untouched at
-`807bc38122e771dacccbc23fca4a66363dd58d55`.
-
-#20 live `GET /assets/:id/lifecycle` remains canonical (`asset-lifecycle-v2`): nullable
-service age/provenance, governed expected life, acquisition/planning/accounting/
-replacement separation, explicit salvage assumptions and tri-state replacement review.
-Its compatibility aliases and Asset UI are documented in the
-[#20 journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>).
-#7 economics are unchanged. Legacy Template/cache calculations and Contract aggregate
-completeness/terminology remain for #11/#8. #11 depends on completed #20/#21; #8 depends
-on #20/#11. Do not begin either without assignment. Historical/as-of Contract coverage
-and new maintenance recommendation thresholds remain unresolved. #20/#21 are software
-completion, not deployment authority; #17/#18 likewise remain undeployed.
+No real-data migration/backfill, cache refresh, scheduler work, deployment or runtime
+change. #8 remains open/unstarted; stale stored metrics/filter behavior and scheduler
+hardening are deferred. #19 remains open/**BLOCKED**, no approved rate. CRM remains
+paused/untouched at `807bc38122e771dacccbc23fca4a66363dd58d55`.
+Historical/as-of Contract coverage and new maintenance replacement thresholds remain
+unresolved. #7 economics are unchanged. #17/#18/#20/#21 software closure does not
+supply deployment authority. #21's containment/anomaly/concurrency behavior is recorded
+in its [journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>).
 
 Software infrastructure is ready for a future governed internal labor rate, but
 external approval remains incomplete. User-provided external analysis identifies

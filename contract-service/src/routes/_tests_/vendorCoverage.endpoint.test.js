@@ -140,9 +140,9 @@ beforeEach(async () => {
       };
       throw new Error('Unapproved synthetic core target ' + path);
     },
-    async post(path, body) {
-      if (path !== '/assets/batch') throw new Error('Unapproved target');
-      const r = await request(core).post(path).set(config.headers).send(body);
+    async post(path, body, options = {}) {
+      if (!['/assets/batch','/assets/lifecycle/batch'].includes(path)) throw new Error('Unapproved target');
+      const r = await request(core).post(path).set({...config.headers,...options.headers}).send(body);
       if (r.status !== 200) throw {
         response: {
           status: r.status
@@ -332,7 +332,8 @@ test('legacy anomaly retained on read, lifecycle includes only Contract A', asyn
     replacementRecommendedCount: 0
   });
   expect(r.body.coverage.vendorResponsibility.anomalies[0].outOfCoverageAssetIds).toEqual([String(b)]);
-  expect(forwarded.filter(row => row.path.endsWith('/lifecycle')).map(row => row.path)).toEqual([`/assets/${a}/lifecycle`]);
+  expect(r.body.population).toMatchObject({populationAssetCount:1,assessedAssetCount:1});
+  expect(r.body.members.map(row=>row.assetId)).toEqual([String(a)]);
   expect(JSON.stringify(await saved())).toBe(before);
 });
 test('legacy anomaly blocks adding until explicit removal; removal audited', async () => {
@@ -586,61 +587,10 @@ for (const status of ['draft', 'submitted', 'approved']) test(`${status} amendme
   await create([String(b)]).expect(409);
   expect((await saved()).coveredAssets.map(String)).toEqual([String(a)]);
 });
-test('upstream extraneous/duplicate hydrated Assets cannot influence lifecycle capital/recommendations', async () => {
-  const scope = {
-    knownSubtotal: 0,
-    total: 0,
-    isComplete: true
-  };
-  axios.create.mockImplementation(() => ({
-    post: async () => ({
-      data: {
-        assets: [{
-          _id: String(a),
-          purchase: {
-            price: 100
-          }
-        }, {
-          _id: String(b),
-          purchase: {
-            price: 100000
-          }
-        }, {
-          _id: String(a),
-          purchase: {
-            price: 100
-          }
-        }]
-      }
-    }),
-    get: async path => {
-      expect(path).toBe(`/assets/${a}/lifecycle`);
-      return {
-        data: {
-          metrics: {
-            currentBookValue: 10,
-            projectedAnnualMaintenance: 0,
-            replacementRecommended: true,
-            maintenanceScopes: {
-              last12Months: {
-                directMaintenance: scope
-              }
-            }
-          }
-        }
-      };
-    }
-  }));
-  const r = await request(app).get(`/contracts/${c.id}/lifecycle-intelligence`).set(headers()).expect(200);
-  expect(r.body.summary).toMatchObject({
-    coveredAssetCount: 1,
-    hydratedAssetCount: 1,
-    replacementRecommendedCount: 1,
-    replacementRecommendedPercent: 100,
-    currentBookValue: 10,
-    estimatedReplacementValue: 100
-  });
-  expect(r.body.replacementCandidates.map(asset => asset._id)).toEqual([String(a)]);
+test('upstream extraneous or duplicate rows fail closed instead of influencing lifecycle', async () => {
+  axios.create.mockImplementation(()=>({post:async()=>({data:{schemaVersion:'lifecycle-aggregate-v1',rows:[{assetId:String(a)},{assetId:String(b)},{assetId:String(a)}]}})}));
+  const r=await request(app).get(`/contracts/${c.id}/lifecycle-intelligence`).set(headers()).expect(503);
+  expect(r.body.population).toMatchObject({populationAssetCount:1,assessedAssetCount:0,unavailableAssessmentCount:1});
 });
 test('legacy versionless Contract concurrency cannot break containment', async () => {
   await amendment('remove', a);
@@ -660,3 +610,32 @@ test('legacy versionless Contract concurrency cannot break containment', async (
 
 test('legacy version guard clears after successful save on reused document',async()=>{await Contract.collection.updateOne({_id:c._id},{$unset:{__v:''}});const doc=await Contract.findById(c.id);doc.vendorLinks.push({vendorId:v,coveredAssetIds:[a]});await doc.save();doc.notes='Synthetic later edit';await expect(doc.save()).resolves.toBe(doc);expect((await saved()).vendorLinks).toHaveLength(1);});
 test('amendment preview exposes disposition conflict without saving',async()=>{await amendment('remove',a);await create().expect(201);const before=JSON.stringify(await saved());const r=await request(app).get(`/contracts/${c.id}/amendments/0/preview`).set(headers()).expect(200);expect(r.body.data.coverageDisposition).toMatchObject({isConsistent:false,anomalies:[{outOfCoverageAssetIds:[String(a)]}]});expect(JSON.stringify(await saved())).toBe(before);});
+
+// #11 consumes live #20 assessments; raw prices and vendor overlays never reprice them.
+const lifecycleRead=()=>request(app).get(`/contracts/${c.id}/lifecycle-intelligence`).set(headers());
+test('missing assessment keeps covered denominator and incomplete capital',async()=>{
+ const missing=id();c=await seed({coveredAssets:[a,missing]});const r=(await lifecycleRead().expect(200)).body;
+ expect(r.population).toMatchObject({populationAssetCount:2,assessedAssetCount:1,unavailableAssessmentCount:1});
+ expect(r.capital.replacementValue).toMatchObject({total:null,missingAssetCount:2});
+ expect(r.replacementReview).toMatchObject({insufficientDataCount:1,unavailableAssessmentCount:1,notRecommendedCount:0});
+ expect(r.members.find(row=>row.assetId===String(missing))).toMatchObject({asset:null,reason:'asset_unavailable'});
+});
+test('purchase and stored metrics cannot become canonical replacement estimates',async()=>{
+ await A.collection.updateOne({_id:new cm.Types.ObjectId(String(a))},{$set:{purchase:{price:100000,currency:'USD'},metrics:{currentBookValue:100,estimatedReplacementValue:999,replacementRecommended:true}}});
+ const r=(await lifecycleRead().expect(200)).body;expect(r.capital.replacementValue).toMatchObject({knownSubtotal:0,total:null,valuedAssetCount:0});expect(r.summary.estimatedReplacementValue).toBeNull();expect(r.replacementReview.recommendedCount).toBe(0);
+});
+test('benchmark replacement remains separate, with currency evidence unknown',async()=>{
+ const template=await T.create({manufacturer:'Synthetic',model:'Pump',benchmark:{averageQuotedPrice:100000}});
+ await A.collection.updateOne({_id:new cm.Types.ObjectId(String(a))},{$set:{templateId:template._id}});
+ const r=(await lifecycleRead().expect(200)).body;expect(r.capital.replacementValue).toMatchObject({knownSubtotal:100000,total:null,currency:null,currencyUnknownAssetCount:1});expect(r.capital.estimatedDepreciatedValue).toMatchObject({knownSubtotal:0,total:null,missingAssetCount:1});
+});
+test('tri-state recommendation counts use canonical adopted policy',async()=>{
+ const third=id();c=await seed({coveredAssets:[a,b,third]});
+ const policy={sourceType:'asset_override',expectedLifeYears:5,reference:'synthetic',approvedBy:new cm.Types.ObjectId(String(actor)),approvedAt:new Date('2025-01-01')};
+ await A.collection.updateOne({_id:new cm.Types.ObjectId(String(a))},{$set:{serviceStartDate:new Date('2000-01-01'),lifecyclePolicy:policy}});
+ await A.collection.updateOne({_id:new cm.Types.ObjectId(String(b))},{$set:{serviceStartDate:new Date(),lifecyclePolicy:policy}});
+ await A.collection.insertOne({_id:new cm.Types.ObjectId(String(third)),facilityId:new cm.Types.ObjectId(String(facility)),ctrlNumber:'C'});
+ const r=(await lifecycleRead().expect(200)).body;expect(r.replacementReview).toMatchObject({populationAssetCount:3,recommendedCount:1,notRecommendedCount:1,insufficientDataCount:1,evaluatedCount:2,recommendedPercentOfEvaluated:50});expect(r.replacementCandidates.map(row=>row._id)).toEqual([String(a)]);
+});
+test('empty Contract population percentages null',async()=>{c=await seed({coveredAssets:[]});const r=(await lifecycleRead().expect(200)).body;expect(r.summary.replacementRecommendedPercent).toBeNull();expect(r.replacementReview.recommendedPercentOfEvaluated).toBeNull();});
+test('upstream outage fails without fake complete zero totals',async()=>{axios.create.mockImplementation(()=>({post:async()=>{throw new Error('synthetic unavailable');}}));const r=(await lifecycleRead().expect(503)).body;expect(r.population.unavailableAssessmentCount).toBe(1);expect(r.capital).toBeUndefined();});

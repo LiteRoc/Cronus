@@ -1,0 +1,212 @@
+{
+  "baseline": "cf862e5218172ba274799b4287d20dea38198f74",
+  "rows": [
+    {
+      "name": "partial_capital_and_insufficient_review",
+      "summary": {
+        "coveredAssetCount": 2,
+        "hydratedAssetCount": 2,
+        "replacementRecommendedCount": 0,
+        "replacementRecommendedPercent": 0,
+        "projectedAnnualMaintenance": null,
+        "directMaintenance": {
+          "knownSubtotal": 30,
+          "total": null,
+          "isComplete": false
+        },
+        "currentBookValue": 0,
+        "estimatedReplacementValue": 100000,
+        "assetsMissingReplacementValue": 1
+      }
+    },
+    {
+      "name": "missing_hydration",
+      "summary": {
+        "coveredAssetCount": 2,
+        "hydratedAssetCount": 1,
+        "replacementRecommendedCount": 0,
+        "replacementRecommendedPercent": 0,
+        "projectedAnnualMaintenance": null,
+        "directMaintenance": {
+          "knownSubtotal": 15,
+          "total": null,
+          "isComplete": false
+        },
+        "currentBookValue": 0,
+        "estimatedReplacementValue": 100000,
+        "assetsMissingReplacementValue": 0
+      }
+    },
+    {
+      "name": "empty_contract",
+      "summary": {
+        "coveredAssetCount": 0,
+        "hydratedAssetCount": 0,
+        "replacementRecommendedCount": 0,
+        "replacementRecommendedPercent": 0,
+        "projectedAnnualMaintenance": 0,
+        "directMaintenance": {
+          "knownSubtotal": 0,
+          "total": 0,
+          "isComplete": true
+        },
+        "currentBookValue": 0,
+        "estimatedReplacementValue": 0,
+        "assetsMissingReplacementValue": 0
+      }
+    },
+    {
+      "name": "template_cohort_and_unknown_age",
+      "summary": {
+        "totalAssets": 4,
+        "ageBuckets": {
+          "0-2": 4,
+          "3-5": 0,
+          "6-8": 0,
+          ">8": 0,
+          "unknown": 0
+        },
+        "averageAnnualMaintenancePerAsset": 10,
+        "maintenanceSampleCount": 4,
+        "replacementRecommendedCount": 0,
+        "replacementRecommendedPercent": 0
+      },
+      "predicate": {
+        "templateId": {},
+        "isArchived": {
+          "$ne": true
+        },
+        "status": {
+          "$ne": "Retired"
+        },
+        "$and": [
+          {
+            "facilityId": "000000000000000000000003"
+          }
+        ],
+        "facilityId": {}
+      }
+    },
+    {
+      "name": "benchmark_cohort_and_narrow_scope",
+      "benchmark": {
+        "tenant": {
+          "sampleAssets": 4,
+          "avgAnnualMaintenance": 10,
+          "medianAnnualMaintenance": 10,
+          "sampleWOsAnnual": 4,
+          "avgLifetimeMaintenance": 10,
+          "sampleWOsLifetime": 4,
+          "completeAssetCount": 4,
+          "scope": "internal_labor_parts",
+          "calculationVersion": "wo-cost-v1",
+          "scopes": {
+            "internal": {
+              "avgAnnualMaintenance": null,
+              "medianAnnualMaintenance": null,
+              "avgLifetimeMaintenance": null,
+              "completeAssetCount": 0,
+              "sampleAssets": 4,
+              "knownSubtotal": 40,
+              "isComplete": false,
+              "fullyPricedWorkOrderCount": 0,
+              "workOrderCount": 4
+            },
+            "vendorDirect": {
+              "avgAnnualMaintenance": 5,
+              "medianAnnualMaintenance": 5,
+              "avgLifetimeMaintenance": 5,
+              "completeAssetCount": 4,
+              "sampleAssets": 4,
+              "knownSubtotal": 20,
+              "isComplete": true,
+              "fullyPricedWorkOrderCount": 4,
+              "workOrderCount": 4
+            },
+            "directMaintenance": {
+              "avgAnnualMaintenance": null,
+              "medianAnnualMaintenance": null,
+              "avgLifetimeMaintenance": null,
+              "completeAssetCount": 0,
+              "sampleAssets": 4,
+              "knownSubtotal": 60,
+              "isComplete": false,
+              "fullyPricedWorkOrderCount": 0,
+              "workOrderCount": 4
+            }
+          }
+        },
+        "global": {
+          "sampleAssets": 5,
+          "avgAnnualMaintenance": 10,
+          "medianAnnualMaintenance": 10,
+          "sampleWOsAnnual": 5,
+          "avgLifetimeMaintenance": 10,
+          "sampleWOsLifetime": 5,
+          "completeAssetCount": 5,
+          "scope": "internal_labor_parts",
+          "calculationVersion": "wo-cost-v1",
+          "scopes": {
+            "internal": {
+              "avgAnnualMaintenance": null,
+              "medianAnnualMaintenance": null,
+              "avgLifetimeMaintenance": null,
+              "completeAssetCount": 0,
+              "sampleAssets": 5,
+              "knownSubtotal": 50,
+              "isComplete": false,
+              "fullyPricedWorkOrderCount": 0,
+              "workOrderCount": 5
+            },
+            "vendorDirect": {
+              "avgAnnualMaintenance": 5,
+              "medianAnnualMaintenance": 5,
+              "avgLifetimeMaintenance": 5,
+              "completeAssetCount": 5,
+              "sampleAssets": 5,
+              "knownSubtotal": 25,
+              "isComplete": true,
+              "fullyPricedWorkOrderCount": 5,
+              "workOrderCount": 5
+            },
+            "directMaintenance": {
+              "avgAnnualMaintenance": null,
+              "medianAnnualMaintenance": null,
+              "avgLifetimeMaintenance": null,
+              "completeAssetCount": 0,
+              "sampleAssets": 5,
+              "knownSubtotal": 75,
+              "isComplete": false,
+              "fullyPricedWorkOrderCount": 0,
+              "workOrderCount": 5
+            }
+          }
+        }
+      },
+      "predicate": {
+        "templateId": "000000000000000000000004",
+        "deletedAt": null,
+        "status": {
+          "$ne": "Retired"
+        }
+      }
+    },
+    {
+      "name": "empty_template",
+      "summary": {
+        "totalAssets": 0,
+        "ageBuckets": {
+          "0-2": 0,
+          "3-5": 0,
+          "6-8": 0,
+          ">8": 0,
+          "unknown": 0
+        },
+        "averageAnnualMaintenancePerAsset": null,
+        "maintenanceSampleCount": 0,
+        "replacementRecommendedCount": 0,
+        "replacementRecommendedPercent": 0
+      }
+    }
+  ]
+}
