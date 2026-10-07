@@ -1,0 +1,119 @@
+assetRouter.get('/', authenticateToken, async (req, res) => {
+
+  const tenantFilter = buildTenantFilter(req);
+  // Keep authorization separate from mutable operational/search filters.
+  const base = { $and: [tenantFilter], status: { $ne: 'Archived' } };
+
+    const { search, manufacturer, model, status, page = 1, limit = 10, facilityId, departmentId, templateId, ctrlNumber, replacementRecommended, ageExceeded, highMaintenance, ccrAboveBenchmark } = req.query;
+
+    try {
+        const query = { ...base };
+        if (search) {
+            query.$or = [
+                { ctrlNumber: { $regex: search, $options: 'i' } },
+                { manufacturer: { $regex: search, $options: 'i' } },
+                { model: { $regex: search, $options: 'i' } },
+                { serialNumber: { $regex: search, $options: 'i' } },
+            ];
+        }
+
+        if (facilityId && mongoose.Types.ObjectId.isValid(facilityId)) {
+          query.facilityId = facilityId;
+        }
+
+        if (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) {
+          query.departmentId = departmentId;
+        }
+
+        if (templateId && mongoose.Types.ObjectId.isValid(templateId)) {
+          query.templateId = new mongoose.Types.ObjectId(templateId);
+        }
+
+        if (ctrlNumber) {
+          query.ctrlNumber = { $regex: ctrlNumber, $options: "i" };
+        }
+
+        if (replacementRecommended === "true") {
+          query["metrics.replacementRecommended"] = true;
+        }
+
+        if (ageExceeded === "true") {
+          query["metrics.replacementRecommended"] = true;
+          query["metrics.replacementReason"] = /expected life|useful life|exceeds/i;
+        }
+
+        if (highMaintenance === "true") {
+          query["metrics.projectedAnnualMaintenance"] = { $gt: 0 };
+          // Better comparison to benchmark can come later if needed.
+        }
+
+        if (ccrAboveBenchmark === "true") {
+          query["metrics.replacementReason"] = /maintenance|CCR|capital cost/i;
+        }
+
+        if (manufacturer) query.manufacturer = manufacturer;
+        if (model) query.model = model;
+        //if (status) query.status = status || "Active";
+        query.status = status ?? 'Active'
+        if (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) {
+          query.departmentId = new mongoose.Types.ObjectId(departmentId); // ✅ only if explicitly provided
+        }
+
+        // Use if want to limit customer to a department
+        /*if (req.user.role === 'customer' && req.user.departmentId) {
+          query.departmentId = req.user.departmentId;
+        }*/
+
+        //console.log('Final asset query:', query);
+
+        // Parse the `page` and `limit` to ensure they are numbers
+        const pageNumber = parseInt(page, 10) || 1; // Default to 1 if not provided
+        let limitNumber = parseInt(limit, 10) || 10; // Default to 10 if not provided
+
+        // Cap limit between 1 and 100
+        if (limitNumber < 1) limitNumber = 1;
+        if (limitNumber > 100) limitNumber = 100;
+
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Fetch total count and paginated assets
+        const totalAssets = await Asset.countDocuments(query);
+        const assets = await Asset.find(query)
+            .skip(skip)
+            .limit(limitNumber)
+            .populate({
+                path: 'workOrders',
+                select: 'description status scheduledDate completionDate workOrderNumber', // Optimize with selected fields
+            })
+            //.populate({
+              //path: 'contractId',
+              //select: 'type name startDate endDate',
+            //})
+            .lean();
+
+
+        console.log('Returned assets count:', assets.length);
+        // Add a fallback for legacy-required fields & schedule shape
+        const enrichedAssets = assets.map(asset => ({
+            ...asset,
+
+            // legacy fields some UIs expect:
+            serialNumber: asset.serialNumber ?? '',
+            description: asset.description ?? '',
+            notes: asset.notes ?? '',
+
+            // keep existing fallback schedule:
+            maintenanceSchedule: asset.maintenanceSchedule || { message: 'No schedule defined' },
+        }));
+
+        res.status(200).json({
+            assets: enrichedAssets,
+            totalPages: Math.ceil(totalAssets / limitNumber),
+            currentPage: pageNumber,
+            totalAssets,
+        });
+    } catch (error) {
+        console.error('Error fetching assets:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});

@@ -1,5 +1,5 @@
-const WorkOrder = require('../models/WorkOrder');
-const costs = require('./workOrderCosts/calculate');
+import WorkOrder from '../models/WorkOrder.js';
+import costs from './workOrderCosts/calculate.js';
 function period(rows) {
   const scopes = Object.fromEntries(['internal', 'vendorDirect', 'directMaintenance'].map(name => [name, costs.summarize(rows, name)]));
   const values = rows.map(w => costs.read(w));
@@ -14,7 +14,7 @@ function period(rows) {
     scopes
   };
 }
-async function getMaintenanceTotalsBatch(assetIds, opts = {}) {
+export async function getMaintenanceTotalsBatch(assetIds, opts = {}) {
   const now = opts.now || new Date(),
     start = new Date(now);
   start.setDate(start.getDate() - 365);
@@ -39,11 +39,10 @@ async function getMaintenanceTotalsBatch(assetIds, opts = {}) {
     }];
   }));
 }
-async function getMaintenanceTotals(assetId, opts = {}) {
+export async function getMaintenanceTotals(assetId, opts = {}) {
   return (await getMaintenanceTotalsBatch([assetId], opts)).get(String(assetId));
 }
-module.exports = {
-  default: { getMaintenanceTotals, getMaintenanceTotalsBatch },
+export default {
   getMaintenanceTotals,
   getMaintenanceTotalsBatch
 };

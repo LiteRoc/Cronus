@@ -43,7 +43,7 @@ async function getTemplateLifecycleAggregation(template, {
     links: {
       assets: `/assets?templateId=${template._id}`,
       replacementRecommendedAssets: `/assets?templateId=${template._id}&replacementRecommended=true`,
-      filterAuthority: 'legacy_cache_until_gitea_8'
+      filterAuthority: 'fresh_cache_with_coverage; list status predicate may differ from operational cohort'
     }
   };
 }

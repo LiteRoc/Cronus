@@ -217,6 +217,11 @@ async function mutate(filter, actor, action, handle = null) {
     ...(handle ? { writeConcern: { w: 1, j: true } } : {})
   });
   if (!updated) referenceLifecycle.notWritten(409, 'Work order economics changed; retry');
+  try {
+    if (changed) await require('../lifecycleCache').markStale([before.assetId, updated.assetId]);
+  } catch (_) {
+    // Fingerprint validation remains authoritative if dirty marking fails.
+  }
   delete updated.referenceReceipt; delete updated.referenceFence; // Raw collection result is sent to API callers.
   return {
     workOrder: updated,

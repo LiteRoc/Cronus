@@ -5,8 +5,9 @@ This file records verified defects and clearly unresolved engineering work. Runt
 ## Lifecycle implementation and unresolved policy — October 7, 2026
 
 Lifecycle direction is owner-approved; #20 Asset assessment and #21 current coverage
-are merged/closed. #11 canonical Template/Contract aggregation is implemented; final
-delivery/closure is tracked in [#11](http://192.168.1.185:3000/LiteRoc/cronus/issues/11).
+and #11 canonical Template/Contract aggregation are merged/closed. #8 cache consistency
+is implemented and verified; final delivery/closure is tracked in
+[#8](http://192.168.1.185:3000/LiteRoc/cronus/issues/8).
 See the [#11 journal](<../engineering-journal/2026-10-07 - Gitea 11 Lifecycle Aggregation Alignment.md>)
 and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
 #17/#18 remain closed; no deployment authority is supplied by #20/#21/#11.
@@ -24,12 +25,16 @@ and prospective effective-date approval, and Cronus publication governance.
 Historical applicability is **NONE unless separately certified**. No rate
 publication or historical bulk repair/backfill is authorized.
 
-**Lifecycle follow-up backlog:** [#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8)
-remains open/unstarted. Stored metrics, list/filter freshness, dashboard materializations
-and the scheduler's unimported mongoose reference remain deferred. #11 live aggregation
-does not refresh or redesign that cache. #10 retains numeric-filter/URL work and must
-coordinate with #8. Deprecated Template filter links remain explicitly legacy-cache
-links; the lifecycle UI uses exact assessment-member drilldowns instead.
+**Lifecycle operational boundary:** #8 resolves the legacy-cache authority and
+scheduler defects in software. Deployment, scheduler activation and any real-fleet
+refresh require separate authorization. See the
+[#8 journal](<../engineering-journal/2026-10-07 - Gitea 8 Lifecycle Cache and Refresh Consistency.md>).
+Read-time dependency verification scans bounded source pages, but filter/forecast
+coverage still requires fleet-wide work; production-scale performance is unmeasured.
+There is no distributed refresh lease; multiple processes may duplicate calculation,
+while optimistic cache writes and read-time fingerprints prevent silent old-input
+trust. #10 numeric-filter/URL work remains separate and unstarted. Exact assessment
+member drilldowns remain available; filter links disclose fresh-cache coverage.
 
 #11 resolves partial capital, fleet/cohort mismatch, tri-state aggregation, missing
 assessment denominators and direct-maintenance terminology. Unknown currency can still
@@ -37,7 +42,7 @@ prevent a complete replacement total even where amounts exist; provenance must b
 established separately, never assumed. Core batch requests are capped at 2,000 IDs
 with 200-ID assessment chunks; larger Contracts return unavailable rather than a
 truncated/complete-looking result. Larger-fleet capacity is a future engineering limit,
-not authorization to begin #8. No accounting source, organization policy publication
+not authorization to expand the assessment batch API. No accounting source, organization policy publication
 workflow or historical recovery is introduced.
 
 **Still unresolved:** future/backdated amendment effective-date behavior and historical

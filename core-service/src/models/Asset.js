@@ -68,6 +68,9 @@ const AssetSchema = new Schema({
     // Lifecycle (new structured approach)
   purchase: { type: PurchaseSchema, default: null },
   metrics: { type: LifecycleMetricsSchema, default: () => ({}) },
+  // Core-owned derived cache; legacy metrics are never freshness evidence.
+  lifecycleCache: { type: Schema.Types.Mixed },
+  lifecycleSourceRevision: { type: Number, min: 0 },
 
   // (optional) store the resolved expected life source
   // metricsMeta: { expectedLifeSource: { type: String, enum: ['asset', 'template', 'none'], default: 'none' } },
@@ -199,6 +202,14 @@ AssetSchema.methods.validateParentRelationship = async function () {
 };
 AssetSchema.pre('save', async function () {
   await this.validateParentRelationship();
+  const lifecycleFields = ['facilityId', 'templateId', 'serviceStartDate', 'installationDate', 'acquisitionDate', 'purchaseDate', 'purchase', 'purchaseCost', 'lifecyclePolicy', 'status', 'isArchived', 'deletedAt'];
+  if (lifecycleFields.some(field => this.isModified(field))) {
+    this.lifecycleSourceRevision = (this.lifecycleSourceRevision ?? 0) + 1;
+    if (this.lifecycleCache) {
+      this.lifecycleCache.invalidatedAt = new Date();
+      this.markModified('lifecycleCache');
+    }
+  }
 });
 
 module.exports = mongoose.model('Asset', AssetSchema, 'assets');

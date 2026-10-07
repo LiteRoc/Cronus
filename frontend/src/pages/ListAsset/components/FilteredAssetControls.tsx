@@ -152,21 +152,17 @@ const FilteredAssetControls: React.FC = () => {
 
             <LifecycleFilterButton
               active={filters.ageExceeded === "true"}
-              label="Age > Expected Life"
+              label="Adopted Expected Life Reached"
               onClick={() => toggleBooleanFilter("ageExceeded" as keyof AssetFilters)}
             />
 
             <LifecycleFilterButton
               active={filters.highMaintenance === "true"}
-              label="High Maintenance"
+              label="Positive Labor + Parts Cost (Legacy Filter)"
               onClick={() => toggleBooleanFilter("highMaintenance" as keyof AssetFilters)}
             />
 
-            <LifecycleFilterButton
-              active={filters.ccrAboveBenchmark === "true"}
-              label="Above ECRI CCR"
-              onClick={() => toggleBooleanFilter("ccrAboveBenchmark" as keyof AssetFilters)}
-            />
+
           </div>
         </div>
 
