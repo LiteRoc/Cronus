@@ -10,10 +10,7 @@ const WorkOrder = require('../models/WorkOrder'); // Import the WorkOrder model
 const { authenticateToken, authorizeRoles } = require('../middleware/authMiddleware'); // Middleware for authentication/authorization
 const { buildTenantFilter } = require('../middleware/tenantScope');
 const workOrderRouter = require('./workOrderRouter'); // Work order routes
-const { buildAssetLifecycleAssessment, lifecycleCompatibilityMetrics, isLifecycleDate } = require('../services/assetLifecycleAssessment');
-const Facility = require('../models/Facility');
-const Organization = require('../models/Organization');
-const { getMaintenanceTotals } = require('../services/lifecycleMaintenance.js').default;
+const { isLifecycleDate } = require('../services/assetLifecycleAssessment');
 const { computeBenchmarkComparison } = require('../utils/lifecycleBenchmark');
 
 mongoose.set('strictPopulate', false); // Allow non-strict population
@@ -189,6 +186,29 @@ assetRouter.get('/test-equipment', authenticateToken, authorizeRoles('admin', 't
   } catch (error) {
     return ownership.respond(res, error);
   }
+});
+
+// Read-only live batch: unavailable IDs stay in the requested population.
+assetRouter.post('/lifecycle/batch', authenticateToken, async(req,res)=>{
+  try {
+    const facilityId=await ownership.selectedFacility(req);
+    const input=req.body?.assetIds;
+    if(!Array.isArray(input)||input.length>2000||input.some(id=>typeof id!=='string'||!/^[a-f\d]{24}$/i.test(id)))return res.status(400).json({error:'assetIds must contain at most 2000 valid Asset IDs'});
+    const assetIds=[...new Set(input.map(id=>id.toLowerCase()))];
+    const rawAsOf=req.body?.asOf,asOf=rawAsOf===undefined?new Date():new Date(rawAsOf);
+    if(rawAsOf!==undefined&&!isLifecycleDate(rawAsOf))return res.status(400).json({error:'Invalid lifecycle asOf'});
+    const rows=[];
+    for(let offset=0;offset<assetIds.length;offset+=200){
+      const ids=assetIds.slice(offset,offset+200);
+      const assets=await Asset.find({_id:{$in:ids},...ownership.visibility(req),facilityId,deletedAt:null,isArchived:{$ne:true}}).populate('templateId').lean();
+      const results=await require('../services/assetLifecycleAssessmentBatch').assessAssets(assets,{asOf});
+      rows.push(...ids.map(assetId=>results.get(assetId)||{assetId,assessment:null,reason:'asset_unavailable'}));
+    }
+    const aggregate=require('../services/lifecycleAggregation').aggregateLifecycle(rows,{asOf});
+    // Drop orchestration-only raw totals; transport canonical facts plus deprecated metrics.
+    const transportRows=aggregate.rows.map(({maintenanceTotals,...row})=>row);
+    res.json({...aggregate,rows:transportRows,facilityId:String(facilityId)});
+  } catch(error) {return ownership.respond(res,error);}
 });
 
 // GET a single asset by ID
@@ -647,23 +667,15 @@ assetRouter.get('/:id/lifecycle', authenticateToken, async (req, res) => {
 
     const template = asset.templateId || null // in case we want to pull lifecycle defaults from the template;
 
-    const asOf = new Date();
-    const windowStart = new Date(asOf.getTime() - 365 * 24 * 60 * 60 * 1000);
-    const maintenanceTotals = await getMaintenanceTotals(asset._id, { now: asOf, windowStart, facilityId: asset.facilityId });
-    const facility = await Facility.findById(asset.facilityId).select('organizationId').lean();
-    const organization = facility?.organizationId
-      ? await Organization.findById(facility.organizationId).select('lifecyclePolicies').lean() : null;
-    const policies = (organization?.lifecyclePolicies ?? []).filter(policy =>
-      policy.templateId && String(policy.templateId) === String(template?._id ?? ''));
-    // Conflicting organization evidence must not be chosen arbitrarily.
-    const organizationPolicy = policies.length === 1 ? policies[0] : policies.length > 1 ? { ambiguous: true } : null;
-    const assessment = buildAssetLifecycleAssessment({ asset, template, organizationPolicy, maintenanceTotals, asOf });
+    const row=(await require('../services/assetLifecycleAssessmentBatch').assessAssets([asset])).get(String(asset._id));
+    if(!row?.assessment)return res.status(503).json({error:'Lifecycle assessment unavailable'});
+    const assessment=row.assessment;
     res.json({
       assetId: asset._id,
       templateId: template?._id ?? null,
       purchase: asset.purchase ?? null,
       assessment,
-      metrics: lifecycleCompatibilityMetrics(assessment, maintenanceTotals),
+      metrics: row.metrics,
     });
   } catch (err) {
     if (err.status) return ownership.respond(res, err);

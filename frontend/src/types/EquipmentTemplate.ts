@@ -1,3 +1,4 @@
+import type {LifecycleAggregation} from './LifecycleAggregation';
 // src/types/EquipmentTemplate.ts
 
 export interface EquipmentTemplate {
@@ -85,40 +86,12 @@ export interface TemplateLifecycleBenchmarks {
   sampleWOsLifetime: number;
 }
 
-export interface TemplateLifecycleSummaryResponse {
+export interface TemplateLifecycleSummaryResponse extends LifecycleAggregation {
   templateId: string;
-  template: {
-    _id: string;
-    manufacturer: string;
-    model: string;
-    description?: string;
-  };
-  lifecycleDefaults: {
-    expectedLifeYears: number | null;
-    typicalAnnualMaintenance: number | null;
-  };
-  summary: {
-    totalAssets: number;
-    ageBuckets: {
-      "0-2": number;
-      "3-5": number;
-      "6-8": number;
-      ">8": number;
-      unknown: number;
-    };
-    averageAnnualMaintenancePerAsset: number | null;
-    maintenanceSampleCount: number;
-    replacementRecommendedCount: number;
-    replacementRecommendedPercent: number;
-  };
-  benchmarks: {
-    tenant: TemplateLifecycleBenchmarks;
-    global: TemplateLifecycleBenchmarks;
-  };
-  links: {
-    assets: string;
-    replacementRecommendedAssets: string;
-  };
+  template: {_id:string;manufacturer:string;model:string;description?:string};
+  summary:{totalAssets:number;averageAnnualMaintenancePerAsset:number|null;maintenanceSampleCount:number;replacementRecommendedCount:number;replacementRecommendedPercent:number|null};
+  benchmarks:{tenant:TemplateLifecycleBenchmarks;global:null;globalStatus:string};
+  links:{assets:string;replacementRecommendedAssets:string;filterAuthority:string};
 }
 
 export interface TemplateBenchmark {

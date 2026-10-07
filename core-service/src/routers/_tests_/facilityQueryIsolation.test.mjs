@@ -191,13 +191,16 @@ test('REGRESSION: template lifecycle summary follows authorized selected B inste
   const { body } = await request(app).get(`/templates/${template}/lifecycle`)
     .set(headers({ selected: b, allowed: [a, b] })).expect(200);
   expect(body.summary).toMatchObject({ totalAssets: 2, averageAnnualMaintenancePerAsset: 100,
-    replacementRecommendedCount: 2, ageBuckets: { '>8': 2, '0-2': 0 } });
+    replacementRecommendedCount: 0 });
+  expect(body.replacementReview.insufficientDataCount).toBe(2);
+  expect(body.age.buckets.find(bucket=>bucket.key==='9+').count).toBe(2);
 });
 
 test('REGRESSION: template tenant benchmarks follow authorized selected B', async () => {
   const { body } = await request(app).get(`/templates/${template}/lifecycle`)
     .set(headers({ selected: b, allowed: [a, b] })).expect(200);
   expect(body.benchmarks.tenant.sampleAssets).toBe(2);
+  expect(body.population.facilityId).toBe(String(b));
 });
 
 test('REGRESSION: template summary excludes B for A-only token without default Facility', async () => {

@@ -1,31 +1,7 @@
-// src/types/ContractLifecycle.ts
-import type {Contract} from './Contract';
-
-export interface ContractLifecycleSummary {
-  coveredAssetCount: number;
-  hydratedAssetCount: number;
-  replacementRecommendedCount: number;
-  replacementRecommendedPercent: number;
-  projectedAnnualMaintenance: number | null;
-  currentBookValue: number;
-  estimatedReplacementValue: number;
-  assetsMissingReplacementValue: number;
-}
-
-export interface ContractLifecycleReplacementCandidate {
-  _id: string;
-  ctrlNumber: string;
-  manufacturer: string;
-  model: string;
-  serialNumber?: string;
-  replacementReason?: string | null;
-  yearsInService?: number | null;
-  currentBookValue: number;
-  projectedAnnualMaintenance: number | null;
-  estimatedReplacementValue: number;
-}
-
-export interface ContractLifecycleIntelligenceResponse {
+import type { LifecycleAggregation } from './LifecycleAggregation';
+import type { AssetLifecycleAssessment } from './AssetLifecycleAssessment';
+import type { Contract } from './Contract';
+export interface ContractLifecycleIntelligenceResponse extends LifecycleAggregation {
   contract: {
     _id: string;
     contractNumber: string;
@@ -35,8 +11,24 @@ export interface ContractLifecycleIntelligenceResponse {
     startDate: string;
     endDate: string;
     totalValue: number;
+    totalValueMeaning: string;
   };
-  coverage?:Contract['coverage'];
-  summary: ContractLifecycleSummary;
-  replacementCandidates: ContractLifecycleReplacementCandidate[];
+  coverage?: Contract['coverage'];
+  summary: {
+    coveredAssetCount: number;
+    hydratedAssetCount: number;
+    replacementRecommendedCount: number;
+    replacementRecommendedPercent: number | null;
+    projectedAnnualMaintenance: number | null;
+    currentBookValue: number | null;
+    estimatedReplacementValue: number | null;
+    assetsMissingReplacementValue: number;
+  };
+  replacementCandidates: ({
+    _id: string;
+    ctrlNumber?: string;
+    replacementReason?: string;
+    capital: AssetLifecycleAssessment['capital'];
+    serviceAge: AssetLifecycleAssessment['serviceAge'];
+  })[];
 }

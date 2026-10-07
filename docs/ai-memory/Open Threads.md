@@ -2,12 +2,15 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
-## Lifecycle implementation and unresolved policy — October 6, 2026
+## Lifecycle implementation and unresolved policy — October 7, 2026
 
-Lifecycle direction is owner-approved; #20 Asset assessment is merged/closed. #21 current coverage/vendor responsibility is implemented and branch-verified, with delivery/closure tracked in #21. See the [#21 journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>). See the
-[policy approval journal](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
-#17/#18 remain closed software work, neither deployed; CRM remains paused.
-#19 remains open/**BLOCKED** and must not be started.
+Lifecycle direction is owner-approved; #20 Asset assessment and #21 current coverage
+are merged/closed. #11 canonical Template/Contract aggregation is implemented; final
+delivery/closure is tracked in [#11](http://192.168.1.185:3000/LiteRoc/cronus/issues/11).
+See the [#11 journal](<../engineering-journal/2026-10-07 - Gitea 11 Lifecycle Aggregation Alignment.md>)
+and [approved policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+#17/#18 remain closed; no deployment authority is supplied by #20/#21/#11.
+CRM remains paused. #19 remains open/**BLOCKED** and must not be started.
 
 **External labor-rate governance:** the approximate $111.09/productive-hour
 Cronus-compatible candidate is unapproved; the approximate $128.37 fully absorbed
@@ -21,22 +24,21 @@ and prospective effective-date approval, and Cronus publication governance.
 Historical applicability is **NONE unless separately certified**. No rate
 publication or historical bulk repair/backfill is authorized.
 
-**Lifecycle follow-up backlog:** #20 supplies the canonical live Asset assessment;
-its [implementation journal](<../engineering-journal/2026-10-06 - Gitea 20 Canonical Asset Lifecycle Assessment.md>)
-records verification and transitional compatibility. It does not reconcile every
-fleet consumer. [#11 Template/Contract aggregation](http://192.168.1.185:3000/LiteRoc/cronus/issues/11)
-and [#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8)
-remain open and unstarted. #11 depends on completed #20 and #21 coverage; #8 depends on #20/#11.
-#10 retains numeric-filter/URL behavior and coordinates with #8 freshness contracts.
+**Lifecycle follow-up backlog:** [#8 cache/scheduler hardening](http://192.168.1.185:3000/LiteRoc/cronus/issues/8)
+remains open/unstarted. Stored metrics, list/filter freshness, dashboard materializations
+and the scheduler's unimported mongoose reference remain deferred. #11 live aggregation
+does not refresh or redesign that cache. #10 retains numeric-filter/URL work and must
+coordinate with #8. Deprecated Template filter links remain explicitly legacy-cache
+links; the lifecycle UI uses exact assessment-member drilldowns instead.
 
-Canonical live Asset age/capital/recommendation semantics are corrected and tested.
-Legacy Template/cache age/price/recommendation paths, partial Contract capital sums,
-aggregation terminology/populations, stored-filter freshness, scheduler's unimported
-mongoose reference remain deliberately deferred and must not be mistaken for corrected
-behavior. #21 corrects the vendor-union population; current membership now comes only
-from the coverage snapshot. #20 adds no organization policy
-publication workflow, accounting source or real-data recovery. Missing legacy currency
-remains unspecified; provisional life does not become adopted recommendation policy.
+#11 resolves partial capital, fleet/cohort mismatch, tri-state aggregation, missing
+assessment denominators and direct-maintenance terminology. Unknown currency can still
+prevent a complete replacement total even where amounts exist; provenance must be
+established separately, never assumed. Core batch requests are capped at 2,000 IDs
+with 200-ID assessment chunks; larger Contracts return unavailable rather than a
+truncated/complete-looking result. Larger-fleet capacity is a future engineering limit,
+not authorization to begin #8. No accounting source, organization policy publication
+workflow or historical recovery is introduced.
 
 **Still unresolved:** future/backdated amendment effective-date behavior and historical
 coverage evidence design. Support authoritative current snapshot first; do not promise

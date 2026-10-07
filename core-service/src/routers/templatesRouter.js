@@ -299,117 +299,17 @@ router.get('/:id/lifecycle', authenticateToken, authorizeRoles('admin', 'technic
       return res.status(404).json({ error: 'Template not found' });
     }
 
-    const lifecycleDefaults = {
-      expectedLifeYears:
-        template.lifecycleDefaults?.expectedLifeYears ??
-        template.benchmark?.expectedUsefulLifeYears ??
-        template.eolYears ??
-        null,
-
-      typicalAnnualMaintenance:
-        template.lifecycleDefaults?.typicalAnnualMaintenance ??
-        template.benchmark?.expectedAnnualMaintenance ??
-        null,
-    };
-
-    const assetQuery = {
-      templateId: new mongoose.Types.ObjectId(id),
-      isArchived: { $ne: true },
-      status: { $ne: 'Retired' },
-    };
-
-    // This summary is Facility-specific; intentional global benchmark policy
-    // remains in the benchmark service's separate global facet.
-    assetQuery.$and = [tenantFilter];
-    assetQuery.facilityId = new mongoose.Types.ObjectId(facilityId);
-
-    const assets = await Asset.find(assetQuery)
-      .select(
-        '_id ctrlNumber manufacturer model serialNumber status facilityId departmentId purchaseDate purchaseCost purchase acquisitionDate installationDate metrics'
-      )
-      .lean();
-
-    const ageBuckets = {
-      '0-2': 0,
-      '3-5': 0,
-      '6-8': 0,
-      '>8': 0,
-      unknown: 0,
-    };
-
-    let totalProjectedAnnualMaintenance = 0;
-    const liveMaintenance = await require('../services/lifecycleMaintenance').default.getMaintenanceTotalsBatch(assets.map(a=>a._id),{facilityId});
-    let maintenanceSampleCount = 0;
-    let replacementRecommendedCount = 0;
-
-    for (const asset of assets) {
-      const totals=liveMaintenance.get(String(asset._id));
-      const currentMetrics=require('../utils/lifecycle').computeLifecycleMetrics({asset,template,
-        lifetimeMaintenanceTotal:totals.lifetime.total,last12MonthMaintenanceTotal:totals.last12Months.total,
-        maintenanceScopes:{lifetime:totals.lifetime.scopes,last12Months:totals.last12Months.scopes}});
-      const years = currentMetrics.yearsInService;
-
-      if (typeof years !== 'number') {
-        ageBuckets.unknown += 1;
-      } else if (years <= 2) {
-        ageBuckets['0-2'] += 1;
-      } else if (years <= 5) {
-        ageBuckets['3-5'] += 1;
-      } else if (years <= 8) {
-        ageBuckets['6-8'] += 1;
-      } else {
-        ageBuckets['>8'] += 1;
-      }
-
-      if (typeof liveMaintenance.get(String(asset._id))?.last12Months.total === 'number') {
-        totalProjectedAnnualMaintenance += liveMaintenance.get(String(asset._id)).last12Months.total;
-        maintenanceSampleCount += 1;
-      }
-
-      if (currentMetrics.replacementRecommended === true) {
-        replacementRecommendedCount += 1;
-      }
-    }
-
-    const totalAssets = assets.length;
-
-    const averageAnnualMaintenancePerAsset =
-      maintenanceSampleCount > 0
-        ? totalProjectedAnnualMaintenance / maintenanceSampleCount
-        : null;
-
-    const replacementRecommendedPercent =
-      totalAssets > 0
-        ? (replacementRecommendedCount / totalAssets) * 100
-        : 0;
-
-    const benchmarks = await getTemplateMaintenanceBenchmarks(id, {
-      facilityId,
-    });
-
-    return res.json({
-      templateId: template._id,
-      template: {
-        _id: template._id,
-        manufacturer: template.manufacturer,
-        model: template.model,
-        description: template.description,
-      },
-      lifecycleDefaults,
-      summary: {
-        totalAssets,
-        ageBuckets,
-        averageAnnualMaintenancePerAsset,
-        maintenanceSampleCount,
-        replacementRecommendedCount,
-        replacementRecommendedPercent,
-      },
-      benchmarks,
-      links: {
-        assets: `/assets?templateId=${template._id}`,
-        replacementRecommendedAssets: `/assets?templateId=${template._id}&replacementRecommended=true`,
-      },
-    });
+    const facts=await require('../services/templateLifecycleAggregation').getTemplateLifecycleAggregation(template,{facilityId,asOf:new Date()});
+    const benchmarks=await getTemplateMaintenanceBenchmarks(id,{facilityId,template,aggregate:facts});
+    const narrow=facts.rows.map(row=>row.metrics?.projectedAnnualMaintenance);
+    const narrowComplete=narrow.every(value=>typeof value==='number'&&Number.isFinite(value));
+    const averageAnnualMaintenancePerAsset=facts.rows.length&&narrowComplete?narrow.reduce((sum,value)=>sum+value,0)/facts.rows.length:null;
+    // Old bucket keys are omitted: changed boundaries must not silently reuse old labels.
+    const {rows,...aggregate}=facts;
+    return res.json({templateId:template._id,template:{_id:template._id,manufacturer:template.manufacturer,model:template.model,description:template.description},...aggregate,benchmarks,
+      members:rows.map(row=>({assetId:row.assetId,asset:row.asset??null,replacementAssessment:row.assessment?.replacementAssessment??null,reason:row.reason??null})),
+      summary:{totalAssets:facts.population.populationAssetCount,averageAnnualMaintenancePerAsset,maintenanceSampleCount:narrow.filter(value=>typeof value==='number').length,replacementRecommendedCount:facts.replacementReview.recommendedCount,replacementRecommendedPercent:facts.replacementReview.recommendedPercentOfPopulation,replacementRecommendedPercentDenominator:'populationAssetCount'},
+      deprecatedAliases:{averageAnnualMaintenancePerAsset:'observed internal labor + parts; nullable complete fleet mean; not directMaintenance',replacementRecommendedPercent:'percent of operational population; null if empty',ageBuckets:'removed; use age.buckets with explicit continuous boundaries',lifecycleDefaults:'removed from operational summary; raw reference evidence is not adopted policy'}});
   } catch (err) {
     console.error('GET /templates/:id/lifecycle failed:', err);
     return res.status(500).json({

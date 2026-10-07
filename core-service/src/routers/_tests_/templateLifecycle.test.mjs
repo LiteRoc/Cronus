@@ -387,3 +387,23 @@ test("definitive no-write release cannot clear a different reservation token", a
   expect((await A.findById(b._id)).parentAsset).toBeFalsy();
   await send("patch", `/templates/${d.id}/archive`, {}, "admin").expect(409);
 });
+
+// #11 operational and benchmark populations share one explicit Facility cohort.
+test('operational cohort includes only Active + Inactive; Pending separate and other cohorts excluded',async()=>{
+ const t=await seed();
+ const active=await asset({templateId:t.id,status:'Active'}),inactive=await asset({templateId:t.id,status:'Inactive'});
+ await asset({templateId:t.id,status:'Pending'});await asset({templateId:t.id,status:'Retired'});await asset({templateId:t.id,status:'Active',isArchived:true});
+ const deleted=await asset({templateId:t.id,status:'Active'});await A.collection.updateOne({_id:deleted._id},{$set:{deletedAt:new Date()}});
+ await asset({templateId:t.id,status:'Active',facilityId:String(oid())});
+ const before=JSON.stringify(await A.collection.find({}).toArray());
+ const r=(await send('get',`/templates/${t.id}/lifecycle`).expect(200)).body;
+ expect(r.population).toMatchObject({populationAssetCount:2,pendingAssetCount:1,assessedAssetCount:2,facilityId:facility});
+ expect(r.members.map(row=>row.assetId).sort()).toEqual([active.id,inactive.id].sort());
+ expect(r.benchmarks.local.population).toEqual(r.population);expect(r.benchmarks.global).toBeNull();
+ expect(r.age.stateCounts.unknown).toBe(2);expect(r.age.buckets.map(b=>b.count)).toEqual([0,0,0,0]);
+ expect(r.replacementReview).toMatchObject({insufficientDataCount:2,notRecommendedCount:0});
+ expect(r.capital.replacementValue).toMatchObject({total:null,knownSubtotal:0,missingAssetCount:2});
+ expect(JSON.stringify(await A.collection.find({}).toArray())).toBe(before);
+});
+test('empty Template fleet percentages are null',async()=>{const t=await seed();const r=(await send('get',`/templates/${t.id}/lifecycle`).expect(200)).body;expect(r.replacementReview.recommendedPercentOfPopulation).toBeNull();expect(r.summary.replacementRecommendedPercent).toBeNull();expect(r.maintenance.directMaintenance.statistics.fleetMean).toBeNull();});
+test('failed live Template assessment remains in operational population and sample denominator',async()=>{const t=await seed();await asset({templateId:t.id,status:'Active'});const service=requireCore('./src/services/lifecycleMaintenance.js').default;jest.spyOn(service,'getMaintenanceTotalsBatch').mockRejectedValueOnce(new Error('synthetic dependency failure'));const r=(await send('get',`/templates/${t.id}/lifecycle`).expect(200)).body;expect(r.population).toMatchObject({populationAssetCount:1,assessedAssetCount:0,unavailableAssessmentCount:1});expect(r.maintenance.directMaintenance).toMatchObject({total:null,isComplete:false,statistics:{sampleAssetCount:0,populationAssetCount:1,fleetMean:null}});expect(r.replacementReview.unavailableAssessmentCount).toBe(1);});
