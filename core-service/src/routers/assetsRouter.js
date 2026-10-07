@@ -75,24 +75,6 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
           query.ctrlNumber = { $regex: ctrlNumber, $options: "i" };
         }
 
-        if (replacementRecommended === "true") {
-          query["metrics.replacementRecommended"] = true;
-        }
-
-        if (ageExceeded === "true") {
-          query["metrics.replacementRecommended"] = true;
-          query["metrics.replacementReason"] = /expected life|useful life|exceeds/i;
-        }
-
-        if (highMaintenance === "true") {
-          query["metrics.projectedAnnualMaintenance"] = { $gt: 0 };
-          // Better comparison to benchmark can come later if needed.
-        }
-
-        if (ccrAboveBenchmark === "true") {
-          query["metrics.replacementReason"] = /maintenance|CCR|capital cost/i;
-        }
-
         if (manufacturer) query.manufacturer = manufacturer;
         if (model) query.model = model;
         //if (status) query.status = status || "Active";
@@ -118,21 +100,18 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
         
         const skip = (pageNumber - 1) * limitNumber;
 
-        // Fetch total count and paginated assets
-        const totalAssets = await Asset.countDocuments(query);
-        const assets = await Asset.find(query)
-            .skip(skip)
-            .limit(limitNumber)
-            .populate({
-                path: 'workOrders',
-                select: 'description status scheduledDate completionDate workOrderNumber', // Optimize with selected fields
-            })
-            //.populate({
-              //path: 'contractId',
-              //select: 'type name startDate endDate',
-            //})
-            .lean();
-
+        const cacheQueries=require('../services/lifecycleCacheQueries');
+        const lifecycleFiltered=cacheQueries.options(req.query);
+        let assets,totalAssets,lifecycleFilterCoverage,lifecycleFilterSemantics;
+        if(lifecycleFiltered){
+          const result=await cacheQueries.filteredPage(query,req.query,{page:pageNumber,limit:limitNumber});
+          ({assets,totalAssets,lifecycleFilterCoverage,lifecycleFilterSemantics}=result);
+          await Asset.populate(assets,{path:'workOrders',select:'description status scheduledDate completionDate workOrderNumber'});
+        }else{
+          totalAssets=await Asset.countDocuments(query);
+          assets=await Asset.find(query).skip(skip).limit(limitNumber).populate({path:'workOrders',select:'description status scheduledDate completionDate workOrderNumber'}).lean();
+          assets=await cacheQueries.annotate(assets);
+        }
 
         console.log('Returned assets count:', assets.length);
         // Add a fallback for legacy-required fields & schedule shape
@@ -150,11 +129,13 @@ assetRouter.get('/', authenticateToken, async (req, res) => {
 
         res.status(200).json({
             assets: enrichedAssets,
+            lifecycleFilterCoverage, lifecycleFilterSemantics,
             totalPages: Math.ceil(totalAssets / limitNumber),
             currentPage: pageNumber,
             totalAssets,
         });
     } catch (error) {
+        if(error.status===400)return res.status(400).json({error:error.message});
         console.error('Error fetching assets:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }

@@ -13,7 +13,7 @@ import { AssetFilters } from "@/types/Asset";
 
 const FilteredAssetPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { assets, totalPages, totalCount, pagination, setPagination, isLoading, error, refresh } = useAssets();
+  const { lifecycleFilterCoverage, assets, totalPages, totalCount, pagination, setPagination, isLoading, error, refresh } = useAssets();
   const [searchParams] = useSearchParams();
   const { setFilters } = useFilteredStore<AssetFilters>();
 
@@ -61,6 +61,7 @@ const FilteredAssetPage: React.FC = () => {
         </Button>
       </div>
 
+      {lifecycleFilterCoverage&&<p role="status" className="text-sm text-amber-800 mb-3">{lifecycleFilterCoverage.freshEvaluated} of {lifecycleFilterCoverage.eligiblePopulation} Assets have current lifecycle assessments; {lifecycleFilterCoverage.filterMode==='cache_state'?'Explicit cache-state results; stale values are not current evidence.':`Results exclude ${lifecycleFilterCoverage.stale+lifecycleFilterCoverage.missing+lifecycleFilterCoverage.unsupported} stale/unavailable Assets.`} {lifecycleFilterCoverage.insufficientData??0} current assessments have insufficient replacement-review data. {!lifecycleFilterCoverage.isComplete&&'Partial lifecycle filter coverage.'}</p>}
       {isLoading ? <div>Loading assets...</div> : <AssetTable assets={assets} />}
 
       <Pagination

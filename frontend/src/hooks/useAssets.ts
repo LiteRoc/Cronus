@@ -35,6 +35,7 @@ export const useAssets = () => {
   }, [data, pagination, setPagination]);
 
   return {
+    lifecycleFilterCoverage:data?.lifecycleFilterCoverage,
     assets: data?.assets ?? [],
     totalPages: data?.totalPages ?? 1,
     totalCount: data?.totalAssets ?? 0,

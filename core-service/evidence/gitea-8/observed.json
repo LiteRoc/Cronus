@@ -1,0 +1,112 @@
+{
+  "baseline": "6ecb58714c8eab7b1797f72ed94a29df8854cb5c",
+  "rows": [
+    {
+      "name": "stale_recommendation_and_maintenance_filter",
+      "query": {
+        "$and": [
+          {}
+        ],
+        "status": "Active",
+        "metrics.replacementRecommended": true,
+        "metrics.projectedAnnualMaintenance": {
+          "$gt": 0
+        }
+      },
+      "stored": {
+        "replacementRecommended": true,
+        "projectedAnnualMaintenance": 999,
+        "yearsInService": 0,
+        "computedAt": "2000-01-01"
+      },
+      "canonical": {
+        "replacementAssessment": {
+          "state": "not_recommended",
+          "meaning": "replacement_review",
+          "reasonCodes": [
+            "expected_life_not_reached"
+          ],
+          "displayText": "Adopted expected-life threshold not reached.",
+          "rules": [
+            {
+              "code": "adopted_expected_life",
+              "status": "evaluated",
+              "triggered": false,
+              "reasonCode": "expected_life_not_reached",
+              "inputs": {
+                "serviceYears": 0.7638603696098563,
+                "expectedLifeYears": 50
+              }
+            }
+          ]
+        },
+        "directMaintenance": {
+          "knownSubtotal": 0,
+          "total": 0,
+          "isComplete": true,
+          "missingComponents": [],
+          "valuationBases": [],
+          "calculationVersion": "wo-cost-v1",
+          "workOrderCount": 0,
+          "fullyPricedCount": 0,
+          "fullyPricedPercent": null,
+          "legacyCount": 0,
+          "staleCount": 0,
+          "unsupportedCount": 0
+        }
+      },
+      "matches": 1
+    },
+    {
+      "name": "version_policy_and_time_drift_ignored",
+      "cache": {
+        "schemaVersion": "obsolete",
+        "policyVersion": "obsolete",
+        "validUntil": "2000-01-01"
+      },
+      "matches": 1
+    },
+    {
+      "name": "stale_forecast_unknown_age_interpretation",
+      "forecast": {
+        "forecastYears": [
+          {
+            "year": 2031,
+            "assetCount": 1,
+            "estimatedCapitalNeed": 100000,
+            "assets": [
+              {
+                "_id": "A",
+                "templateId": {
+                  "benchmark": {
+                    "expectedUsefulLifeYears": 50,
+                    "averageQuotedPrice": 200000
+                  }
+                },
+                "ctrlNumber": "Synthetic",
+                "estimatedReplacementCost": 100000
+              }
+            ]
+          }
+        ],
+        "totalForecastedAssets": 1,
+        "totalAssetsEvaluated": 1,
+        "totalEstimatedCapitalNeed": 100000
+      }
+    },
+    {
+      "name": "template_and_workorder_change_no_invalidation",
+      "matches": 1,
+      "storedMaintenance": 999,
+      "canonicalMaintenanceAfterEconomicEdit": 10
+    },
+    {
+      "name": "scheduler_missing_import",
+      "error": "mongoose is not defined"
+    },
+    {
+      "name": "native_commonjs_maintenance_dependency",
+      "error": "Cannot use import statement outside a module"
+    }
+  ]
+}

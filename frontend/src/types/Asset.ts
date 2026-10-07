@@ -113,6 +113,7 @@ export interface Asset {
   images?: string[];
 
   metrics?: AssetLifecycleMetrics;
+  lifecycleCache?: {state:"fresh"|"stale"|"missing"|"unsupported";reason:string|null;calculatedAt:string|null;assessmentAsOf:string|null;validUntil:string|null;replacementAssessmentState:string|null};
   benchmarkComparison?: BenchmarkComparison;
 
   createdAt?: string;
@@ -141,6 +142,7 @@ export type AssetFilters = {
   ctrlNumber?: string;
   serialNumber?: string;
 
+  lifecycleCacheState?: string;
   replacementRecommended?: string;
   ageExceeded?: string;
   highMaintenance?: string;
@@ -153,7 +155,10 @@ export type AssetFilters = {
   end?: string;
 };
 
+export interface LifecycleFilterCoverage {filterMode?:'canonical_predicate'|'cache_state';eligiblePopulation:number;freshEvaluated:number;stale:number;missing:number;unsupported:number;insufficientData?:number;isComplete:boolean;}
+
 export interface AssetListResponse {
+  lifecycleFilterCoverage?:LifecycleFilterCoverage;
   assets: Asset[];
   currentPage: number;
   totalPages: number;

@@ -93,6 +93,7 @@ const AssetTable: React.FC<AssetTableProps> = ({ assets }) => {
           >
             Serial #{renderSortIndicator("serialNumber")}
           </th>
+          <th className="border px-4 py-2">Lifecycle Cache</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-200">
@@ -107,6 +108,9 @@ const AssetTable: React.FC<AssetTableProps> = ({ assets }) => {
             <td className="px-3 py-2 truncate max-w-[150px]">{asset.manufacturer}</td>
             <td className="border px-4 py-2">{renderStatusChip(asset.status)}</td>
             <td className="border px-4 py-2">{asset.serialNumber}</td>
+            <td className="border px-4 py-2 text-sm" title={`Assessment as of ${asset.lifecycleCache?.assessmentAsOf??'unavailable'}; valid until ${asset.lifecycleCache?.validUntil??'unavailable'}`}>
+              {asset.lifecycleCache?.state??'unavailable'}{asset.lifecycleCache?.state==='fresh'&&asset.lifecycleCache.replacementAssessmentState?` — ${asset.lifecycleCache.replacementAssessmentState.replace(/_/g,' ')}`:''}
+            </td>
           </tr>
         ))}
       </tbody>

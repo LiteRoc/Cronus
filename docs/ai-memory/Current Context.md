@@ -2,41 +2,32 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
-## Lifecycle aggregation alignment — October 7, 2026
+## Lifecycle cache consistency — October 7, 2026
 
-**#11 implementation completed; final delivery gates and issue closure are tracked in
-[#11](http://192.168.1.185:3000/LiteRoc/cronus/issues/11). Deployment is not authorized.**
-Baseline main: `cf862e5218172ba274799b4287d20dea38198f74` (#20/#21 merged/closed).
-See the [#11 journal](<../engineering-journal/2026-10-07 - Gitea 11 Lifecycle Aggregation Alignment.md>)
-and [approved lifecycle policy](<../engineering-journal/2026-10-06 - Lifecycle Policy Decisions Approved.md>).
+**#8 implementation verified; final delivery and closure are tracked in
+[#8](http://192.168.1.185:3000/LiteRoc/cronus/issues/8). Deployment and lifecycle
+refresh are not authorized.** Baseline main: `6ecb58714c8eab7b1797f72ed94a29df8854cb5c`.
+See the [#8 journal](<../engineering-journal/2026-10-07 - Gitea 8 Lifecycle Cache and Refresh Consistency.md>).
 
-Core owns `lifecycle-aggregate-v1`, consuming live #20 `asset-lifecycle-v2` facts.
-Template operational summaries and local benchmarks share Active + Inactive,
-selected authorized Facility, non-archived/non-deleted population; Pending is separate.
-Contract lifecycle uses #21 current `coveredAssets` resolution only. Vendor overlays
-never add members. Missing assessments remain in all population/completeness counts.
-Capital measures have independent nullable totals, known compatible subtotals,
-currency groups and missing reasons. No FX or invented legacy currency. Replacement
-review retains all three states plus unavailable assessments; percentage denominators
-are explicit and empty percentages null. Primary maintenance is **Direct Maintenance
-Cost — Last 365 Days**, canonical #7 scope, Completed/completionDate, inclusive window.
-Complete-record sample means are separate from complete fleet means.
+Live #20 Asset assessments remain authoritative. Additive lifecycle caches carry
+versions, source fingerprints, payload integrity and time expiry. Legacy metrics
+never establish freshness. Asset lifecycle filters and replacement-review forecasts
+verify bounded source pages and disclose fresh/stale/missing/unsupported coverage;
+unknown projection inputs and capital remain incomplete. Negative filters exclude
+insufficient or stale evidence. The narrow labor/parts compatibility filter retains
+its scope; no maintenance replacement threshold is introduced.
 
-A read-only Facility-authorized core batch API serves Contract aggregates: at most
-2,000 requested IDs, chunks of 200, no persistence. Canonical Asset detail shares
-orchestration with fleet assessments. Frontend Template/Contract cards consume canonical
-aggregates and drill into exact assessment members, avoiding legacy filter disagreement.
-Deprecated narrow internal labor/parts aliases retain scope; capital scalar aliases are
-null when incomplete. Cross-Facility/global operational benchmarking is not authorized.
+Refresh uses the canonical builder, bounded keyset pages, optimistic writes and a
+same-process overlap guard. Scheduler code is repaired and tested in isolation,
+including native CommonJS loading. Operational schedulers remain disabled; no real
+cache was refreshed. Multi-process duplicate computation remains possible; source
+verification and compare-and-set protect derived results. #20/#21/#11 remain closed;
+their lifecycle, current coverage and aggregation policies are unchanged.
 
-No real-data migration/backfill, cache refresh, scheduler work, deployment or runtime
-change. #8 remains open/unstarted; stale stored metrics/filter behavior and scheduler
-hardening are deferred. #19 remains open/**BLOCKED**, no approved rate. CRM remains
-paused/untouched at `807bc38122e771dacccbc23fca4a66363dd58d55`.
-Historical/as-of Contract coverage and new maintenance replacement thresholds remain
-unresolved. #7 economics are unchanged. #17/#18/#20/#21 software closure does not
-supply deployment authority. #21's containment/anomaly/concurrency behavior is recorded
-in its [journal](<../engineering-journal/2026-10-06 - Gitea 21 Contract Coverage and Vendor Responsibility.md>).
+No deployment, real-data migration/backfill, rate publication or CRM work occurred.
+#19 remains open/**BLOCKED**, no approved rate. CRM remains paused/untouched at
+`807bc38122e771dacccbc23fca4a66363dd58d55`. Historical/as-of Contract coverage and
+new maintenance replacement thresholds remain unresolved. #7 economics are unchanged.
 
 Software infrastructure is ready for a future governed internal labor rate, but
 external approval remains incomplete. User-provided external analysis identifies

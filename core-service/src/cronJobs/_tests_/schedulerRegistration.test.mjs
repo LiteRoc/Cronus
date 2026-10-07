@@ -11,7 +11,7 @@ function load(flag) {
     imported.push(name);
     vm.runInNewContext(source(name.slice(2)), {
       require: dependency => dependency === 'node-cron' ? { schedule } : {},
-      module: { exports: {} }, console: { log },
+      module: { exports: {} }, console: { log }, process:{env:flag===undefined?{}:{CRON_ENABLED:flag}},
     });
   }
   vm.runInNewContext(source('index'), {
@@ -21,10 +21,10 @@ function load(flag) {
   return { schedule, log, imported };
 }
 
-test.each([undefined, 'true'])('default/enabled registration remains compatible (%s)', flag => {
+test.each([undefined, 'true'])('default/enabled registration preserves gates and cache refresh cadence (%s)', flag => {
   const { schedule, imported } = load(flag);
   expect(imported).toEqual(['./cronJobs', './lifecycleScheduler']);
-  expect(schedule.mock.calls.map(call => call[0])).toEqual(['0 0 * * *', '0 0 * * *', '15 1 * * *']);
+  expect(schedule.mock.calls.map(call => call[0])).toEqual(['0 0 * * *', '0 0 * * *', '*/15 * * * *']);
   expect(schedule.mock.calls.every(call => typeof call[1] === 'function')).toBe(true);
   // Captured callbacks are deliberately never invoked.
 });
