@@ -9,7 +9,9 @@ async function refreshLifecycleCaches({
   asOf = new Date(),
   facilityId = null,
   assetIds = null,
-  beforePersist
+  beforePersist,
+  reportFailures = false,
+  reportCoverage = false
 } = {}) {
   if (running) return {
     state: 'overlap_skipped',
@@ -34,6 +36,29 @@ async function refreshLifecycleCaches({
     ...(assetIds !== null ? {_id: {$in: [...new Set(assetIds.map(String))].map(v => new mongoose.Types.ObjectId(v))}} : {})
   };
   if (assetIds !== null) counts.outcomes = [];
+  if (reportFailures) counts.failures = [];
+  const consideredIds = [];
+  async function finish() {
+    // Beginning-to-end bounded members, never an atomic or partial-fleet snapshot.
+    if (reportCoverage && afterId === null && counts.nextCursor === null) {
+      const coverage = { scope: 'completed_traversal_members', sampledAt: null,
+        consideredPopulation: counts.processed, eligibleObserved: 0, unavailable: 0,
+        fresh: 0, stale: 0, missing: 0, unsupported: 0, isAtomicSnapshot: false };
+      try {
+        for (let i = 0; i < consideredIds.length; i += pageSize) {
+          const ids = consideredIds.slice(i, i + pageSize);
+          const members = await Asset.find({ ...scope, _id: { $in: ids },
+            deletedAt: null, isArchived: { $ne: true } }).lean();
+          coverage.unavailable += ids.length - members.length;
+          coverage.eligibleObserved += members.length;
+          for (const row of await cache.inspectPage(members)) coverage[row.state.state]++;
+        }
+        coverage.sampledAt = new Date().toISOString();
+        counts.coverage = coverage;
+      } catch (_) { counts.coverage = { scope: 'unavailable', reason: 'coverage_query_failed' }; }
+    }
+    return counts;
+  }
   try {
     let cursor = afterId;
     while (counts.processed < maxAssets) {
@@ -55,7 +80,7 @@ async function refreshLifecycleCaches({
       }).limit(Math.min(pageSize, maxAssets - counts.processed)).lean();
       if (!assets.length) {
         counts.nextCursor = null;
-        return counts;
+        return await finish();
       }
       let outcomes;
       try {
@@ -66,15 +91,21 @@ async function refreshLifecycleCaches({
       } catch (_) {
         outcomes = new Map(assets.map(a => [String(a._id), 'failed']));
       }
-      for (const outcome of outcomes.values()) counts[outcome]++;
-      if (counts.outcomes) for (const asset of assets) counts.outcomes.push({assetId: String(asset._id), outcome: outcomes.get(String(asset._id)) ?? 'failed'});
+      for (const asset of assets) {
+        const assetId = String(asset._id), reported = outcomes.get(assetId);
+        const outcome = ['refreshed', 'skipped', 'failed', 'conflict', 'expired'].includes(reported) ? reported : 'failed';
+        counts[outcome]++;
+        if (counts.outcomes) counts.outcomes.push({ assetId, outcome });
+        if (reportFailures && ['failed', 'conflict', 'expired'].includes(outcome)) counts.failures.push({ assetId, outcome });
+        if (reportCoverage) consideredIds.push(asset._id);
+      }
       counts.processed += assets.length;
       cursor = String(assets.at(-1)._id);
       counts.nextCursor = cursor;
     }
     if (assetIds !== null && counts.outcomes.length === new Set(assetIds.map(String)).size) {
       counts.nextCursor = null;
-      return counts;
+      return await finish();
     }
     counts.hasMore = !!(await Asset.exists({
       ...scope,
@@ -88,12 +119,13 @@ async function refreshLifecycleCaches({
       }
     }));
     if (!counts.hasMore) counts.nextCursor = null;
-    return counts;
+    return await finish();
   } catch (_) {
     // Preserve completed pages on a query/connection error; remaining exact members
     // have unknown/not-attempted outcomes, never implicit success. Do not expose DB errors.
-    if (!counts.outcomes) throw Error('Bounded refresh query failed');
     counts.state = 'incomplete';
+    counts.reason = 'bounded_refresh_query_failed';
+    counts.hasMore = null; // Unknown remaining traversal, never a completed tail.
     if (counts.outcomes) {
       const completed = new Set(counts.outcomes.map(row => row.assetId));
       for (const assetId of [...new Set(assetIds.map(String))]) {

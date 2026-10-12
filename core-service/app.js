@@ -8,11 +8,15 @@ const { authenticateToken } = require('./src/middleware/authMiddleware');
 require('dotenv').config(); // Load environment variables
 //require('./src/cronJobs/cronJobs'); // Initialize all cron jobs
 //const { scheduleMaintenanceJobs } = require('./src/cronJobs/cronJobs');
-require('./src/cronJobs/index'); // Initialize all cron jobs, including lifecycle recompute
+const { startLifecycleScheduling } = require('./src/cronJobs/index'); // Legacy cron gate remains separate.
 const cors = require('cors');
 
 const connectDB = require('./src/config/db'); // MongoDB connection logic
-connectDB(); // Establish connection to MongoDB
+connectDB().then(startLifecycleScheduling).catch(() => {
+    // Scheduler startup failures must not become unhandled rejections or expose DB errors.
+    console.error(JSON.stringify({ job: 'lifecycle-cache', event: 'registration_error',
+        timestamp: new Date().toISOString(), reason: 'startup_registration_failed' }));
+}); // Lifecycle waits for DB readiness; no startup refresh.
 
 require('./src/models/discriminators/TestEquipment');
 require('./src/models/discriminators/InfusionPump');

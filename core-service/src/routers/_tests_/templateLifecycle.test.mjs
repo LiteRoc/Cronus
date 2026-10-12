@@ -42,8 +42,8 @@ function mountedApp() {
       const r = express.Router(); r.vendorJsonErrorHandler = r.supplierJsonErrorHandler = r.contactJsonErrorHandler = r.followUpJsonErrorHandler = (_q, _s, next) => next(); return r;
     }
     if (name.includes('/models/')) return {};
-    if (name === './src/config/db') return () => {};
-    if (name === './src/cronJobs/index') return {};
+    if (name === './src/config/db') return () => Promise.resolve();
+    if (name === './src/cronJobs/index') return {startLifecycleScheduling(){}};
     if (['morgan', 'cors'].includes(name)) return () => (_q, _s, next) => next();
     if (name === 'express-ejs-layouts') return (_q, _s, next) => next();
     throw Error(`Unexpected startup dependency ${name}`);
