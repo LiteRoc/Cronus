@@ -524,7 +524,7 @@ test('rolling completion expiry is captured in validity metadata', async () => {
   const c = (await get(a)).lifecycleCache;
   expect(Date.parse(c.validUntil)).toBe(date.getTime() + 365 * 86400000 + 1);
 });
-test('scheduler module executes templated Asset with registration disabled', async () => {
+test('scheduler tick executes canonical templated Asset with real cron registration forbidden', async () => {
   const cron = require('node-cron'),
     schedule = jest.spyOn(cron, 'schedule').mockImplementation(() => {
       throw new Error('Registration forbidden');
@@ -538,7 +538,13 @@ test('scheduler module executes templated Asset with registration disabled', asy
   });
   const scheduler = require('./src/cronJobs/lifecycleScheduler');
   expect(schedule).not.toHaveBeenCalled();
-  expect((await scheduler.scheduledRefresh()).refreshed).toBe(1);
+  expect(scheduler.refreshLifecycleCaches).toBe(refresh.refreshLifecycleCaches);
+  const runner = scheduler.createLifecycleScheduler({flag: 'true',
+    schedule: jest.fn(() => ({stop(){}})), log(){}});
+  runner.start();
+  expect((await runner.tick()).refreshed).toBe(1);
+  await runner.stop();
+  expect(schedule).not.toHaveBeenCalled();
 });
 test('invalid bounded refresh options rejected', async () => {
   await expect(refresh.refreshLifecycleCaches({

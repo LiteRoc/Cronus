@@ -45,8 +45,8 @@ function registeredApplication(){
     if(name.includes('/routers/')){const r=express.Router();r.supplierJsonErrorHandler=r.vendorJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,next)=>next();return r;}
     if(name==='./src/middleware/forwardContractHeaders')return {attachContractClient:(_q,_s,next)=>next()};
     if(name.includes('/models/'))return {};
-    if(name==='./src/config/db')return ()=>{};
-    if(name==='./src/cronJobs/index')return {};
+    if(name==='./src/config/db')return ()=>Promise.resolve();
+    if(name==='./src/cronJobs/index')return {startLifecycleScheduling(){}};
     if(['cors','morgan'].includes(name))return ()=>((_q,_s,next)=>next());
     if(name==='express-ejs-layouts')return (_q,_s,next)=>next();
     throw new Error('Unexpected startup dependency '+name);

@@ -2,6 +2,35 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+
+## Independent lifecycle scheduler software — October 12, 2026
+
+[#25](http://192.168.1.185:3000/LiteRoc/cronus/issues/25) implements the
+[#24 operating model](<../engineering-journal/2026-10-12 - Gitea 24 Lifecycle Cache Scheduler Operating Model.md>).
+Software verified: independent Core LIFECYCLE_CACHE_CRON_ENABLED exact true only;
+missing/empty/malformed disables, legacy Core/Contract switches remain separate.
+DB-ready registration, UTC15min,100/page,1000 considered/run, no startup refresh.
+Process-local cursor wraps/restarts at beginning; natural-cycle reconciliation,
+same-process overlap guards, safe incomplete/query progress and structured logs.
+No durable state, queue, worker, lease or dashboard.
+See the [#25 journal](<../engineering-journal/2026-10-12 - Gitea 25 Independent Lifecycle Cache Scheduler.md>)
+and [disabled-config runbook](../operations/lifecycle-cache-scheduler.md).
+Final commit/merge/closure receipts are tracked in #25.
+
+Core1708/1708, focused48/48 and Contract205/205 tests passed on synthetic isolated
+persistence; source syntax/whitespace and all6 package/lock byte checks passed.
+The scheduler software question is resolved; deployment/enablement remains
+separately authorized. >1000 eligible still requires capacity review and multiple
+enabled owners need a separate coordination design. No production performance claim.
+
+Production remains detached43f953a1ec5e8cca1fe16b4381e512025d96c3c1, healthy after
+separate recovery, both CRON_ENABLED=false and lifecycle setting absent. Runtime
+checkout and its three #24 documentation copies are untouched by #25. Main advances
+through software delivery only. No deploy/env/container/cache operation; #19 remains
+OPEN/BLOCKED and unworked, CRM clean/paused807bc38122e771dacccbc23fca4a66363dd58d55.
+This section supersedes older #25 OPEN/unstarted implementation wording below;
+those sections remain historical context. No rollout is authorized by completion.
+
 ## Lifecycle scheduler decision and recovered runtime — October 12, 2026
 
 #24 decision packet is documented in the [scheduler journal](<../engineering-journal/2026-10-12 - Gitea 24 Lifecycle Cache Scheduler Operating Model.md>).
