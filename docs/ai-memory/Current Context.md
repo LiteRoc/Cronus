@@ -2,6 +2,39 @@
 
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
+## Lifecycle scheduler decision and recovered runtime — October 12, 2026
+
+#24 decision packet is documented in the [scheduler journal](<../engineering-journal/2026-10-12 - Gitea 24 Lifecycle Cache Scheduler Operating Model.md>).
+#24 is CLOSED/verified; full packet retained in [comment224](http://192.168.1.185:3000/LiteRoc/cronus/issues/24#issuecomment-224).
+Implementation is separately tracked in [#25](http://192.168.1.185:3000/LiteRoc/cronus/issues/25), OPEN/unstarted.
+Recommend independent Core LIFECYCLE_CACHE_CRON_ENABLED, exact true only/default
+disabled; both legacy CRON_ENABLED flags remain false. Proposed UTC15min,
+100/page,1000 considered/run, ascending process-local cursor/natural full-cycle
+retry, one designated Core owner and process-local overlap guard. No immediate
+startup run. Initial >=95% post-full-run freshness/next-tick reconciliation target
+allows between-run expiry gaps; capacity review required above1000 eligible.
+
+At the pre-checkpoint baseline, local main and both remote mains matched runtime
+43f953a1ec5e8cca1fe16b4381e512025d96c3c1. This documentation-only commit advances
+main without advancing the detached deployed runtime. **Runtime recovery completed
+on October12:** existing Core, Contract and frontend containers are running; Mongo
+connected, frontend200, protected Core/Contract401 and Contract-to-Core401 passed.
+The owner explained the October10 stop by Anton Windows update/rollback; no independent
+Cronus failure was identified. The Windows update issue remains unresolved. Both
+CRON_ENABLED=false; lifecycle-specific setting absent; no scheduler activity.
+Authenticated browser smoke was unavailable, not claimed passed.
+#23 is completed/closed:15 Mary Rutan caches validated,15/15 parity PASS,
+no collateral writes. Last measured fleet144 total/143 eligible; original pilot
+validity is past, but no new database observation was performed. Roll-forward preferred.
+
+This section supersedes older present-tense #8/#22/#23 delivery/deployment-pending
+statements below; those describe historical checkpoints. #8/#22/#23 completed.
+#19 remains open/BLOCKED and unworked; CRM clean/paused at
+807bc38122e771dacccbc23fca4a66363dd58d55. No source/runtime/env/cache changes,
+scheduler invocation/enablement during this documentation checkpoint. The three-file
+packet is committed to main; runtime documentation copies remain preserved without
+changing its deployed HEAD. #25 has not begun.
+
 ## Bounded lifecycle cache operations — October 7, 2026
 
 #22 fixes confirmed live/refresh Template projection divergence and supplies a

@@ -2,6 +2,36 @@
 
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
+## Lifecycle scheduler implementation after runtime recovery — October 12, 2026
+
+#24 operating-model decisions are documented in the [scheduler journal](<../engineering-journal/2026-10-12 - Gitea 24 Lifecycle Cache Scheduler Operating Model.md>).
+#24 CLOSED/verified; complete decisions retained in [comment224](http://192.168.1.185:3000/LiteRoc/cronus/issues/24#issuecomment-224).
+The software follow-up is [#25](http://192.168.1.185:3000/LiteRoc/cronus/issues/25),
+OPEN/unstarted: independent strict lifecycle opt-in, UTC15min,100/page,1000/run,
+process-local traversal/reconciliation/guard, structured outcomes and isolated tests.
+No source implementation or production enablement is authorized by issue creation.
+Code completion must remain disabled; enablement requires separate operational approval.
+
+**Availability gate resolved under separate recovery authorization:** October12
+existing-container starts and Mongo/Core connectivity passed; frontend200 and protected
+Core/Contract401 passed. Owner attributes the October10 stop to Anton Windows update/
+rollback; no independent Cronus failure identified, no mystery-outage issue created.
+Windows update remains unresolved. Authenticated browser smoke remains unperformed
+because no existing-session browser tool was available. Both CRON_ENABLED=false;
+lifecycle-specific setting absent. Detached runtime remains
+43f953a1ec5e8cca1fe16b4381e512025d96c3c1; main advances by documentation only.
+Future capacity above1000 eligible needs review;5000 capped traversal would take75min
+and miss the initial freshness target.
+
+#8/#22/#23 completed; this supersedes their older delivery/operational-pending
+wording below. #23 validated15 caches with canonical parity/no collateral writes;
+normal expiry is expected, no new DB observation or refresh here. Roll-forward preferred.
+Known cross-document recheck window/performance limits remain explicit.
+#19 open/BLOCKED/unworked; CRM clean/paused at
+807bc38122e771dacccbc23fca4a66363dd58d55. No runtime/env/source/cache changes,
+scheduler activation in this checkpoint. Documentation committed on separate main
+checkout; runtime copies preserved with deployed HEAD unchanged. #25 remains unstarted.
+
 ## Lifecycle implementation and unresolved policy — October 7, 2026
 
 Lifecycle direction is owner-approved; #20 Asset assessment and #21 current coverage
