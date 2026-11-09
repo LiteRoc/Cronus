@@ -582,3 +582,28 @@ projection and independent local/foreign attachment checks. Only isolated
 synthetic persistence was used; no real-data or deployed-runtime verification.
 #16 remains open until Interaction compatibility passes. The broader read-only
 P0 gate remains pending; #14/#15 are P1 and #7/CRM remain paused.
+
+## Interaction compatibility — September 21, 2026
+
+Merged verified main `20f3d65ceea25f1fed8bcdb071be11ec4fc1af37` into paused
+Interaction without history rewriting or production conflicts. Expected memory
+document conflicts were resolved semantically, preserving Interaction history.
+The combined app exposed a stale picker test-router interface; work stopped for
+explicit approval. After approval, only `interactionJsonErrorHandler` was added
+to each router mock in the permanent picker and frozen reproduction suites.
+The frozen file matches evidence `ed51a0e` byte-for-byte after reversing that
+one addition; assertions, fixtures, status codes and all 91 cases are unchanged.
+
+Fresh results: complete combined core 973/973 = main 919 + Interaction 54
+(or prior combined 924 + picker 49). Picker 49, Supplier 59, Facility 45, Vendor
+90, subresources 295, ownership 215 and Interaction 54 all pass. Original S2
+security 11/11 passes (80 historical observations excluded), authentication
+31/31, frontend compatibility 16/16, application TypeScript, syntax, whitespace
+and diff checks pass. All three dependency inventories exit zero; the root
+Interaction environment reports no extraneous entries, whereas the earlier
+main linked environment reported 490 frontend entries. No dependencies or
+lockfiles were changed. No real-data or deployed-runtime verification occurred.
+
+The merge containing this entry is the compatibility checkpoint. Interaction
+remains paused and is not merged into main. #16 closure follows successful
+publication; the read-only P0 gate follows closure.

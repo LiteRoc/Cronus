@@ -29,7 +29,7 @@ function registeredApplication(){
   if(routers[name])return routers[name];
   if(name==='./src/middleware/authMiddleware')return auth;
   if(name==='./src/middleware/forwardContractHeaders')return {attachContractClient:(_q,_s,n)=>n()};
-  if(name.includes('/routers/')){const r=express.Router();r.vendorJsonErrorHandler=r.supplierJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,n)=>n();return r;}
+  if(name.includes('/routers/')){const r=express.Router();r.vendorJsonErrorHandler=r.supplierJsonErrorHandler=r.contactJsonErrorHandler=r.interactionJsonErrorHandler = r.followUpJsonErrorHandler=(_q,_s,n)=>n();return r;}
   if(name.includes('/models/'))return {};
   if(name==='./src/config/db')return ()=>Promise.resolve();
   if(name==='./src/cronJobs/index')return {startLifecycleScheduling(){}};

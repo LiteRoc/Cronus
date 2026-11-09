@@ -516,3 +516,25 @@ and verified on main. #6 has not started; #7/#9 remain separate and new features
 remain paused. Gitea #5 final closure is pending the separately verified merge of
 main into paused Interaction. Interaction must not be merged into main. Publication
 and final issue status are recorded by Git refs and Gitea after those actions.
+
+
+## Paused Interaction compatibility — 2026-09-15
+
+Verified main `1122219e401d272377bdb93daf98bb8fb5ec8554` was merged into
+`feat/crm-interactions` from checkpoint `2c8776975c54f13bfeb580b9c96cd9fb3f4c4fa4`.
+Only Current Context/Open Threads conflicted; semantic resolution retained main's
+#3/#4/#5 stabilization state and Interaction's backend checkpoint, Gitea #2,
+54-test verification history, architecture and deferred frontend/retention work.
+No implementation conflict, rebase, squash or history rewrite occurred.
+
+Fresh compatibility checks passed: Interaction 54/54; Work Order security 295/295;
+Vendor 90/90; Facility 45/45; complete safe core 650/650 (166 shared + 54 Interaction
++ 45 Facility + 90 Vendor + 295 Work Order); authentication 31/31; frontend equipment
+5/5; syntax, dependency consistency and whitespace/security scope review.
+Restricted Interaction visibility and Contact validation remain intact with all
+#3/#4/#5 protections. The Work Order implementation and frozen evidence match
+verified main. Costs (#7), units (#9) and reference ownership remain unchanged.
+No real-data/deployed-runtime verification occurred. Interaction remains paused
+and is not merged into main. #6, Interaction frontend and Opportunity were not
+started. Git refs and Gitea record publication and final #5 issue closure after
+these successful verification checkpoints.

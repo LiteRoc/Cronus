@@ -1,5 +1,42 @@
 # Open Threads
 
+## CRM Interaction integration — November 9, 2026
+
+The CRM Interaction Phase 1 backend has been brought into the isolated
+`feat/crm-interactions-integration` worktree. The merge remains
+uncommitted and undeployed.
+
+Completed verification:
+
+- Core-service: 1,762/1,762 tests.
+- Contract-service: 205/205 tests.
+- Frontend: 313/313 tests.
+- Combined: 2,280/2,280 tests.
+- Production JavaScript syntax, Git conflict, and whitespace checks PASS.
+- Frontend TypeScript and Vite build PASS only with a temporary
+  TypeScript 5.6-compatible deprecation setting; original config restored.
+
+**Remaining integration gates:**
+
+- Complete final documentation and Git diff review.
+- Stage the three test-only compatibility corrections.
+- Commit the integration merge only with explicit authorization.
+- Decide separately on merging to main and pushing to remotes.
+- Authorize and verify deployment separately; no operational smoke
+  or database validation is claimed.
+
+**Next CRM functionality:** Interaction frontend, followed by a separately
+scoped Opportunity vertical slice.
+
+**Deferred maintenance:** inherited TypeScript `ignoreDeprecations`
+mismatch, Node 18 engine warnings, duplicate Mongoose index warning,
+and frontend bundle-size optimization.
+
+See the [integration journal](<../engineering-journal/2026-11-09 - CRM Interaction Backend Integration.md>).
+
+Historical statements below that describe CRM as paused remain records
+of their original checkpoints, not the current integration state.
+
 This file records verified defects and clearly unresolved engineering work. Runtime-test failures are evidence for exercised behavior; static or compatibility findings remain labeled as unresolved until verified.
 
 
@@ -182,6 +219,35 @@ AHA useful lives are benchmark/reference values, not automatic replacement manda
 
 See the [#7 deployment/operations record](<../engineering-journal/2026-09-25 - Work Order Cost Model Deployment.md>) for verification and boundaries. Prior P0 security/ownership stabilization remains complete; other unresolved items below retain their existing scope.
 
+## Paused Interaction backend history
+
+The following records earlier compatibility checkpoints. Current issue closure
+and gate disposition are authoritative in the stopping-point section above.
+
+The Interaction backend base is `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`;
+its preserved backend checkpoint is `ce535d39627f7a77f9e342fd9146e8ba361f5899`
+and governance checkpoint `898d05e98afead5644ce3d78164df0f9948f0473`.
+Gitea #2 remains its tracking issue and is not modified by Supplier stabilization.
+The backend's accepted Facility/visibility/audit policy and 54-test behavior
+remain authoritative. Interaction frontend and Opportunity remain paused.
+Historical #3/#4/#5/#6 compatibility totals were 265/355/650/865 core cases;
+these are historical baselines, not the pending #16 compatibility result. Earlier detailed
+handoffs remain preserved in Git and the Interaction/Security journals.
+The main-to-Interaction merge aligns three test-router mocks with existing
+exports; no additional production behavior changes were introduced. The frozen
+Supplier reproduction differs from c99c91f only by its Interaction error-handler
+mock export; all assertions and fixtures remain byte-for-byte unchanged.
+Compatibility passed: core 924/924 (870 main + 54 Interaction), original Supplier
+security 6/6, authentication 31/31, frontend 21/21 and application TypeScript.
+The prior #13 compatibility checkpoint was pushed and #13 is closed. The current
+main-to-Interaction #16 merge passed fresh compatibility: combined core 973/973
+(919 main + 54 Interaction), original S2 security 11/11 unchanged, picker 49/49,
+authentication 31/31, frontend 16/16 and application TypeScript. Only the existing
+interactionJsonErrorHandler export was added to the two picker router mocks;
+all assertion and fixture bytes are unchanged. Publication and #16 closure
+follow this checkpoint; the broader P0 review has not yet been rerun.
+S3 is deferred as P1 #14/#15; the broader P0 review awaits #16 closure.
+
 ## Completed baseline: core-service authentication hardening
 
 Core-service authentication hardening is complete. The authentication baseline improved from 22/31 passing tests before remediation to 31/31 afterward.
@@ -243,7 +309,7 @@ The hashing invariant applies to ordinary `save`; update, bulk, import, or direc
 
 ## CRM / Strategic Account Management deferred work
 
-The Phase 1 architecture and policies are accepted. The Contact and Facility-scoped FollowUp vertical slices are complete and verified. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
+The Phase 1 architecture and policies are accepted. Contact and Facility-scoped FollowUp are complete and verified. The Facility-scoped Interaction backend, the third CRM vertical slice, is complete and verified; its frontend remains outstanding. The items below remain genuinely deferred or unresolved; they do not reopen accepted policies or implemented invariants.
 
 ### Gitea #4 — code resolved on main; Vendor normalization deferred
 
@@ -275,7 +341,9 @@ The Phase 1 architecture and policies are accepted. The Contact and Facility-sco
 ### Deferred CRM workflows
 
 - Contact duplicate detection produces warnings only. An audited Contact merge workflow is deferred.
-- Interactions retain creator/updater and timestamps, but a formal retention policy and retention workflow are deferred.
+- Interactions retain creator/updater and timestamps and remain editable in Phase 1. Formal revision history, retention policy, and retention workflow are deferred.
+- Opportunity linkage is deferred until the Opportunity vertical slice establishes its strict Facility-scoped validation boundary.
+- Contract linkage is deferred until an authenticated, strict Facility-scoped cross-service validation boundary is accepted.
 - Automatic Opportunity-to-Contract draft handoff is deferred. A manually created Contract may later be linked without rewriting Opportunity history.
 
 ### Deferred signals
@@ -288,5 +356,6 @@ The Phase 1 architecture and policies are accepted. The Contact and Facility-sco
 - The existing TypeScript `ignoreDeprecations: "6.0"` setting is incompatible with the installed TypeScript 5.6 compiler; Contact verification used the established command-line compatibility override. Do not mix that configuration repair into CRM feature work.
 - The existing ESLint configuration uses invalid `"ignore"` rule severity values and prevents the established lint command from starting. Repair remains separate maintenance.
 - The existing Vite large-bundle warning and Node engine warning remain deferred environment/build work.
+- Core-service backend tests continue to use experimental Jest VM-module/specifier-resolution flags; this warning remains deferred environment work.
 
 See the [CRM architecture assessment journal](<../engineering-journal/2026-08-24 - CRM Strategic Account Architecture Assessment.md>) for assessment evidence and the [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) for the accepted authoritative policy.

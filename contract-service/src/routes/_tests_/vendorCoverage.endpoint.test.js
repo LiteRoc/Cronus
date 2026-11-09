@@ -26,7 +26,7 @@ const headers = (role = 'admin', selected = facility) => ({
   })}`,
   'x-facility-id': String(selected)
 });
-const create = (ids = [String(a)], vendor = v, coverageType = 'full') => request(app).post(`/contracts/${c.id}/vendor-links`).set(headers()).send({
+const create = (ids = [String(a)], vendor = v, coverageType = 'full', requestHeaders = headers()) => request(app).post(`/contracts/${c.id}/vendor-links`).set(requestHeaders).send({
   vendorId: String(vendor),
   coveredAssetIds: ids,
   coverageType
@@ -162,10 +162,11 @@ afterAll(async () => {
   if (h) await h.stop();
 });
 test('A / vendor A valid and headers are request-specific', async () => {
-  const r = await create().expect(201);
+  const requestHeaders = headers();
+  const r = await create([String(a)], v, 'full', requestHeaders).expect(201);
   expect(r.body.data.coveredAssetIds).toEqual([String(a)]);
   const call = forwarded.find(row => row.path === `/assets/${a}`);
-  expect(call.headers).toMatchObject(headers());
+  expect(call.headers).toMatchObject(requestHeaders);
   expect(r.body.coverage.isConsistent).toBe(true);
 });
 test('A,B / vendor B valid', async () => {

@@ -42,7 +42,7 @@ function registeredApplication(){
     if(name==='process')return {title:'synthetic'};
     if(name==='dotenv')return {config(){}};
     if(name==='debug')return ()=>()=>{};
-    if(name.includes('/routers/')){const r=express.Router();r.supplierJsonErrorHandler=r.vendorJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,next)=>next();return r;}
+    if(name.includes('/routers/')){const r=express.Router();r.interactionJsonErrorHandler=r.supplierJsonErrorHandler=r.vendorJsonErrorHandler=r.contactJsonErrorHandler=r.followUpJsonErrorHandler=(_q,_s,next)=>next();return r;}
     if(name==='./src/middleware/forwardContractHeaders')return {attachContractClient:(_q,_s,next)=>next()};
     if(name.includes('/models/'))return {};
     if(name==='./src/config/db')return ()=>{};

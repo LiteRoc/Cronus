@@ -47,7 +47,7 @@ function registeredApplication() {
     if (name === './src/middleware/forwardContractHeaders') return { attachContractClient: (_q, _s, next) => next() };
     if (name.includes('/routers/')) {
       const r = express.Router();
-      r.vendorJsonErrorHandler = r.contactJsonErrorHandler = r.followUpJsonErrorHandler = (_q, _s, next) => next();
+      r.vendorJsonErrorHandler = r.contactJsonErrorHandler = r.followUpJsonErrorHandler = r.interactionJsonErrorHandler = (_q, _s, next) => next();
       return r;
     }
     if (name.includes('/models/')) return {};

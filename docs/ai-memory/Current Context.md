@@ -1,5 +1,59 @@
 # Current Context
 
+## CRM Interaction backend integration — November 9, 2026
+
+**Current development checkpoint:** CRM Interaction Phase 1 backend has been
+integrated into `feat/crm-interactions-integration` from the preserved
+`feat/crm-interactions` branch at
+`807bc38122e771dacccbc23fca4a66363dd58d55`.
+
+The integration is verified but remains an uncommitted Git merge.
+No merge to `main`, push, deployment, or operational database change
+has been performed by this integration work.
+
+Verification completed in an isolated worktree:
+
+- Core-service: 32 suites, 1,762/1,762 tests PASS.
+- Contract-service: 13 suites, 205/205 tests PASS.
+- Frontend: 31 files, 313/313 tests PASS.
+- Combined regression: 76 suites/files, 2,280/2,280 tests PASS.
+- Interaction production JavaScript syntax: PASS.
+- Contract production JavaScript syntax checks: PASS.
+- Git staged/unstaged whitespace checks: PASS.
+- No unresolved merge conflicts.
+
+Three test-only compatibility corrections were required:
+
+1. Template lifecycle synthetic router mock includes the Interaction
+   JSON error-handler export.
+2. Reference lifecycle synthetic router mock includes the same export.
+3. Contract Vendor Coverage regression reuses original request headers
+   when verifying forwarded JWT and Facility authorization.
+
+Frontend TypeScript 5.6.3 could not accept the inherited
+`ignoreDeprecations: "6.0"` setting. A temporary `"5.0"` adjustment
+allowed TypeScript compilation and Vite production build to pass.
+The original configuration was restored. The standard build remains
+blocked by that pre-existing configuration mismatch.
+
+Node 18 dependency-engine warnings, the duplicate Mongoose index
+warning, and Vite bundle-size warning remain deferred maintenance.
+
+Contact and FollowUp remain complete. Interaction backend is implemented
+and integration-tested; Interaction frontend is not implemented.
+Opportunity remains future CRM work.
+
+The next steps are documentation reconciliation, final integration review,
+and an explicitly authorized Git merge commit. Deployment and operational
+validation remain separately gated.
+
+See the [November 9 integration journal](<../engineering-journal/2026-11-09 - CRM Interaction Backend Integration.md>).
+
+This checkpoint supersedes historical statements below that describe
+CRM as paused and unmerged. Historical lifecycle, financial, security,
+scheduler, and deployment records remain authoritative for their own
+dates; this checkpoint does not establish a new runtime observation.
+
 > Memory tells us where we are. Engineering history tells us how we got here. Git tells us exactly what changed.
 
 
@@ -210,6 +264,35 @@ Continuation records:
 - [Prior P0 gate](<../engineering-journal/2026-09-21 - Final P0 Security Ownership Gate.md>).
 - [Open Threads](<Open Threads.md>) for unresolved and separately gated work.
 
+## Paused Interaction backend history
+
+The following records earlier compatibility checkpoints. Current issue closure
+and gate disposition are authoritative in the stopping-point section above.
+
+The Interaction backend base is `3ba37f21d520cfe64d3d9bf5eb950a0e6f7a44d4`;
+its preserved backend checkpoint is `ce535d39627f7a77f9e342fd9146e8ba361f5899`
+and governance checkpoint `898d05e98afead5644ce3d78164df0f9948f0473`.
+Gitea #2 remains its tracking issue and is not modified by Supplier stabilization.
+The backend's accepted Facility/visibility/audit policy and 54-test behavior
+remain authoritative. Interaction frontend and Opportunity remain paused.
+Historical #3/#4/#5/#6 compatibility totals were 265/355/650/865 core cases;
+these are historical baselines, not the pending #16 compatibility result. Earlier detailed
+handoffs remain preserved in Git and the Interaction/Security journals.
+The main-to-Interaction merge aligns three test-router mocks with existing
+exports; no additional production behavior changes were introduced. The frozen
+Supplier reproduction differs from c99c91f only by its Interaction error-handler
+mock export; all assertions and fixtures remain byte-for-byte unchanged.
+Compatibility passed: core 924/924 (870 main + 54 Interaction), original Supplier
+security 6/6, authentication 31/31, frontend 21/21 and application TypeScript.
+The prior #13 compatibility checkpoint was pushed and #13 is closed. The current
+main-to-Interaction #16 merge passed fresh compatibility: combined core 973/973
+(919 main + 54 Interaction), original S2 security 11/11 unchanged, picker 49/49,
+authentication 31/31, frontend 16/16 and application TypeScript. Only the existing
+interactionJsonErrorHandler export was added to the two picker router mocks;
+all assertion and fixture bytes are unchanged. Publication and #16 closure
+follow this checkpoint; the broader P0 review has not yet been rerun.
+S3 is deferred as P1 #14/#15; the broader P0 review awaits #16 closure.
+
 ## CRM Phase 1A Contact vertical slice — complete
 
 - Contact is implemented in `core-service` with strict, explicit `x-facility-id` context on every request; administrators cannot perform unscoped Contact operations.
@@ -251,6 +334,24 @@ See the [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM 
 - The Node 18/MongoMemoryServer engine and system-binary warnings remain deferred environment issues.
 
 See the [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) for implementation and verification detail.
+
+## CRM Interaction Phase 1 backend — complete
+
+- Interaction is the third CRM vertical slice after Contact and FollowUp. Its backend is implemented in `core-service`; frontend work remains outstanding.
+- Every endpoint requires canonical `admin` or `technician` authorization and explicit valid `x-facility-id`. Individual-record queries include the selected Facility and `archivedAt: null`; no generic tenant filter or global-record behavior is used.
+- Types are `meeting`, `call`, `email`, `site_visit`, and `note`. Directions are `inbound`, `outbound`, and `internal`. `summary` is required and `body` is optional.
+- Visibility is `operational` or `restricted`. Admins may create, read, and update either. Technicians may create, read, and update operational records only.
+- Restricted records are filtered at the persistence-query level for technicians. They do not appear in lists, search results, counts, pagination totals, detail, or update behavior; direct lookup returns a non-disclosing 404. A technician requesting the restricted visibility filter receives an empty result.
+- Zero or multiple Contacts may be linked. IDs are deduplicated, and every Contact must be active, non-archived, and associated with the selected Facility. Missing or inaccessible Contacts share a non-disclosing validation response.
+- `occurredAt` and list date filters require timezone-explicit ISO-8601 timestamps. Interactions more than five minutes in the future are rejected; the tolerance covers clock skew, not scheduled activity.
+- Interactions remain editable. `createdBy` and `createdAt` are preserved, while `updatedBy` and `updatedAt` track edits. Formal revision history is deferred.
+- Archive is admin-only. There is no hard delete or restore. Mutations use validated document `save()`, optimistic concurrency, paired archive audit fields, and query-mutation protections.
+- Endpoints: `GET /interactions`, `GET /interactions/:id`, `POST /interactions`, `PATCH /interactions/:id`, and `PATCH /interactions/:id/archive`.
+- No Contract, Vendor, Asset, FollowUp, Opportunity, or signal linkage is included.
+- Verification passed: Interaction 54/54; complete safe core-service 220/220; authentication security 31/31; Contract lifecycle regression 11/11; JavaScript syntax, `npm ls --depth=0`, `git diff --check`, whitespace, Facility/visibility/security, and prohibited-coupling scans.
+- Tests used the fail-closed loopback-only MongoMemoryServer harness with runtime downloads disabled. The existing Node/MongoMemoryServer environment warning and experimental Jest VM-module warnings remain deferred.
+
+See the [CRM Interaction Phase 1 backend journal](<../engineering-journal/2026-08-26 - CRM Interaction Phase 1 Backend.md>) for implementation and verification detail.
 
 ## CRM / Strategic Account Management — accepted Phase 1 architecture
 
@@ -368,4 +469,5 @@ Do **not** repair Wayne Healthcare `WHC-CAM-2024-001` yet:
 - [CRM Phase 1 policy decisions](<../engineering-journal/2026-08-25 - CRM Policy Decisions for Review.md>) — accepted and authoritative for Phase 1.
 - [CRM Contact Phase 1A journal](<../engineering-journal/2026-08-25 - CRM Contact Phase 1A.md>) — verified Contact vertical slice and tenant/security baseline.
 - [CRM FollowUp Phase 1 journal](<../engineering-journal/2026-08-25 - CRM FollowUp Phase 1 Backend.md>) — verified end-to-end FollowUp workflow, lifecycle integrity, and Facility-scoping baseline.
+- [CRM Interaction Phase 1 backend journal](<../engineering-journal/2026-08-26 - CRM Interaction Phase 1 Backend.md>) — verified Interaction backend, restricted-visibility, audit, and Facility-scoping baseline.
 - [Historical product context](<../../Project Cronus.md>) — useful but known to have drifted.

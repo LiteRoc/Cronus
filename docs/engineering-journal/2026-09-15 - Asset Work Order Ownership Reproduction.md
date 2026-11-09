@@ -675,3 +675,62 @@ Transaction-capable MongoDB remains required for promotion; unsupported topology
 fails safely. Publication, Interaction compatibility and final #6 closure follow
 this checkpoint and are not yet claimed here. The P0 review follows closure;
 #7 and CRM feature development remain paused.
+
+
+## 2026-09-16 — Interaction compatibility merge gate passed
+
+Main `c31f309f9747a5959f91e316c275e308d7b7bcc5` was published to Gitea and
+GitHub after its merged-main verification. Merging it into the paused Interaction
+branch produced only the two expected memory-document conflicts, resolved
+semantically while retaining Interaction architecture, history and deferrals.
+
+The initial combined run was 864/865: the actual application-registration test
+mock exposed Vendor/Contact/FollowUp JSON handlers but omitted the already-existing
+Interaction handler. The real router exports it and app.js mounts it. After
+explicit user approval, the sole compatibility correction adds
+`r.interactionJsonErrorHandler` to the mock's existing chained assignment.
+No assertion was removed or weakened. No production Interaction code was changed.
+
+Fresh requested verification:
+
+| Gate | Result |
+| --- | --- |
+| Affected registration test, directly selected | 1/1 (other 213 cases deselected) |
+| Interaction service + endpoint | 54/54 |
+| Permanent #6 ownership + standalone topology | 215/215 |
+| #5 Work Order subresources | 295/295 |
+| #4 Vendor | 90/90 |
+| #3 Facility query + compatibility | 45/45 |
+| Complete safe core | 865/865, 13 suites |
+| Core authentication from contract-service | 31/31 |
+| Frontend ownership/equipment compatibility | 21/21 |
+| Actual application TypeScript | PASS |
+| Syntax of 14 changed JS/test/config files | PASS |
+| npm ls --depth=0, all three packages | PASS |
+| Whitespace/conflict-marker and focused security/scope checks | PASS |
+
+The complete count is **865 = 811 main + 54 Interaction**, equivalently
+166 existing shared + 54 Interaction + 45 Facility + 90 Vendor + 295 subresources
++ 215 ownership. Dedicated suite reruns overlap the complete run and do not add
+new unique tests. The mock correction adds zero cases.
+
+Database commands use the documented cached MongoDB binary 8.2.1 with runtime
+downloads disabled and the fail-closed ephemeral harness. Dedicated Jest runs
+used --runTestsByPath; the affected run additionally used its exact test name.
+The complete run used npm test -- --runInBand --silent. Frontend tested the same
+four ownership/equipment files, and TypeScript used
+tsc --noEmit -p tsconfig.app.json --ignoreDeprecations 5.0.
+
+Exact comparisons establish that Interaction production and its 54-test suite
+match pre-merge HEAD; the #6 test differs from main by only the mock export;
+frozen evidence and all package manifests/lockfiles remain unchanged. The app
+registration delta from main consists only of the existing Interaction import
+and mount. Restricted visibility, Contact validation, Facility scope, canonical
+roles, ownership and transaction fail-closed behavior remain green. Existing
+Node/Jest experimental, duplicate schema index and React Router warnings persist.
+
+No real database, deployed runtime, Docker, scheduled job or dependency changes
+occurred. No P0 review or #7 work began. The merge checkpoint includes the approved
+test correction and resolved documentation without rewriting history. Both remote
+Interaction refs must match before posting the final verification and closing #6;
+Git refs and Gitea record those subsequent actions. Main remains c31f309.

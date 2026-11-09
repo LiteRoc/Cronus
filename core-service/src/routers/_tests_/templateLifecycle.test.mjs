@@ -39,7 +39,7 @@ function mountedApp() {
     if (name === './src/middleware/authMiddleware') return requireCore(name);
     if (name === './src/middleware/forwardContractHeaders') return { attachContractClient: (_q, _s, next) => next() };
     if (name.includes('/routers/')) {
-      const r = express.Router(); r.vendorJsonErrorHandler = r.supplierJsonErrorHandler = r.contactJsonErrorHandler = r.followUpJsonErrorHandler = (_q, _s, next) => next(); return r;
+      const r = express.Router(); r.vendorJsonErrorHandler = r.supplierJsonErrorHandler = r.contactJsonErrorHandler = r.interactionJsonErrorHandler = r.followUpJsonErrorHandler = (_q, _s, next) => next(); return r;
     }
     if (name.includes('/models/')) return {};
     if (name === './src/config/db') return () => Promise.resolve();

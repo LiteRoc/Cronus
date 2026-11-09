@@ -399,3 +399,48 @@ with the issue still open pending Interaction compatibility and final closure.
 This documentation-only commit follows the verified fast-forward. #3–#6 remain
 resolved. The P0 gate remains blocked by S2/S3 pending reproduction; #7 and CRM
 features remain paused. Main must be merged into Interaction, never the reverse.
+
+
+## Interaction compatibility gate — September 21
+
+Resumed the pending main-to-Interaction merge at Interaction 395e39c with
+main 2f7bea8. Three authorized test-only router-mock corrections preserve the
+combined Supplier/Interaction error-handler interface: operationalOwnership
+preserves both exports; supplierSecurity and supplierAuth.reproduction add
+interactionJsonErrorHandler. The frozen reproduction initially failed setup
+because that export was absent; work stopped until the user authorized this
+third mock-only correction. No production change beyond the incoming Supplier
+fix and existing Interaction implementation was made.
+
+Byte-for-byte comparison against preserved evidence c99c91f confirms that
+reversing only the one mock-export addition restores the entire reproduction
+file exactly. All six original security assertions, expected behavior and
+fixtures are unchanged; the reproduction configuration is also unchanged.
+
+Fresh verification passed:
+
+- Original Supplier security assertions: 6/6 (75 historical cases deliberately
+  excluded by the SECURITY filter).
+- Complete combined safe core: 924/924 across 14 suites = main 870 + Interaction
+  54. Component counts: Supplier 59, Interaction 43 endpoint + 11 service,
+  Facility 29 + 16, Vendor 90, Work Order subresources 295, ownership 214 + 1
+  standalone-topology test, Contact 49 + 7, FollowUp 87 + 20, lifecycle 3.
+- Authentication: 31/31; relevant frontend compatibility: 21/21.
+- Application TypeScript with the established ignoreDeprecations 5.0 override,
+  changed JavaScript syntax, npm ls --depth=0 in all three packages, staged and
+  unstaged whitespace checks, and focused security/scope checks passed.
+- Existing dependencies in this worktree reported no npm ls problems. No
+  dependencies or manifests/lockfiles were changed. Experimental Node/Jest,
+  duplicate Mongoose index and React Router future-flag warnings remain.
+
+Tests used inspected fail-closed synthetic MongoMemoryServer persistence with
+runtime downloads disabled and the existing local binary. No real databases,
+containers, scheduled jobs or application services were touched. Deployed
+behavior and real data remain unverified.
+
+The user authorized completion of this merge, both Interaction pushes, remote
+ref verification and final Gitea #13 comment/closure after the green gate.
+This checkpoint records verified tests; the final issue comment records the
+resulting commit and publication outcome. Interaction remains paused and is
+not merged into main. S2, S3, #7, Interaction frontend and Opportunity were not
+started; P0 remains blocked pending the separate S2/S3 work.
