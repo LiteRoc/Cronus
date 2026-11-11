@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { effectiveTimeZone } from "@/pages/FollowUps/dateTime";
-import { getInteraction, getInteractions } from "@/services/interactionAPI";
+import {
+  createInteraction,
+  getInteraction,
+  getInteractions,
+} from "@/services/interactionAPI";
+
+import Modal from "@/components/Modal";
+import { Button } from "@/components/ui";
 
 import type {
   Interaction,
   InteractionDirection,
+  InteractionInput,
   InteractionType,
 } from "@/types/Interaction";
 
 import InteractionDetail from "./InteractionDetail";
+import InteractionForm from "./InteractionForm";
 
 interface Props {
   facilityId: string | null;
@@ -38,6 +47,14 @@ export default function InteractionsPage({
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const createGeneration = useRef(0);
+  const createInFlight = useRef(false);
 
   const listGeneration = useRef(0);
   const detailGeneration = useRef(0);
@@ -107,7 +124,98 @@ export default function InteractionsPage({
       ++listGeneration.current;
       ++detailGeneration.current;
     };
-  }, [facilityId, search, type, direction, page]);
+  }, [facilityId, search, type, direction, page, refreshVersion]);
+
+  useEffect(() => {
+    return () => {
+      ++createGeneration.current;
+      createInFlight.current = false;
+    };
+  }, [facilityId, isAdmin]);
+
+  const closeCreate = () => {
+    if (createInFlight.current) return;
+
+    setShowCreate(false);
+    setCreateError(null);
+  };
+
+  const saveNewInteraction = async (
+    input: Partial<InteractionInput>,
+  ): Promise<void> => {
+    if (!facilityId || createInFlight.current) return;
+
+    if (
+      !input.type ||
+      !input.occurredAt ||
+      !input.summary ||
+      !input.direction
+    ) {
+      setCreateError("Complete the required Interaction fields.");
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const generation = ++createGeneration.current;
+
+    const createInput: InteractionInput = {
+      type: input.type,
+      occurredAt: input.occurredAt,
+      summary: input.summary,
+      direction: input.direction,
+      body: input.body,
+      visibility: isAdmin ? input.visibility : "operational",
+      contactIds: input.contactIds,
+    };
+
+    createInFlight.current = true;
+    setCreateSubmitting(true);
+    setCreateError(null);
+
+    try {
+      await createInteraction(requestedFacility, createInput);
+
+      if (
+        generation !== createGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setShowCreate(false);
+      setCreateError(null);
+
+      // Reset filters so the refreshed first page can show
+      // newly created activity according to backend ordering.
+      setSearchInput("");
+      setSearch("");
+      setType("");
+      setDirection("");
+      setPage(1);
+
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== createGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      // Keep the form mounted, preserving the user's input.
+      setCreateError(
+        "Unable to create the Interaction. Check the information and try again.",
+      );
+    } finally {
+      if (
+        generation === createGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        createInFlight.current = false;
+        setCreateSubmitting(false);
+      }
+    }
+  };
 
   const openInteraction = async (interactionId: string) => {
     if (!facilityId) return;
@@ -177,7 +285,19 @@ export default function InteractionsPage({
   return (
     <div className="space-y-5 p-6">
       <header>
-        <h1 className="text-2xl font-semibold">Interactions</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Interactions</h1>
+
+          <Button
+            type="button"
+            onClick={() => {
+              setCreateError(null);
+              setShowCreate(true);
+            }}
+          >
+            New Interaction
+          </Button>
+        </div>
         <p className="text-sm text-gray-600">
           Facility-scoped CRM activity history
         </p>
@@ -327,6 +447,26 @@ export default function InteractionsPage({
           )}
         </section>
       </div>
+
+      <Modal
+        isOpen={showCreate}
+        onClose={closeCreate}
+        title="New Interaction"
+        className="relative max-h-[90vh] w-[min(720px,calc(100vw-2rem))] overflow-y-auto"
+      >
+        <InteractionForm
+          key={facilityId}
+          interaction={null}
+          facilityId={facilityId}
+          facilityTimezone={facilityTimezone}
+          timezoneLabel={`Time zone: ${effectiveTimeZone(facilityTimezone)}`}
+          isAdmin={isAdmin}
+          submitting={createSubmitting}
+          error={createError}
+          onCancel={closeCreate}
+          onSubmit={saveNewInteraction}
+        />
+      </Modal>
     </div>
   );
 }
