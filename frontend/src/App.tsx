@@ -24,6 +24,7 @@ import ContractsPage from "@/pages/Contracts/Contracts/ContractsPage";
 import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage";
 import ContactRoute from "@/pages/Contacts/ContactRoute";
 import FollowUpRoute from "@/pages/FollowUps/FollowUpRoute";
+import InteractionRoute from "@/pages/Interactions/InteractionRoute";
 
 function RootRedirect() {
   const { user } = useUser();
@@ -144,6 +145,17 @@ export default function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="assets" element={<Assets />} />
           </Route>
+
+          <Route
+            path="/interactions"
+            element={
+              <SidebarLayout>
+                <PrivateRoute>
+                  <InteractionRoute />
+                </PrivateRoute>
+              </SidebarLayout>
+            }
+          />
 
           {/* Legacy customer routes */}
           <Route path="/customer/dashboard" element={<Navigate to="/dashboard" replace />} />
