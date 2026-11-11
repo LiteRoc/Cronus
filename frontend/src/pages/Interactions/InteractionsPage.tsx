@@ -4,6 +4,7 @@ import {
   createInteraction,
   getInteraction,
   getInteractions,
+  updateInteraction,
 } from "@/services/interactionAPI";
 
 import Modal from "@/components/Modal";
@@ -51,19 +52,52 @@ export default function InteractionsPage({
   const [showCreate, setShowCreate] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   const createGeneration = useRef(0);
   const createInFlight = useRef(false);
 
+  const editGeneration = useRef(0);
+  const editInFlight = useRef(false);
+
   const listGeneration = useRef(0);
   const detailGeneration = useRef(0);
+
+  const pendingEditSelection = useRef<{
+    interaction: Interaction;
+    facilityId: string;
+    search: string;
+    type: InteractionType | "";
+    direction: InteractionDirection | "";
+    page: number;
+    isAdmin: boolean;
+  } | null>(null);
 
   const facilityRef = useRef(facilityId);
   facilityRef.current = facilityId;
 
   useEffect(() => {
     const generation = ++listGeneration.current;
+
+    // Preserve the edited record only for this reconciliation request.
+    // Ordinary filter, pagination, and Facility changes clear selection.
+    const pendingSelection = pendingEditSelection.current;
+    pendingEditSelection.current = null;
+
+    const restoreSelection =
+      pendingSelection &&
+      pendingSelection.facilityId === facilityId &&
+      pendingSelection.search === search &&
+      pendingSelection.type === type &&
+      pendingSelection.direction === direction &&
+      pendingSelection.page === page &&
+      pendingSelection.isAdmin === isAdmin
+        ? pendingSelection.interaction
+        : null;
 
     // A new list invalidates the previous detail selection.
     ++detailGeneration.current;
@@ -100,6 +134,17 @@ export default function InteractionsPage({
         setItems(result.interactions);
         setTotal(result.total);
         setTotalPages(result.totalPages);
+
+        if (restoreSelection) {
+          const remainsVisible = result.interactions.some(
+            (item) =>
+              item._id === restoreSelection._id &&
+              item.facilityId === requestedFacility &&
+              (isAdmin || item.visibility === "operational"),
+          );
+
+          setSelected(remainsVisible ? restoreSelection : null);
+        }
       })
       .catch(() => {
         if (
@@ -213,6 +258,100 @@ export default function InteractionsPage({
       ) {
         createInFlight.current = false;
         setCreateSubmitting(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      ++editGeneration.current;
+      editInFlight.current = false;
+    };
+  }, [facilityId, isAdmin]);
+
+  const closeEdit = () => {
+    if (editInFlight.current) return;
+
+    setShowEdit(false);
+    setEditError(null);
+  };
+
+  const saveEditedInteraction = async (
+    input: Partial<InteractionInput>,
+  ): Promise<void> => {
+    if (!facilityId || !selected || editInFlight.current) return;
+
+    if (selected.facilityId !== facilityId) return;
+
+    const requestedFacility = facilityId;
+    const interactionId = selected._id;
+    const generation = ++editGeneration.current;
+
+    editInFlight.current = true;
+    setEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      const updated = await updateInteraction(
+        requestedFacility,
+        interactionId,
+        input,
+      );
+
+      if (
+        generation !== editGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      if (
+        updated._id !== interactionId ||
+        updated.facilityId !== requestedFacility ||
+        (!isAdmin && updated.visibility !== "operational")
+      ) {
+        setShowEdit(false);
+        setSelected(null);
+        setEditError(null);
+        setError("The updated Interaction is unavailable.");
+        return;
+      }
+
+      // Preserve the server-returned record only if the refreshed
+      // backend list still includes it.
+      pendingEditSelection.current = {
+        interaction: updated,
+        facilityId: requestedFacility,
+        search,
+        type,
+        direction,
+        page,
+        isAdmin,
+      };
+
+      setShowEdit(false);
+      setEditError(null);
+
+      // Reapply the current filters and pagination through the backend.
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== editGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setEditError(
+        "Unable to update the Interaction. Check the information and try again.",
+      );
+    } finally {
+      if (
+        generation === editGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        editInFlight.current = false;
+        setEditSubmitting(false);
       }
     }
   };
@@ -435,11 +574,25 @@ export default function InteractionsPage({
           {detailLoading ? (
             <p role="status">Loading details…</p>
           ) : selected ? (
-            <InteractionDetail
-              interaction={selected}
-              facilityTimezone={facilityTimezone}
-              isAdmin={isAdmin}
-            />
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditError(null);
+                    setShowEdit(true);
+                  }}
+                >
+                  Edit Interaction
+                </Button>
+              </div>
+
+              <InteractionDetail
+                interaction={selected}
+                facilityTimezone={facilityTimezone}
+                isAdmin={isAdmin}
+              />
+            </div>
           ) : (
             <div className="rounded border bg-white p-6 text-sm text-gray-500">
               Select an Interaction to view its details.
@@ -447,6 +600,28 @@ export default function InteractionsPage({
           )}
         </section>
       </div>
+
+      <Modal
+        isOpen={showEdit}
+        onClose={closeEdit}
+        title="Edit Interaction"
+        className="relative max-h-[90vh] w-[min(720px,calc(100vw-2rem))] overflow-y-auto"
+      >
+        {selected && (
+          <InteractionForm
+            key={`${facilityId}-${selected._id}`}
+            interaction={selected}
+            facilityId={facilityId}
+            facilityTimezone={facilityTimezone}
+            timezoneLabel={`Time zone: ${effectiveTimeZone(facilityTimezone)}`}
+            isAdmin={isAdmin}
+            submitting={editSubmitting}
+            error={editError}
+            onCancel={closeEdit}
+            onSubmit={saveEditedInteraction}
+          />
+        )}
+      </Modal>
 
       <Modal
         isOpen={showCreate}

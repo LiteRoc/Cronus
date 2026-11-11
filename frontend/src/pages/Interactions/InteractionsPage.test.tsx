@@ -5,6 +5,7 @@ import {
   createInteraction,
   getInteraction,
   getInteractions,
+  updateInteraction,
 } from "@/services/interactionAPI";
 
 import { getContacts } from "@/services/contactAPI";
@@ -20,6 +21,7 @@ vi.mock("@/services/interactionAPI", () => ({
   getInteractions: vi.fn(),
   getInteraction: vi.fn(),
   createInteraction: vi.fn(),
+  updateInteraction: vi.fn(),
 }));
 
 vi.mock("@/services/contactAPI", () => ({
@@ -59,9 +61,11 @@ beforeEach(() => {
   vi.mocked(getInteractions).mockReset();
   vi.mocked(getInteraction).mockReset();
   vi.mocked(createInteraction).mockReset();
+  vi.mocked(updateInteraction).mockReset();
   vi.mocked(getContacts).mockReset();
 
   vi.mocked(createInteraction).mockResolvedValue(interaction);
+  vi.mocked(updateInteraction).mockResolvedValue(interaction);
 
   vi.mocked(getContacts).mockResolvedValue({
     contacts: [],
@@ -880,5 +884,872 @@ test("pending creation cannot update a different Facility after switching", asyn
 
   expect(
     screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+});
+
+test("editing a summary sends only the changed field and preserves historical Contacts", async () => {
+  const historicalInteraction: Interaction = {
+    ...interaction,
+    occurredAt: "2026-08-25T13:30:42.500Z",
+    contactIds: ["historical-contact"],
+    summary: "Original vendor meeting",
+  };
+
+  const updatedInteraction: Interaction = {
+    ...historicalInteraction,
+    summary: "Updated vendor meeting",
+  };
+
+  vi.mocked(getInteractions).mockResolvedValue(
+    listResponse([historicalInteraction]),
+  );
+
+  vi.mocked(getInteraction).mockResolvedValue(
+    historicalInteraction,
+  );
+
+  vi.mocked(updateInteraction).mockResolvedValue(
+    updatedInteraction,
+  );
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Original vendor meeting/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  expect(
+    screen.getByLabelText("Interaction summary"),
+  ).toHaveValue("Original vendor meeting");
+
+  expect(
+    screen.getByText("Linked Contact 1"),
+  ).toBeInTheDocument();
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated vendor meeting" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      {
+        summary: "Updated vendor meeting",
+      },
+    );
+  });
+
+  expect(updateInteraction).toHaveBeenCalledTimes(1);
+
+  await waitFor(() => {
+    expect(
+      screen.queryByLabelText("Interaction summary"),
+    ).not.toBeInTheDocument();
+  });
+
+  expect(
+    screen.getByRole("heading", {
+      name: "Updated vendor meeting",
+    }),
+  ).toBeInTheDocument();
+
+  expect(updatedInteraction.contactIds).toEqual([
+    "historical-contact",
+  ]);
+
+  expect(updatedInteraction.occurredAt).toBe(
+    "2026-08-25T13:30:42.500Z",
+  );
+});
+
+test("failed Interaction edit preserves changes and allows retry", async () => {
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    summary: "Updated service agreement discussion",
+  };
+
+  vi.mocked(updateInteraction)
+    .mockRejectedValueOnce(new Error("Service unavailable"))
+    .mockResolvedValueOnce(updatedInteraction);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: {
+        value: "Updated service agreement discussion",
+      },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Unable to update the Interaction",
+  );
+
+  // The modal remains open with the edited value.
+  expect(
+    screen.getByLabelText("Interaction summary"),
+  ).toHaveValue("Updated service agreement discussion");
+
+  expect(updateInteraction).toHaveBeenCalledTimes(1);
+
+  // Retry without re-entering the information.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledTimes(2);
+  });
+
+  expect(updateInteraction).toHaveBeenLastCalledWith(
+    "facility-a",
+    "interaction-1",
+    {
+      summary: "Updated service agreement discussion",
+    },
+  );
+
+  // Successful retry closes the modal.
+  await waitFor(() => {
+    expect(
+      screen.queryByLabelText("Interaction summary"),
+    ).not.toBeInTheDocument();
+  });
+
+  // The detail panel displays the server-returned update.
+  expect(
+    screen.getByRole("heading", {
+      name: "Updated service agreement discussion",
+    }),
+  ).toBeInTheDocument();
+});
+
+test("pending Interaction edit prevents duplicate PATCH requests", async () => {
+  let resolveUpdate:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingUpdate = new Promise<Interaction>((resolve) => {
+    resolveUpdate = resolve;
+  });
+
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    summary: "Updated agreement discussion",
+  };
+
+  vi.mocked(updateInteraction).mockReturnValue(pendingUpdate);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edit Interaction" }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated agreement discussion" },
+    },
+  );
+
+  const saveButton = screen.getByRole("button", {
+    name: "Save Interaction",
+  });
+
+  fireEvent.click(saveButton);
+  fireEvent.click(saveButton);
+
+  expect(updateInteraction).toHaveBeenCalledTimes(1);
+  expect(saveButton).toBeDisabled();
+
+  await act(async () => {
+    resolveUpdate?.(updatedInteraction);
+    await pendingUpdate;
+  });
+
+  await waitFor(() => {
+    expect(
+      screen.queryByLabelText("Interaction summary"),
+    ).not.toBeInTheDocument();
+  });
+
+  expect(updateInteraction).toHaveBeenCalledTimes(1);
+
+  expect(
+    screen.getByRole("heading", {
+      name: "Updated agreement discussion",
+    }),
+  ).toBeInTheDocument();
+});
+
+test("pending Interaction edit cannot update a different Facility after switching", async () => {
+  let resolveOldUpdate:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingUpdate = new Promise<Interaction>((resolve) => {
+    resolveOldUpdate = resolve;
+  });
+
+  const restrictedInteraction: Interaction = {
+    ...interaction,
+    visibility: "restricted",
+    summary: "Restricted agreement discussion",
+    body: "Confidential negotiation details.",
+  };
+
+  const updatedRestricted: Interaction = {
+    ...restrictedInteraction,
+    summary: "Updated restricted agreement discussion",
+  };
+
+  const facilityBInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-b",
+    facilityId: "facility-b",
+    summary: "Facility B activity",
+  };
+
+  vi.mocked(getInteractions).mockImplementation(async (facilityId) => {
+    if (facilityId === "facility-b") {
+      return listResponse([facilityBInteraction]);
+    }
+
+    return listResponse([restrictedInteraction]);
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(
+    restrictedInteraction,
+  );
+
+  vi.mocked(updateInteraction).mockReturnValue(pendingUpdate);
+
+  const { rerender } = render(
+    <InteractionsPage
+      key="facility-a-admin"
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Restricted agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Confidential negotiation details."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: {
+        value: "Updated restricted agreement discussion",
+      },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      {
+        summary: "Updated restricted agreement discussion",
+      },
+    );
+  });
+
+  // Simulate the route remounting after Facility and role change.
+  rerender(
+    <InteractionsPage
+      key="facility-b-technician"
+      facilityId="facility-b"
+      facilityTimezone="America/New_York"
+      isAdmin={false}
+    />,
+  );
+
+  expect(
+    await screen.findByText("Facility B activity"),
+  ).toBeInTheDocument();
+
+  const listRequestsBeforeCompletion =
+    vi.mocked(getInteractions).mock.calls.length;
+
+  // Complete the previous administrator's PATCH after switching.
+  await act(async () => {
+    resolveOldUpdate?.(updatedRestricted);
+    await pendingUpdate;
+  });
+
+  // The stale completion must not refresh the new Facility.
+  expect(getInteractions).toHaveBeenCalledTimes(
+    listRequestsBeforeCompletion,
+  );
+
+  expect(
+    screen.getByText("Facility B activity"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Confidential negotiation details."),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Updated restricted agreement discussion"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+});
+
+test("editing an Interaction reconciles the active filtered list", async () => {
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    type: "email",
+    summary: "Updated email discussion",
+  };
+
+  let updateCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async (_facilityId, params) => {
+    if (updateCompleted && params?.type === "meeting") {
+      return listResponse([]);
+    }
+
+    return listResponse([interaction]);
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(interaction);
+
+  vi.mocked(updateInteraction).mockImplementation(async () => {
+    updateCompleted = true;
+    return updatedInteraction;
+  });
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  // Display only Meetings.
+  fireEvent.change(
+    screen.getByLabelText("Filter by type"),
+    {
+      target: { value: "meeting" },
+    },
+  );
+
+  await waitFor(() => {
+    expect(getInteractions).toHaveBeenCalledWith(
+      "facility-a",
+      expect.objectContaining({
+        type: "meeting",
+      }),
+    );
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction type"),
+    {
+      target: { value: "email" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      {
+        type: "email",
+      },
+    );
+  });
+
+  // The backend must be consulted again using the active filter.
+  await waitFor(() => {
+    const meetingRequests = vi.mocked(getInteractions).mock.calls.filter(
+      ([facilityId, params]) =>
+        facilityId === "facility-a" &&
+        params?.type === "meeting",
+    );
+
+    expect(meetingRequests.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // The edited record no longer matches the Meetings filter.
+  await waitFor(() => {
+    expect(
+      screen.queryByText("Service agreement discussion"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Updated email discussion"),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByText("Reviewed contract renewal options."),
+    ).not.toBeInTheDocument();
+  });
+
+  expect(
+    screen.getByText("No Interactions found."),
+  ).toBeInTheDocument();
+});
+
+test("failed reconciliation does not display stale Interaction data", async () => {
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    summary: "Updated service discussion",
+  };
+
+  let updateCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () => {
+    if (updateCompleted) {
+      throw new Error("List service unavailable");
+    }
+
+    return listResponse([interaction]);
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(interaction);
+
+  vi.mocked(updateInteraction).mockImplementation(async () => {
+    updateCompleted = true;
+    return updatedInteraction;
+  });
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated service discussion" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      {
+        summary: "Updated service discussion",
+      },
+    );
+  });
+
+  expect(
+    await screen.findByRole("alert"),
+  ).toHaveTextContent("Unable to load Interactions.");
+
+  // The previous activity list is no longer treated as current.
+  expect(
+    screen.queryByText("Service agreement discussion"),
+  ).not.toBeInTheDocument();
+
+  // An unverified detail selection must not survive the failed refresh.
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
+  ).not.toBeInTheDocument();
+
+  // The successful PATCH must not be repeated.
+  expect(updateInteraction).toHaveBeenCalledTimes(1);
+});
+
+test("stale edit reconciliation cannot restore another Facility's records", async () => {
+  let resolveOldList:
+    | ((value: InteractionListResponse) => void)
+    | undefined;
+
+  const pendingOldList = new Promise<InteractionListResponse>(
+    (resolve) => {
+      resolveOldList = resolve;
+    },
+  );
+
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    summary: "Updated Facility A meeting",
+  };
+
+  const facilityBInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-b",
+    facilityId: "facility-b",
+    summary: "Facility B meeting",
+  };
+
+  let facilityARequests = 0;
+
+  vi.mocked(getInteractions).mockImplementation((facilityId) => {
+    if (facilityId === "facility-b") {
+      return Promise.resolve(listResponse([facilityBInteraction]));
+    }
+
+    facilityARequests += 1;
+
+    if (facilityARequests === 1) {
+      return Promise.resolve(listResponse([interaction]));
+    }
+
+    return pendingOldList;
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(interaction);
+  vi.mocked(updateInteraction).mockResolvedValue(updatedInteraction);
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edit Interaction" }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated Facility A meeting" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Save Interaction" }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      {
+        summary: "Updated Facility A meeting",
+      },
+    );
+  });
+
+  // Wait until reconciliation has actually requested Facility A.
+  await waitFor(() => {
+    expect(facilityARequests).toBe(2);
+  });
+
+  // Change Facility without remounting the page component.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-b"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  expect(
+    await screen.findByText("Facility B meeting"),
+  ).toBeInTheDocument();
+
+  // The old reconciliation response arrives after Facility B loads.
+  await act(async () => {
+    resolveOldList?.(listResponse([updatedInteraction]));
+    await pendingOldList;
+  });
+
+  expect(
+    screen.getByText("Facility B meeting"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Updated Facility A meeting"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Service agreement discussion"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("heading", {
+      name: "Updated Facility A meeting",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(getInteractions).toHaveBeenCalledWith(
+    "facility-b",
+    expect.objectContaining({
+      page: 1,
+    }),
+  );
+});
+
+test("changing filters during edit reconciliation does not restore selection", async () => {
+  let resolveOldList:
+    | ((value: InteractionListResponse) => void)
+    | undefined;
+
+  const pendingOldList = new Promise<InteractionListResponse>(
+    (resolve) => {
+      resolveOldList = resolve;
+    },
+  );
+
+  const updatedInteraction: Interaction = {
+    ...interaction,
+    summary: "Updated service agreement discussion",
+  };
+
+  let listRequests = 0;
+
+  vi.mocked(getInteractions).mockImplementation((_facilityId, params) => {
+    listRequests += 1;
+
+    if (listRequests === 1) {
+      return Promise.resolve(listResponse([interaction]));
+    }
+
+    if (params?.type === "email") {
+      return Promise.resolve(listResponse([updatedInteraction]));
+    }
+
+    return pendingOldList;
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(interaction);
+  vi.mocked(updateInteraction).mockResolvedValue(updatedInteraction);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: {
+        value: "Updated service agreement discussion",
+      },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  // Ensure the edit-triggered refresh has started.
+  await waitFor(() => {
+    expect(listRequests).toBe(2);
+  });
+
+  // Navigate to a different filter while reconciliation is pending.
+  fireEvent.change(
+    screen.getByLabelText("Filter by type"),
+    {
+      target: { value: "email" },
+    },
+  );
+
+  await waitFor(() => {
+    expect(listRequests).toBe(3);
+  });
+
+  // The old response arrives after the new filter's response.
+  await act(async () => {
+    resolveOldList?.(listResponse([updatedInteraction]));
+    await pendingOldList;
+  });
+
+  // Even if the new list contains the same Interaction ID,
+  // changing filters must not automatically reopen its details.
+  expect(
+    screen.getByRole("button", {
+      name: /Updated service agreement discussion/,
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("heading", {
+      name: "Updated service agreement discussion",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
   ).not.toBeInTheDocument();
 });

@@ -137,7 +137,7 @@ if (input.direction !== interaction.direction) {
   changes.direction = input.direction;
 }
 
-if (input.visibility !== interaction.visibility) {
+if (isAdmin && input.visibility !== interaction.visibility) {
   changes.visibility = input.visibility;
 }
 
