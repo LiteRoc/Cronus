@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { effectiveTimeZone } from "@/pages/FollowUps/dateTime";
+import { getContact } from "@/services/contactAPI";
 import {
   archiveInteraction,
   createInteraction,
@@ -25,12 +26,16 @@ interface Props {
   facilityId: string | null;
   facilityTimezone?: string;
   isAdmin: boolean;
+  contactId?: string | null;
+  onClearContactFilter?: () => void;
 }
 
 export default function InteractionsPage({
   facilityId,
   facilityTimezone,
   isAdmin,
+  contactId = null,
+  onClearContactFilter,
 }: Props) {
   const [items, setItems] = useState<Interaction[]>([]);
   const [selected, setSelected] = useState<Interaction | null>(null);
@@ -53,6 +58,9 @@ export default function InteractionsPage({
   const [showCreate, setShowCreate] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [createLookupPending, setCreateLookupPending] = useState(false);
+  const [createLookupError, setCreateLookupError] = useState<string | null>(null);
+  const [initialCreateContacts, setInitialCreateContacts] = useState<string[]>([]);
 
   const [showEdit, setShowEdit] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -67,6 +75,9 @@ export default function InteractionsPage({
   const createGeneration = useRef(0);
   const createInFlight = useRef(false);
 
+  const createLookupGeneration = useRef(0);
+  const createLookupInFlight = useRef(false);
+
   const editGeneration = useRef(0);
   const editInFlight = useRef(false);
 
@@ -79,6 +90,7 @@ export default function InteractionsPage({
   const pendingSelectionRestore = useRef<{
     interaction: Interaction;
     facilityId: string;
+    contactId: string | null;
     search: string;
     type: InteractionType | "";
     direction: InteractionDirection | "";
@@ -92,6 +104,9 @@ export default function InteractionsPage({
   const facilityRef = useRef(facilityId);
   facilityRef.current = facilityId;
 
+  const contactFilterRef = useRef(contactId);
+  contactFilterRef.current = contactId;
+
   useEffect(() => {
     const generation = ++listGeneration.current;
 
@@ -103,6 +118,7 @@ export default function InteractionsPage({
     const restoreSelection =
       pendingSelection &&
       pendingSelection.facilityId === facilityId &&
+      pendingSelection.contactId === contactId &&
       pendingSelection.search === search &&
       pendingSelection.type === type &&
       pendingSelection.direction === direction &&
@@ -129,6 +145,7 @@ export default function InteractionsPage({
     setLoading(true);
 
     getInteractions(requestedFacility, {
+      contactId: contactId === null ? undefined : contactId,
       search: search || undefined,
       type: type || undefined,
       direction: direction || undefined,
@@ -181,14 +198,107 @@ export default function InteractionsPage({
       ++listGeneration.current;
       ++detailGeneration.current;
     };
-  }, [facilityId, search, type, direction, page, refreshVersion]);
+  }, [facilityId, contactId, search, type, direction, page, refreshVersion]);
 
   useEffect(() => {
     return () => {
+      // Discard Create responses from a previous Contact,
+      // Facility, or authorization context.
       ++createGeneration.current;
       createInFlight.current = false;
     };
-  }, [facilityId, isAdmin]);
+  }, [facilityId, contactId, isAdmin]);
+
+  useEffect(() => {
+    // Changing Contact, Facility, or role invalidates the
+    // previous context's Contact validation and Create draft.
+    setCreateLookupPending(false);
+    setCreateLookupError(null);
+    setInitialCreateContacts([]);
+    setShowCreate(false);
+    setCreateSubmitting(false);
+    setCreateError(null);
+
+    return () => {
+      // Prevent obsolete Contact validation responses
+      // from opening a Create form in the new context.
+      ++createLookupGeneration.current;
+      createLookupInFlight.current = false;
+    };
+  }, [facilityId, contactId, isAdmin]);
+
+  const openCreateInteraction = async (): Promise<void> => {
+    if (!facilityId || createLookupInFlight.current) return;
+
+    setCreateError(null);
+    setCreateLookupError(null);
+    setInitialCreateContacts([]);
+
+    // Facility-wide creation does not require a Contact lookup.
+    if (contactId === null) {
+      setShowCreate(true);
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const requestedContact = contactId;
+    const generation = ++createLookupGeneration.current;
+
+    createLookupInFlight.current = true;
+    setCreateLookupPending(true);
+
+    try {
+      const contact = await getContact(
+        requestedFacility,
+        requestedContact,
+      );
+
+      if (
+        generation !== createLookupGeneration.current ||
+        facilityRef.current !== requestedFacility ||
+        contactFilterRef.current !== requestedContact
+      ) {
+        return;
+      }
+
+      const eligible =
+        contact._id === requestedContact &&
+        contact.status === "active" &&
+        contact.archivedAt === null &&
+        contact.facilityIds.includes(requestedFacility);
+
+      if (!eligible) {
+        setCreateLookupError(
+          "The selected Contact is unavailable for Interaction creation.",
+        );
+        return;
+      }
+
+      setInitialCreateContacts([contact._id]);
+      setShowCreate(true);
+    } catch {
+      if (
+        generation !== createLookupGeneration.current ||
+        facilityRef.current !== requestedFacility ||
+        contactFilterRef.current !== requestedContact
+      ) {
+        return;
+      }
+
+      setCreateLookupError(
+        "Unable to verify the selected Contact. Please try again.",
+      );
+    } finally {
+      if (
+        generation === createLookupGeneration.current &&
+        facilityRef.current === requestedFacility &&
+        contactFilterRef.current === requestedContact
+      ) {
+        createLookupInFlight.current = false;
+        setCreateLookupPending(false);
+      }
+    }
+  };
 
   const closeCreate = () => {
     if (createInFlight.current) return;
@@ -334,6 +444,7 @@ export default function InteractionsPage({
       pendingSelectionRestore.current = {
         interaction: updated,
         facilityId: requestedFacility,
+        contactId,
         search,
         type,
         direction,
@@ -446,6 +557,7 @@ export default function InteractionsPage({
           ? {
               interaction: currentSelection,
               facilityId: requestedFacility,
+              contactId,
               search,
               type,
               direction,
@@ -559,18 +671,45 @@ export default function InteractionsPage({
 
           <Button
             type="button"
-            onClick={() => {
-              setCreateError(null);
-              setShowCreate(true);
-            }}
+            disabled={createLookupPending}
+            onClick={() => void openCreateInteraction()}
           >
-            New Interaction
+            {createLookupPending
+              ? "Verifying Contact..."
+              : "New Interaction"}
           </Button>
         </div>
         <p className="text-sm text-gray-600">
           Facility-scoped CRM activity history
         </p>
       </header>
+
+      {createLookupError && (
+        <p role="alert" className="text-sm text-red-700">
+          {createLookupError}
+        </p>
+      )}
+
+      {contactId !== null && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded border border-blue-200 bg-blue-50 p-3"
+        >
+          <p className="text-sm text-blue-900">
+            Showing Interactions for the selected Contact.
+          </p>
+
+          {onClearContactFilter && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearContactFilter}
+            >
+              Clear Contact Filter
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <form onSubmit={submitSearch} className="flex gap-2">
@@ -824,8 +963,9 @@ export default function InteractionsPage({
         className="relative max-h-[90vh] w-[min(720px,calc(100vw-2rem))] overflow-y-auto"
       >
         <InteractionForm
-          key={facilityId}
+          key={`${facilityId}:${contactId ?? ""}`}
           interaction={null}
+          initialContactIds={initialCreateContacts}
           facilityId={facilityId}
           facilityTimezone={facilityTimezone}
           timezoneLabel={`Time zone: ${effectiveTimeZone(facilityTimezone)}`}

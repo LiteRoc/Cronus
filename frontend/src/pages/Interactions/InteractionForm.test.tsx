@@ -310,3 +310,110 @@ describe("Interaction partial PATCH integrity", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
+
+test("Create preselects the supplied Contact and includes it in submission", async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+  render(
+    <InteractionForm
+      interaction={null}
+      initialContactIds={["contact-1"]}
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      timezoneLabel="Time zone: America/New_York"
+      isAdmin
+      submitting={false}
+      error={null}
+      onCancel={vi.fn()}
+      onSubmit={onSubmit}
+    />,
+  );
+
+  // The Contact is selected even if it is not on the first
+  // page returned by the Contact picker.
+  expect(
+    screen.getByLabelText("Selected Contacts"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByRole("button", {
+      name: "Remove linked Contact 1",
+    }),
+  ).toBeInTheDocument();
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Meeting with selected Contact" },
+    },
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction date and time"),
+    {
+      target: { value: "2026-08-25T09:30" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        summary: "Meeting with selected Contact",
+        contactIds: ["contact-1"],
+      }),
+    );
+  });
+
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+});
+
+test("Edit preserves historical Contacts instead of Create initial Contacts", async () => {
+  const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+  render(
+    <InteractionForm
+      interaction={existingInteraction}
+      initialContactIds={["unrelated-contact"]}
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      timezoneLabel="Time zone: America/New_York"
+      isAdmin
+      submitting={false}
+      error={null}
+      onCancel={vi.fn()}
+      onSubmit={onSubmit}
+    />,
+  );
+
+  expect(
+    screen.getByLabelText("Selected Contacts"),
+  ).toHaveTextContent("Linked Contact 1");
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated historical meeting" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(onSubmit).toHaveBeenCalledWith({
+      summary: "Updated historical meeting",
+    });
+  });
+
+  // The historical Contact relationship is untouched.
+  expect(onSubmit).toHaveBeenCalledTimes(1);
+});

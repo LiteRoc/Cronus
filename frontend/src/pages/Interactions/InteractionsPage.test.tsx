@@ -9,7 +9,7 @@ import {
   updateInteraction,
 } from "@/services/interactionAPI";
 
-import { getContacts } from "@/services/contactAPI";
+import { getContact, getContacts } from "@/services/contactAPI";
 
 import type {
   Interaction,
@@ -27,6 +27,7 @@ vi.mock("@/services/interactionAPI", () => ({
 }));
 
 vi.mock("@/services/contactAPI", () => ({
+  getContact: vi.fn(),
   getContacts: vi.fn(),
 }));
 
@@ -59,6 +60,27 @@ const listResponse = (
   totalPages,
 });
 
+const validScopedContact = {
+  _id: "contact-a",
+  organizationId: "organization-1",
+  primaryFacilityId: "facility-a",
+  facilityIds: ["facility-a"],
+  firstName: "Avery",
+  lastName: "Morgan",
+  title: "Clinical Director",
+  functionalDescription: "Clinical operations",
+  email: "avery@example.test",
+  phone: "",
+  notes: "",
+  status: "active" as const,
+  createdBy: "user-1",
+  updatedBy: "user-1",
+  createdAt: "2026-08-25T00:00:00.000Z",
+  updatedAt: "2026-08-25T00:00:00.000Z",
+  archivedAt: null,
+  archivedBy: null,
+};
+
 beforeEach(() => {
   vi.mocked(getInteractions).mockReset();
   vi.mocked(getInteraction).mockReset();
@@ -66,6 +88,8 @@ beforeEach(() => {
   vi.mocked(updateInteraction).mockReset();
   vi.mocked(archiveInteraction).mockReset();
   vi.mocked(getContacts).mockReset();
+  vi.mocked(getContact).mockReset();
+  vi.mocked(getContact).mockResolvedValue(validScopedContact);
 
   vi.mocked(createInteraction).mockResolvedValue(interaction);
   vi.mocked(updateInteraction).mockResolvedValue(interaction);
@@ -2594,4 +2618,868 @@ test("archive reconciliation clears newer selection when absent from backend res
   ).toBeInTheDocument();
 
   expect(archiveInteraction).toHaveBeenCalledTimes(1);
+});
+
+describe("Contact-scoped Interaction filtering", () => {
+  test("includes the Contact ID in Facility-scoped list requests", async () => {
+    render(
+      <InteractionsPage
+        facilityId="facility-a"
+        facilityTimezone="America/New_York"
+        isAdmin
+        contactId="contact-1"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getInteractions).toHaveBeenCalledWith(
+        "facility-a",
+        expect.objectContaining({
+          contactId: "contact-1",
+          page: 1,
+          limit: 20,
+        }),
+      );
+    });
+
+    expect(
+      screen.getByText("Showing Interactions for the selected Contact."),
+    ).toBeInTheDocument();
+  });
+
+  test("present but empty Contact ID never falls back to unfiltered history", async () => {
+    vi.mocked(getInteractions).mockRejectedValue(
+      new Error("Invalid contactId"),
+    );
+
+    render(
+      <InteractionsPage
+        facilityId="facility-a"
+        facilityTimezone="America/New_York"
+        isAdmin
+        contactId=""
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getInteractions).toHaveBeenCalledWith(
+        "facility-a",
+        expect.objectContaining({
+          contactId: "",
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText("Unable to load Interactions."),
+    ).toBeInTheDocument();
+
+    // The malformed Contact filter must remain active.
+    expect(
+      screen.getByText("Showing Interactions for the selected Contact."),
+    ).toBeInTheDocument();
+
+    expect(getInteractions).toHaveBeenCalledTimes(1);
+  });
+});
+
+test("switching Contact filters discards stale Interaction list responses", async () => {
+  let resolveOldList:
+    | ((value: InteractionListResponse) => void)
+    | undefined;
+
+  const pendingOldList = new Promise<InteractionListResponse>(
+    (resolve) => {
+      resolveOldList = resolve;
+    },
+  );
+
+  const contactAInteraction: Interaction = {
+    ...interaction,
+    contactIds: ["contact-a"],
+    summary: "Contact A agreement",
+  };
+
+  const contactBInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-b",
+    contactIds: ["contact-b"],
+    summary: "Contact B agreement",
+  };
+
+  vi.mocked(getInteractions).mockImplementation(
+    async (_facilityId, params) => {
+      if (params?.contactId === "contact-b") {
+        return listResponse([contactBInteraction]);
+      }
+
+      return pendingOldList;
+    },
+  );
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  expect(getInteractions).toHaveBeenCalledWith(
+    "facility-a",
+    expect.objectContaining({
+      contactId: "contact-a",
+    }),
+  );
+
+  // Change the Contact filter while A's request is unresolved.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-b"
+    />,
+  );
+
+  expect(
+    await screen.findByRole("button", {
+      name: /Contact B agreement/,
+    }),
+  ).toBeInTheDocument();
+
+  // Contact A's delayed response must be discarded.
+  await act(async () => {
+    resolveOldList?.(listResponse([contactAInteraction]));
+    await pendingOldList;
+  });
+
+  expect(
+    screen.getByRole("button", {
+      name: /Contact B agreement/,
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Contact A agreement"),
+  ).not.toBeInTheDocument();
+
+  expect(getInteractions).toHaveBeenCalledWith(
+    "facility-a",
+    expect.objectContaining({
+      contactId: "contact-b",
+    }),
+  );
+
+  expect(getInteractions).toHaveBeenCalledTimes(2);
+});
+
+test("Contact filter changes during Edit reconciliation do not restore stale selection", async () => {
+  let resolveOldList:
+    | ((value: InteractionListResponse) => void)
+    | undefined;
+
+  const pendingOldList = new Promise<InteractionListResponse>((resolve) => {
+    resolveOldList = resolve;
+  });
+
+  const sharedInteraction: Interaction = {
+    ...interaction,
+    contactIds: ["contact-a", "contact-b"],
+    summary: "Shared Contact meeting",
+  };
+
+  const updatedInteraction: Interaction = {
+    ...sharedInteraction,
+    summary: "Updated shared meeting",
+  };
+
+  let contactARequests = 0;
+
+  vi.mocked(getInteractions).mockImplementation((_facilityId, params) => {
+    if (params?.contactId === "contact-b") {
+      return Promise.resolve(listResponse([updatedInteraction]));
+    }
+
+    contactARequests += 1;
+
+    if (contactARequests === 1) {
+      return Promise.resolve(listResponse([sharedInteraction]));
+    }
+
+    return pendingOldList;
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(sharedInteraction);
+  vi.mocked(updateInteraction).mockResolvedValue(updatedInteraction);
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Shared Contact meeting/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  );
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "Updated shared meeting" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(updateInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+      { summary: "Updated shared meeting" },
+    );
+  });
+
+  // Wait for the Edit-triggered Contact A reconciliation.
+  await waitFor(() => {
+    expect(contactARequests).toBe(2);
+  });
+
+  // Switch to Contact B while Contact A's refresh is pending.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-b"
+    />,
+  );
+
+  expect(
+    await screen.findByRole("button", {
+      name: /Updated shared meeting/,
+    }),
+  ).toBeInTheDocument();
+
+  // Resolve the old Contact A reconciliation after B has loaded.
+  await act(async () => {
+    resolveOldList?.(listResponse([updatedInteraction]));
+    await pendingOldList;
+  });
+
+  // The record appears in B's list because it belongs to both Contacts,
+  // but Contact A's previous detail selection must not be restored.
+  expect(
+    screen.getByRole("button", {
+      name: /Updated shared meeting/,
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("heading", {
+      name: "Updated shared meeting",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
+  ).not.toBeInTheDocument();
+
+  expect(getInteractions).toHaveBeenCalledWith(
+    "facility-a",
+    expect.objectContaining({
+      contactId: "contact-b",
+    }),
+  );
+});
+
+test("creating an Interaction preserves the active Contact filter", async () => {
+  const contactInteraction: Interaction = {
+    ...interaction,
+    contactIds: ["contact-a"],
+    summary: "Contact A meeting",
+  };
+
+  const createdInteraction: Interaction = {
+    ...contactInteraction,
+    _id: "interaction-created",
+    summary: "New Contact A discussion",
+  };
+
+  let createCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(
+    async (_facilityId, params) => {
+      if (params?.contactId !== "contact-a") {
+        throw new Error("Unexpected unfiltered request");
+      }
+
+      return createCompleted
+        ? listResponse([createdInteraction, contactInteraction])
+        : listResponse([contactInteraction]);
+    },
+  );
+
+  vi.mocked(createInteraction).mockImplementation(async () => {
+    createCompleted = true;
+    return createdInteraction;
+  });
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  expect(
+    await screen.findByRole("button", {
+      name: /Contact A meeting/,
+    }),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  // Contact validation must finish before the Create form opens.
+  expect(await screen.findByLabelText("Interaction summary"))
+    .toBeInTheDocument();
+
+  expect(getContact).toHaveBeenCalledWith(
+    "facility-a",
+    "contact-a",
+  );
+
+  expect(
+    screen.getByLabelText("Selected Contacts"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByRole("button", {
+      name: "Remove linked Contact 1",
+    }),
+  ).toBeInTheDocument();
+
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: { value: "New Contact A discussion" },
+    },
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(createInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      expect.objectContaining({
+        summary: "New Contact A discussion",
+        contactIds: ["contact-a"],
+      }),
+    );
+  });
+
+  expect(createInteraction).toHaveBeenCalledTimes(1);
+
+  // The Contact filter must remain active after creation.
+  await waitFor(() => {
+    expect(getInteractions).toHaveBeenCalledTimes(2);
+  });
+
+  for (const [, params] of vi.mocked(getInteractions).mock.calls) {
+    expect(params?.contactId).toBe("contact-a");
+  }
+
+  expect(
+    screen.getByText("Showing Interactions for the selected Contact."),
+  ).toBeInTheDocument();
+
+  expect(
+    await screen.findByRole("button", {
+      name: /New Contact A discussion/,
+    }),
+  ).toBeInTheDocument();
+});
+
+describe("Contact preselection validation", () => {
+  test.each([
+    [
+      "inactive Contact",
+      { status: "inactive" as const },
+    ],
+    [
+      "archived Contact",
+      {
+        status: "archived" as const,
+        archivedAt: "2026-08-26T12:00:00.000Z",
+      },
+    ],
+    [
+      "Contact associated with another Facility",
+      {
+        primaryFacilityId: "facility-b",
+        facilityIds: ["facility-b"],
+      },
+    ],
+    [
+      "mismatched Contact ID",
+      { _id: "unexpected-contact" },
+    ],
+  ])(
+    "rejects %s before opening Interaction creation",
+    async (_scenario, overrides) => {
+      vi.mocked(getContact).mockResolvedValue({
+        ...validScopedContact,
+        ...overrides,
+      });
+
+      render(
+        <InteractionsPage
+          facilityId="facility-a"
+          facilityTimezone="America/New_York"
+          isAdmin
+          contactId="contact-a"
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "New Interaction",
+        }),
+      );
+
+      expect(
+        await screen.findByRole("alert"),
+      ).toHaveTextContent(
+        "The selected Contact is unavailable for Interaction creation.",
+      );
+
+      expect(getContact).toHaveBeenCalledWith(
+        "facility-a",
+        "contact-a",
+      );
+
+      expect(
+        screen.queryByLabelText("Interaction summary"),
+      ).not.toBeInTheDocument();
+
+      expect(createInteraction).not.toHaveBeenCalled();
+    },
+  );
+});
+
+test("switching Contact filters during validation resets Create lookup state", async () => {
+  let resolveOldLookup:
+    | ((value: typeof validScopedContact) => void)
+    | undefined;
+
+  const pendingLookup = new Promise<typeof validScopedContact>(
+    (resolve) => {
+      resolveOldLookup = resolve;
+    },
+  );
+
+  const contactB = {
+    ...validScopedContact,
+    _id: "contact-b",
+    firstName: "Jordan",
+  };
+
+  vi.mocked(getContact).mockImplementation(
+    async (_facilityId, requestedContactId) => {
+      if (requestedContactId === "contact-b") {
+        return contactB;
+      }
+
+      return pendingLookup;
+    },
+  );
+
+  vi.mocked(getInteractions).mockResolvedValue(listResponse([]));
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    screen.getByRole("button", {
+      name: "Verifying Contact...",
+    }),
+  ).toBeDisabled();
+
+  // Change Contact filters before validation completes.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-b"
+    />,
+  );
+
+  // The new Contact must not inherit A's pending validation state.
+  expect(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  ).toBeEnabled();
+
+  expect(
+    screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+
+  // Resolve Contact A's old request after switching.
+  await act(async () => {
+    resolveOldLookup?.(validScopedContact);
+    await pendingLookup;
+  });
+
+  // Stale completion must not open an old Create form.
+  expect(
+    screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+
+  // Contact B can now be validated independently.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    await screen.findByLabelText("Interaction summary"),
+  ).toBeInTheDocument();
+
+  expect(getContact).toHaveBeenCalledWith(
+    "facility-a",
+    "contact-b",
+  );
+
+  expect(
+    screen.getByRole("button", {
+      name: "Remove linked Contact 1",
+    }),
+  ).toBeInTheDocument();
+});
+
+test("changing Contact filters closes an existing Create draft", async () => {
+  vi.mocked(getInteractions).mockResolvedValue(listResponse([]));
+
+  const contactB = {
+    ...validScopedContact,
+    _id: "contact-b",
+    firstName: "Jordan",
+  };
+
+  vi.mocked(getContact).mockImplementation(
+    async (_facilityId, requestedContactId) =>
+      requestedContactId === "contact-b"
+        ? contactB
+        : validScopedContact,
+  );
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    await screen.findByLabelText("Interaction summary"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByRole("button", {
+      name: "Remove linked Contact 1",
+    }),
+  ).toBeInTheDocument();
+
+  // Begin a draft for Contact A.
+  fireEvent.change(
+    screen.getByLabelText("Interaction summary"),
+    {
+      target: {
+        value: "Confidential Contact A discussion",
+      },
+    },
+  );
+
+  // Change to Contact B without closing the modal.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-b"
+    />,
+  );
+
+  // Contact A's draft must no longer be displayed.
+  expect(
+    screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Confidential Contact A discussion"),
+  ).not.toBeInTheDocument();
+
+  // Contact B should be able to begin a fresh Interaction.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    await screen.findByLabelText("Interaction summary"),
+  ).toHaveValue("");
+
+  expect(getContact).toHaveBeenCalledWith(
+    "facility-a",
+    "contact-b",
+  );
+
+  expect(createInteraction).not.toHaveBeenCalled();
+});
+
+test("pending Create response cannot modify another Contact context", async () => {
+  let resolveOldCreate:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingCreate = new Promise<Interaction>((resolve) => {
+    resolveOldCreate = resolve;
+  });
+
+  const contactAInteraction: Interaction = {
+    ...interaction,
+    contactIds: ["contact-a"],
+    summary: "Contact A meeting",
+  };
+
+  const contactBInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-b",
+    contactIds: ["contact-b"],
+    summary: "Contact B meeting",
+  };
+
+  const createdInteraction: Interaction = {
+    ...contactAInteraction,
+    _id: "interaction-created",
+    summary: "New Contact A discussion",
+  };
+
+  vi.mocked(getInteractions).mockImplementation(async (_facilityId, params) =>
+    params?.contactId === "contact-b"
+      ? listResponse([contactBInteraction])
+      : listResponse([contactAInteraction]),
+  );
+
+  vi.mocked(getContact).mockImplementation(async (_facilityId, contactId) =>
+    contactId === "contact-b"
+      ? { ...validScopedContact, _id: "contact-b" }
+      : validScopedContact,
+  );
+
+  vi.mocked(createInteraction).mockReturnValue(pendingCreate);
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  const summary = await screen.findByLabelText("Interaction summary");
+
+  fireEvent.change(summary, {
+    target: { value: "New Contact A discussion" },
+  });
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Save Interaction",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(createInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      expect.objectContaining({
+        summary: "New Contact A discussion",
+        contactIds: ["contact-a"],
+      }),
+    );
+  });
+
+  // Switch to Contact B while Contact A's Create request is pending.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-b"
+    />,
+  );
+
+  expect(
+    await screen.findByRole("button", {
+      name: /Contact B meeting/,
+    }),
+  ).toBeInTheDocument();
+
+  const listRequestsBeforeCompletion =
+    vi.mocked(getInteractions).mock.calls.length;
+
+  // Complete Contact A's original Create request.
+  await act(async () => {
+    resolveOldCreate?.(createdInteraction);
+    await pendingCreate;
+  });
+
+  // The stale completion must not trigger another list refresh.
+  expect(getInteractions).toHaveBeenCalledTimes(
+    listRequestsBeforeCompletion,
+  );
+
+  expect(
+    screen.getByRole("button", {
+      name: /Contact B meeting/,
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("button", {
+      name: /New Contact A discussion/,
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(createInteraction).toHaveBeenCalledTimes(1);
+});
+
+test("failed Contact validation allows retry without opening an unlinked form", async () => {
+  vi.mocked(getInteractions).mockResolvedValue(listResponse([]));
+
+  vi.mocked(getContact)
+    .mockRejectedValueOnce(new Error("Contact service unavailable"))
+    .mockResolvedValueOnce(validScopedContact);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+      contactId="contact-a"
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    await screen.findByRole("alert"),
+  ).toHaveTextContent(
+    "Unable to verify the selected Contact. Please try again.",
+  );
+
+  // A failed lookup must not open an unlinked Create form.
+  expect(
+    screen.queryByLabelText("Interaction summary"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  ).toBeEnabled();
+
+  expect(getContact).toHaveBeenCalledTimes(1);
+
+  // Retry the Contact lookup.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "New Interaction",
+    }),
+  );
+
+  expect(
+    await screen.findByLabelText("Interaction summary"),
+  ).toBeInTheDocument();
+
+  expect(getContact).toHaveBeenCalledTimes(2);
+
+  expect(
+    screen.getByRole("button", {
+      name: "Remove linked Contact 1",
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText(
+      "Unable to verify the selected Contact. Please try again.",
+    ),
+  ).not.toBeInTheDocument();
+
+  expect(createInteraction).not.toHaveBeenCalled();
 });

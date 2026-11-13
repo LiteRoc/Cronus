@@ -18,6 +18,30 @@ const context = vi.hoisted(() => ({
 }));
 
 vi.mock("./ContactFollowUps", () => ({ default: () => <div>Open Follow Ups</div> }));
+
+vi.mock("./ContactInteractions", () => ({
+  default: ({
+    contactId,
+    facilityId,
+    facilityTimezone,
+    isAdmin,
+  }: {
+    contactId: string;
+    facilityId: string | null;
+    facilityTimezone?: string;
+    isAdmin: boolean;
+  }) => (
+    <div
+      data-testid="contact-interactions"
+      data-contact-id={contactId}
+      data-facility-id={facilityId ?? ""}
+      data-timezone={facilityTimezone ?? ""}
+      data-is-admin={String(isAdmin)}
+    >
+      Recent Interactions
+    </div>
+  ),
+}));
 vi.mock("@/services/contactAPI", () => api);
 vi.mock("@/context/UserContext", () => ({
   useUser: () => ({ user: { _id: "user-1", role: context.role } }),
@@ -396,4 +420,86 @@ describe("ContactsPage", () => {
     expect(alert.closest("form")).not.toBeNull();
     if (status === 500) expect(alert).not.toHaveTextContent("sensitive detail");
   });
+});
+
+test("selected Contact displays Facility-scoped Recent Interactions", async () => {
+  render(<ContactsPage />);
+
+  fireEvent.click(
+    await screen.findByText("Avery Morgan"),
+  );
+
+  const history = await screen.findByTestId(
+    "contact-interactions",
+  );
+
+  expect(history).toHaveAttribute(
+    "data-contact-id",
+    "contact-1",
+  );
+
+  expect(history).toHaveAttribute(
+    "data-facility-id",
+    "facility-primary",
+  );
+
+  expect(history).toHaveAttribute(
+    "data-is-admin",
+    "true",
+  );
+
+  expect(
+    screen.getByText("Open Follow Ups"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText("Recent Interactions"),
+  ).toBeInTheDocument();
+});
+
+test("switching Contacts updates the embedded Interaction history scope", async () => {
+  const secondContact = contact({
+    _id: "contact-2",
+    firstName: "Jordan",
+    lastName: "Lee",
+  });
+
+  api.getContacts.mockResolvedValue(
+    listResponse([contact(), secondContact]),
+  );
+
+  api.getContact.mockImplementation(
+    async (_facilityId: string, contactId: string) =>
+      contactId === "contact-2" ? secondContact : contact(),
+  );
+
+  render(<ContactsPage />);
+
+  expect(
+    screen.queryByTestId("contact-interactions"),
+  ).not.toBeInTheDocument();
+
+  fireEvent.click(
+    await screen.findByText("Avery Morgan"),
+  );
+
+  await waitFor(() => {
+    expect(
+      screen.getByTestId("contact-interactions"),
+    ).toHaveAttribute("data-contact-id", "contact-1");
+  });
+
+  fireEvent.click(
+    screen.getByText("Jordan Lee"),
+  );
+
+  await waitFor(() => {
+    expect(
+      screen.getByTestId("contact-interactions"),
+    ).toHaveAttribute("data-contact-id", "contact-2");
+  });
+
+  expect(
+    screen.getByText("Open Follow Ups"),
+  ).toBeInTheDocument();
 });

@@ -18,6 +18,7 @@ import {
 
 interface Props {
   interaction?: Interaction | null;
+  initialContactIds?: string[];
   facilityId: string;
   facilityTimezone?: string;
   timezoneLabel: string;
@@ -47,6 +48,7 @@ const DIRECTIONS: Array<{
 
 export default function InteractionForm({
   interaction,
+  initialContactIds = [],
   facilityId,
   facilityTimezone,
   timezoneLabel,
@@ -66,7 +68,7 @@ export default function InteractionForm({
     body: interaction?.body ?? "",
     direction: interaction?.direction ?? ("internal" as InteractionDirection),
     visibility: interaction?.visibility ?? ("operational" as InteractionVisibility),
-    contactIds: interaction?.contactIds ?? [],
+    contactIds: interaction?.contactIds ?? [...initialContactIds],
   });
 
   const [validationError, setValidationError] = useState<string | null>(null);

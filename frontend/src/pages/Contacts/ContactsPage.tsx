@@ -12,6 +12,7 @@ import type { Contact, ContactDuplicateWarning, ContactInput } from "@/types/Con
 import ContactForm from "./ContactForm";
 import ContactWarnings from "./ContactWarnings";
 import ContactFollowUps from "./ContactFollowUps";
+import ContactInteractions from "./ContactInteractions";
 
 const errorMessage = (error: unknown) => {
   if (!axios.isAxiosError(error)) return "Contact operation failed. Please try again.";
@@ -248,6 +249,18 @@ export default function ContactsPage() {
               </dl>
               <div><h3 className="text-sm font-semibold text-gray-800">Associated Facilities</h3><ul className="mt-2 space-y-2 text-sm">{selected.facilityIds.map((id) => <li key={id} className="flex items-center gap-2"><span>{facilityNames.get(id) ?? "Facility"}</span>{id === selected.primaryFacilityId && <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">Primary</span>}</li>)}</ul></div>
               <ContactFollowUps contactId={selected._id} />
+
+              <ContactInteractions
+                key={`${user?._id}:${role}:${selectedFacilityId}:${selected._id}`}
+                contactId={selected._id}
+                facilityId={selectedFacilityId}
+                facilityTimezone={
+                  availableFacilities.find(
+                    (facility) => facility._id === selectedFacilityId,
+                  )?.timezone
+                }
+                isAdmin={isAdmin}
+              />
               {canEditSelected && <div className="flex flex-wrap gap-3"><Button onClick={() => { setWarnings([]); setError(null); setFormError(null); setFormMode("edit"); }}>Edit Contact</Button>{isAdmin && <Button variant="destructive" disabled={submitting} onClick={() => void archiveSelected()}>Archive Contact</Button>}</div>}
             </div>
           ) : <p className="text-sm text-gray-500">Select a Contact to view details.</p>}

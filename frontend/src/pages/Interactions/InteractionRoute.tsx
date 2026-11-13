@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 
 import { useFacility } from "@/context/FacilityContext";
 import { useUser } from "@/context/UserContext";
@@ -17,6 +17,21 @@ export default function InteractionRoute({
 }) {
   const { user } = useUser();
   const { selectedFacilityId, availableFacilities } = useFacility();
+  const [urlParams, setUrlParams] = useSearchParams();
+
+  // Preserve a present-but-invalid Contact ID so the backend
+  // can reject it rather than silently loading Facility-wide data.
+  const contactId = urlParams.has("contactId")
+    ? (urlParams.get("contactId") ?? "")
+    : null;
+
+  const clearContactFilter = () => {
+    setUrlParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("contactId");
+      return next;
+    });
+  };
 
   const facilityTimezone = availableFacilities?.find(
     (facility) => facility._id === selectedFacilityId,
@@ -38,6 +53,8 @@ export default function InteractionRoute({
       facilityId={selectedFacilityId}
       facilityTimezone={facilityTimezone}
       isAdmin={user?.role === "admin"}
+      contactId={contactId}
+      onClearContactFilter={clearContactFilter}
     />
   );
 }
