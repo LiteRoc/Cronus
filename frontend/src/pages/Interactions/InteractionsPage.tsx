@@ -1,0 +1,981 @@
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { effectiveTimeZone } from "@/pages/FollowUps/dateTime";
+import { getContact } from "@/services/contactAPI";
+import {
+  archiveInteraction,
+  createInteraction,
+  getInteraction,
+  getInteractions,
+  updateInteraction,
+} from "@/services/interactionAPI";
+
+import Modal from "@/components/Modal";
+import { Button } from "@/components/ui";
+
+import type {
+  Interaction,
+  InteractionDirection,
+  InteractionInput,
+  InteractionType,
+} from "@/types/Interaction";
+
+import InteractionDetail from "./InteractionDetail";
+import InteractionForm from "./InteractionForm";
+
+interface Props {
+  facilityId: string | null;
+  facilityTimezone?: string;
+  isAdmin: boolean;
+  contactId?: string | null;
+  onClearContactFilter?: () => void;
+}
+
+export default function InteractionsPage({
+  facilityId,
+  facilityTimezone,
+  isAdmin,
+  contactId = null,
+  onClearContactFilter,
+}: Props) {
+  const [items, setItems] = useState<Interaction[]>([]);
+  const [selected, setSelected] = useState<Interaction | null>(null);
+
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  const [type, setType] = useState<InteractionType | "">("");
+  const [direction, setDirection] =
+    useState<InteractionDirection | "">("");
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [total, setTotal] = useState(0);
+
+  const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createLookupPending, setCreateLookupPending] = useState(false);
+  const [createLookupError, setCreateLookupError] = useState<string | null>(null);
+  const [initialCreateContacts, setInitialCreateContacts] = useState<string[]>([]);
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [archiveTarget, setArchiveTarget] = useState<Interaction | null>(null);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const createGeneration = useRef(0);
+  const createInFlight = useRef(false);
+
+  const createLookupGeneration = useRef(0);
+  const createLookupInFlight = useRef(false);
+
+  const editGeneration = useRef(0);
+  const editInFlight = useRef(false);
+
+  const archiveGeneration = useRef(0);
+  const archiveInFlight = useRef(false);
+
+  const listGeneration = useRef(0);
+  const detailGeneration = useRef(0);
+
+  const pendingSelectionRestore = useRef<{
+    interaction: Interaction;
+    facilityId: string;
+    contactId: string | null;
+    search: string;
+    type: InteractionType | "";
+    direction: InteractionDirection | "";
+    page: number;
+    isAdmin: boolean;
+  } | null>(null);
+
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
+  const facilityRef = useRef(facilityId);
+  facilityRef.current = facilityId;
+
+  const contactFilterRef = useRef(contactId);
+  contactFilterRef.current = contactId;
+
+  useEffect(() => {
+    const generation = ++listGeneration.current;
+
+    // Preserve the edited record only for this reconciliation request.
+    // Ordinary filter, pagination, and Facility changes clear selection.
+    const pendingSelection = pendingSelectionRestore.current;
+    pendingSelectionRestore.current = null;
+
+    const restoreSelection =
+      pendingSelection &&
+      pendingSelection.facilityId === facilityId &&
+      pendingSelection.contactId === contactId &&
+      pendingSelection.search === search &&
+      pendingSelection.type === type &&
+      pendingSelection.direction === direction &&
+      pendingSelection.page === page &&
+      pendingSelection.isAdmin === isAdmin
+        ? pendingSelection.interaction
+        : null;
+
+    // A new list invalidates the previous detail selection.
+    ++detailGeneration.current;
+    setSelected(null);
+    setItems([]);
+    setTotal(0);
+    setTotalPages(0);
+    setDetailLoading(false);
+    setError(null);
+
+    if (!facilityId) {
+      setLoading(false);
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    setLoading(true);
+
+    getInteractions(requestedFacility, {
+      contactId: contactId === null ? undefined : contactId,
+      search: search || undefined,
+      type: type || undefined,
+      direction: direction || undefined,
+      page,
+      limit: 20,
+    })
+      .then((result) => {
+        if (
+          generation !== listGeneration.current ||
+          facilityRef.current !== requestedFacility
+        ) {
+          return;
+        }
+
+        setItems(result.interactions);
+        setTotal(result.total);
+        setTotalPages(result.totalPages);
+
+        if (restoreSelection) {
+          const remainsVisible = result.interactions.some(
+            (item) =>
+              item._id === restoreSelection._id &&
+              item.facilityId === requestedFacility &&
+              (isAdmin || item.visibility === "operational"),
+          );
+
+          setSelected(remainsVisible ? restoreSelection : null);
+        }
+      })
+      .catch(() => {
+        if (
+          generation !== listGeneration.current ||
+          facilityRef.current !== requestedFacility
+        ) {
+          return;
+        }
+
+        setError("Unable to load Interactions.");
+      })
+      .finally(() => {
+        if (
+          generation === listGeneration.current &&
+          facilityRef.current === requestedFacility
+        ) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ++listGeneration.current;
+      ++detailGeneration.current;
+    };
+  }, [facilityId, contactId, search, type, direction, page, refreshVersion]);
+
+  useEffect(() => {
+    return () => {
+      // Discard Create responses from a previous Contact,
+      // Facility, or authorization context.
+      ++createGeneration.current;
+      createInFlight.current = false;
+    };
+  }, [facilityId, contactId, isAdmin]);
+
+  useEffect(() => {
+    // Changing Contact, Facility, or role invalidates the
+    // previous context's Contact validation and Create draft.
+    setCreateLookupPending(false);
+    setCreateLookupError(null);
+    setInitialCreateContacts([]);
+    setShowCreate(false);
+    setCreateSubmitting(false);
+    setCreateError(null);
+
+    return () => {
+      // Prevent obsolete Contact validation responses
+      // from opening a Create form in the new context.
+      ++createLookupGeneration.current;
+      createLookupInFlight.current = false;
+    };
+  }, [facilityId, contactId, isAdmin]);
+
+  const openCreateInteraction = async (): Promise<void> => {
+    if (!facilityId || createLookupInFlight.current) return;
+
+    setCreateError(null);
+    setCreateLookupError(null);
+    setInitialCreateContacts([]);
+
+    // Facility-wide creation does not require a Contact lookup.
+    if (contactId === null) {
+      setShowCreate(true);
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const requestedContact = contactId;
+    const generation = ++createLookupGeneration.current;
+
+    createLookupInFlight.current = true;
+    setCreateLookupPending(true);
+
+    try {
+      const contact = await getContact(
+        requestedFacility,
+        requestedContact,
+      );
+
+      if (
+        generation !== createLookupGeneration.current ||
+        facilityRef.current !== requestedFacility ||
+        contactFilterRef.current !== requestedContact
+      ) {
+        return;
+      }
+
+      const eligible =
+        contact._id === requestedContact &&
+        contact.status === "active" &&
+        contact.archivedAt === null &&
+        contact.facilityIds.includes(requestedFacility);
+
+      if (!eligible) {
+        setCreateLookupError(
+          "The selected Contact is unavailable for Interaction creation.",
+        );
+        return;
+      }
+
+      setInitialCreateContacts([contact._id]);
+      setShowCreate(true);
+    } catch {
+      if (
+        generation !== createLookupGeneration.current ||
+        facilityRef.current !== requestedFacility ||
+        contactFilterRef.current !== requestedContact
+      ) {
+        return;
+      }
+
+      setCreateLookupError(
+        "Unable to verify the selected Contact. Please try again.",
+      );
+    } finally {
+      if (
+        generation === createLookupGeneration.current &&
+        facilityRef.current === requestedFacility &&
+        contactFilterRef.current === requestedContact
+      ) {
+        createLookupInFlight.current = false;
+        setCreateLookupPending(false);
+      }
+    }
+  };
+
+  const closeCreate = () => {
+    if (createInFlight.current) return;
+
+    setShowCreate(false);
+    setCreateError(null);
+  };
+
+  const saveNewInteraction = async (
+    input: Partial<InteractionInput>,
+  ): Promise<void> => {
+    if (!facilityId || createInFlight.current) return;
+
+    if (
+      !input.type ||
+      !input.occurredAt ||
+      !input.summary ||
+      !input.direction
+    ) {
+      setCreateError("Complete the required Interaction fields.");
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const generation = ++createGeneration.current;
+
+    const createInput: InteractionInput = {
+      type: input.type,
+      occurredAt: input.occurredAt,
+      summary: input.summary,
+      direction: input.direction,
+      body: input.body,
+      visibility: isAdmin ? input.visibility : "operational",
+      contactIds: input.contactIds,
+    };
+
+    createInFlight.current = true;
+    setCreateSubmitting(true);
+    setCreateError(null);
+
+    try {
+      await createInteraction(requestedFacility, createInput);
+
+      if (
+        generation !== createGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setShowCreate(false);
+      setCreateError(null);
+
+      // Reset filters so the refreshed first page can show
+      // newly created activity according to backend ordering.
+      setSearchInput("");
+      setSearch("");
+      setType("");
+      setDirection("");
+      setPage(1);
+
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== createGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      // Keep the form mounted, preserving the user's input.
+      setCreateError(
+        "Unable to create the Interaction. Check the information and try again.",
+      );
+    } finally {
+      if (
+        generation === createGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        createInFlight.current = false;
+        setCreateSubmitting(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      ++editGeneration.current;
+      editInFlight.current = false;
+    };
+  }, [facilityId, isAdmin]);
+
+  const closeEdit = () => {
+    if (editInFlight.current) return;
+
+    setShowEdit(false);
+    setEditError(null);
+  };
+
+  const saveEditedInteraction = async (
+    input: Partial<InteractionInput>,
+  ): Promise<void> => {
+    if (!facilityId || !selected || editInFlight.current) return;
+
+    if (selected.facilityId !== facilityId) return;
+
+    const requestedFacility = facilityId;
+    const interactionId = selected._id;
+    const generation = ++editGeneration.current;
+
+    editInFlight.current = true;
+    setEditSubmitting(true);
+    setEditError(null);
+
+    try {
+      const updated = await updateInteraction(
+        requestedFacility,
+        interactionId,
+        input,
+      );
+
+      if (
+        generation !== editGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      if (
+        updated._id !== interactionId ||
+        updated.facilityId !== requestedFacility ||
+        (!isAdmin && updated.visibility !== "operational")
+      ) {
+        setShowEdit(false);
+        setSelected(null);
+        setEditError(null);
+        setError("The updated Interaction is unavailable.");
+        return;
+      }
+
+      // Preserve the server-returned record only if the refreshed
+      // backend list still includes it.
+      pendingSelectionRestore.current = {
+        interaction: updated,
+        facilityId: requestedFacility,
+        contactId,
+        search,
+        type,
+        direction,
+        page,
+        isAdmin,
+      };
+
+      setShowEdit(false);
+      setEditError(null);
+
+      // Reapply the current filters and pagination through the backend.
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== editGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setEditError(
+        "Unable to update the Interaction. Check the information and try again.",
+      );
+    } finally {
+      if (
+        generation === editGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        editInFlight.current = false;
+        setEditSubmitting(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setArchiveTarget(null);
+    setArchiveError(null);
+
+    return () => {
+      ++archiveGeneration.current;
+      archiveInFlight.current = false;
+    };
+  }, [facilityId, isAdmin]);
+
+  const closeArchive = () => {
+    if (archiveInFlight.current) return;
+
+    setArchiveTarget(null);
+    setArchiveError(null);
+  };
+
+  const confirmArchive = async (): Promise<void> => {
+    if (
+      !isAdmin ||
+      !facilityId ||
+      !archiveTarget ||
+      !selected ||
+      archiveInFlight.current
+    ) {
+      return;
+    }
+
+    if (
+      archiveTarget.facilityId !== facilityId ||
+      selected._id !== archiveTarget._id
+    ) {
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const interactionId = archiveTarget._id;
+    const generation = ++archiveGeneration.current;
+
+    archiveInFlight.current = true;
+    setArchiveSubmitting(true);
+    setArchiveError(null);
+
+    try {
+      const archived = await archiveInteraction(
+        requestedFacility,
+        interactionId,
+      );
+
+      if (
+        generation !== archiveGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      if (
+        archived._id !== interactionId ||
+        archived.facilityId !== requestedFacility ||
+        !archived.archivedAt
+      ) {
+        setArchiveError(
+          "Unable to verify the archive result. Refresh before retrying.",
+        );
+        return;
+      }
+
+      // Preserve a newer selection only if the refreshed backend list
+      // confirms that it remains active and visible.
+      const currentSelection = selectedRef.current;
+
+      pendingSelectionRestore.current =
+        currentSelection &&
+        currentSelection._id !== interactionId &&
+        currentSelection.facilityId === requestedFacility
+          ? {
+              interaction: currentSelection,
+              facilityId: requestedFacility,
+              contactId,
+              search,
+              type,
+              direction,
+              page,
+              isAdmin,
+            }
+          : null;
+
+      // Invalidate outstanding detail requests and let the authoritative
+      // list determine whether the newer selection can be restored.
+      ++detailGeneration.current;
+      setSelected(null);
+
+      setArchiveTarget(null);
+      setArchiveError(null);
+
+      // Reload active Interactions, excluding the archived record.
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== archiveGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setArchiveError(
+        "Unable to archive the Interaction. Please try again.",
+      );
+    } finally {
+      if (
+        generation === archiveGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        archiveInFlight.current = false;
+        setArchiveSubmitting(false);
+      }
+    }
+  };
+
+  const openInteraction = async (interactionId: string) => {
+    if (!facilityId) return;
+
+    const requestedFacility = facilityId;
+    const generation = ++detailGeneration.current;
+
+    setSelected(null);
+    setDetailLoading(true);
+    setError(null);
+
+    try {
+      const interaction = await getInteraction(
+        requestedFacility,
+        interactionId,
+      );
+
+      if (
+        generation !== detailGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      if (
+        interaction.facilityId !== requestedFacility ||
+        (!isAdmin && interaction.visibility !== "operational")
+      ) {
+        setError("This Interaction is unavailable.");
+        return;
+      }
+
+      setSelected(interaction);
+    } catch {
+      if (
+        generation !== detailGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setError("Unable to load Interaction details.");
+    } finally {
+      if (
+        generation === detailGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        setDetailLoading(false);
+      }
+    }
+  };
+
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    setPage(1);
+    setSearch(searchInput.trim());
+  };
+
+  if (!facilityId) {
+    return (
+      <div className="p-6" role="status">
+        Select a Facility to view Interactions.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 p-6">
+      <header>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Interactions</h1>
+
+          <Button
+            type="button"
+            disabled={createLookupPending}
+            onClick={() => void openCreateInteraction()}
+          >
+            {createLookupPending
+              ? "Verifying Contact..."
+              : "New Interaction"}
+          </Button>
+        </div>
+        <p className="text-sm text-gray-600">
+          Facility-scoped CRM activity history
+        </p>
+      </header>
+
+      {createLookupError && (
+        <p role="alert" className="text-sm text-red-700">
+          {createLookupError}
+        </p>
+      )}
+
+      {contactId !== null && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded border border-blue-200 bg-blue-50 p-3"
+        >
+          <p className="text-sm text-blue-900">
+            Showing Interactions for the selected Contact.
+          </p>
+
+          {onClearContactFilter && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearContactFilter}
+            >
+              Clear Contact Filter
+            </Button>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <form onSubmit={submitSearch} className="flex gap-2">
+          <input
+            aria-label="Search Interactions"
+            className="rounded border px-3 py-2"
+            placeholder="Search activity"
+            value={searchInput}
+            onChange={(event) =>
+              setSearchInput(event.target.value)
+            }
+          />
+          <button
+            className="rounded bg-blue-600 px-4 py-2 text-white"
+            type="submit"
+          >
+            Search
+          </button>
+        </form>
+
+        <select
+          aria-label="Filter by type"
+          className="rounded border px-3 py-2"
+          value={type}
+          onChange={(event) => {
+            setPage(1);
+            setType(event.target.value as InteractionType | "");
+          }}
+        >
+          <option value="">All types</option>
+          <option value="meeting">Meeting</option>
+          <option value="call">Call</option>
+          <option value="email">Email</option>
+          <option value="site_visit">Site Visit</option>
+          <option value="note">Note</option>
+        </select>
+
+        <select
+          aria-label="Filter by direction"
+          className="rounded border px-3 py-2"
+          value={direction}
+          onChange={(event) => {
+            setPage(1);
+            setDirection(
+              event.target.value as InteractionDirection | "",
+            );
+          }}
+        >
+          <option value="">All directions</option>
+          <option value="inbound">Inbound</option>
+          <option value="outbound">Outbound</option>
+          <option value="internal">Internal</option>
+        </select>
+      </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-red-700">
+          {error}
+        </p>
+      )}
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section aria-label="Activity history" className="space-y-3">
+          <h2 className="font-semibold">
+            Activity History ({total})
+          </h2>
+
+          {loading ? (
+            <p role="status">Loading Interactions…</p>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No Interactions found.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {items.map((interaction) => (
+                <button
+                  key={interaction._id}
+                  type="button"
+                  className="w-full rounded border bg-white p-4 text-left hover:bg-gray-50"
+                  onClick={() =>
+                    void openInteraction(interaction._id)
+                  }
+                >
+                  <div className="flex justify-between gap-3">
+                    <span className="font-medium">
+                      {interaction.summary}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {new Intl.DateTimeFormat(undefined, {
+                        timeZone: effectiveTimeZone(facilityTimezone),
+                        dateStyle: "medium",
+                      }).format(new Date(interaction.occurredAt))}
+                    </span>
+                  </div>
+
+                  <p className="mt-1 text-xs capitalize text-gray-500">
+                    {interaction.type.replace("_", " ")}
+                    {" · "}
+                    {interaction.direction}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((current) => current - 1)}
+            >
+              Previous
+            </button>
+
+            <span className="text-sm">
+              Page {page} of {Math.max(totalPages, 1)}
+            </span>
+
+            <button
+              type="button"
+              disabled={loading || page >= totalPages}
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </section>
+
+        <section aria-label="Interaction details">
+          {detailLoading ? (
+            <p role="status">Loading details…</p>
+          ) : selected ? (
+            <div className="space-y-3">
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditError(null);
+                    setShowEdit(true);
+                  }}
+                >
+                  Edit Interaction
+                </Button>
+
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      setArchiveError(null);
+                      setArchiveTarget(selected);
+                    }}
+                  >
+                    Archive Interaction
+                  </Button>
+                )}
+              </div>
+
+              <InteractionDetail
+                interaction={selected}
+                facilityTimezone={facilityTimezone}
+                isAdmin={isAdmin}
+              />
+            </div>
+          ) : (
+            <div className="rounded border bg-white p-6 text-sm text-gray-500">
+              Select an Interaction to view its details.
+            </div>
+          )}
+        </section>
+      </div>
+
+      <Modal
+        isOpen={archiveTarget !== null}
+        onClose={closeArchive}
+        title="Archive Interaction?"
+        className="relative w-[min(520px,calc(100vw-2rem))]"
+      >
+        {archiveTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              You are about to archive:
+            </p>
+
+            <p className="font-semibold">
+              {archiveTarget.summary}
+            </p>
+
+            <p className="text-sm text-gray-600">
+              This Interaction will be removed from active activity
+              history. Its historical record will be retained.
+            </p>
+
+            {archiveError && (
+              <p role="alert" className="text-sm text-red-700">
+                {archiveError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                disabled={archiveSubmitting}
+                onClick={closeArchive}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={archiveSubmitting}
+                onClick={() => void confirmArchive()}
+              >
+                {archiveSubmitting
+                  ? "Archiving..."
+                  : "Confirm Archive"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={showEdit}
+        onClose={closeEdit}
+        title="Edit Interaction"
+        className="relative max-h-[90vh] w-[min(720px,calc(100vw-2rem))] overflow-y-auto"
+      >
+        {selected && (
+          <InteractionForm
+            key={`${facilityId}-${selected._id}`}
+            interaction={selected}
+            facilityId={facilityId}
+            facilityTimezone={facilityTimezone}
+            timezoneLabel={`Time zone: ${effectiveTimeZone(facilityTimezone)}`}
+            isAdmin={isAdmin}
+            submitting={editSubmitting}
+            error={editError}
+            onCancel={closeEdit}
+            onSubmit={saveEditedInteraction}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={showCreate}
+        onClose={closeCreate}
+        title="New Interaction"
+        className="relative max-h-[90vh] w-[min(720px,calc(100vw-2rem))] overflow-y-auto"
+      >
+        <InteractionForm
+          key={`${facilityId}:${contactId ?? ""}`}
+          interaction={null}
+          initialContactIds={initialCreateContacts}
+          facilityId={facilityId}
+          facilityTimezone={facilityTimezone}
+          timezoneLabel={`Time zone: ${effectiveTimeZone(facilityTimezone)}`}
+          isAdmin={isAdmin}
+          submitting={createSubmitting}
+          error={createError}
+          onCancel={closeCreate}
+          onSubmit={saveNewInteraction}
+        />
+      </Modal>
+    </div>
+  );
+}
