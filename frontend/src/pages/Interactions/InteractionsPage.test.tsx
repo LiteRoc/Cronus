@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  archiveInteraction,
   createInteraction,
   getInteraction,
   getInteractions,
@@ -22,6 +23,7 @@ vi.mock("@/services/interactionAPI", () => ({
   getInteraction: vi.fn(),
   createInteraction: vi.fn(),
   updateInteraction: vi.fn(),
+  archiveInteraction: vi.fn(),
 }));
 
 vi.mock("@/services/contactAPI", () => ({
@@ -62,10 +64,16 @@ beforeEach(() => {
   vi.mocked(getInteraction).mockReset();
   vi.mocked(createInteraction).mockReset();
   vi.mocked(updateInteraction).mockReset();
+  vi.mocked(archiveInteraction).mockReset();
   vi.mocked(getContacts).mockReset();
 
   vi.mocked(createInteraction).mockResolvedValue(interaction);
   vi.mocked(updateInteraction).mockResolvedValue(interaction);
+  vi.mocked(archiveInteraction).mockResolvedValue({
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  });
 
   vi.mocked(getContacts).mockResolvedValue({
     contacts: [],
@@ -1752,4 +1760,838 @@ test("changing filters during edit reconciliation does not restore selection", a
   expect(
     screen.queryByText("Reviewed contract renewal options."),
   ).not.toBeInTheDocument();
+});
+
+test("administrator can open and cancel Interaction archive confirmation", async () => {
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  expect(
+    screen.getByText("Archive Interaction?"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText(
+      /This Interaction will be removed from active activity/,
+    ),
+  ).toBeInTheDocument();
+
+  expect(archiveInteraction).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Cancel",
+    }),
+  );
+
+  expect(
+    screen.queryByText("Archive Interaction?"),
+  ).not.toBeInTheDocument();
+
+  expect(archiveInteraction).not.toHaveBeenCalled();
+
+  // Cancelling preserves the existing detail selection.
+  expect(
+    screen.getByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+});
+
+test("successful Interaction archive refreshes active history and clears details", async () => {
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  let archiveCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () => {
+    return archiveCompleted
+      ? listResponse([])
+      : listResponse([interaction]);
+  });
+
+  vi.mocked(getInteraction).mockResolvedValue(interaction);
+
+  vi.mocked(archiveInteraction).mockImplementation(async () => {
+    archiveCompleted = true;
+    return archivedInteraction;
+  });
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  expect(archiveInteraction).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(archiveInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+    );
+  });
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
+
+  // Confirm that the active list is refreshed after archiving.
+  await waitFor(() => {
+    expect(getInteractions).toHaveBeenCalledTimes(2);
+  });
+
+  // The backend's empty active list is authoritative.
+  expect(
+    await screen.findByText("No Interactions found."),
+  ).toBeInTheDocument();
+
+  // The archived record must not remain selected.
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Archive Interaction",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Archive Interaction?"),
+  ).not.toBeInTheDocument();
+});
+
+test("technician cannot access Interaction archive action", async () => {
+  const operationalInteraction: Interaction = {
+    ...interaction,
+    visibility: "operational",
+  };
+
+  vi.mocked(getInteractions).mockResolvedValue(
+    listResponse([operationalInteraction]),
+  );
+
+  vi.mocked(getInteraction).mockResolvedValue(
+    operationalInteraction,
+  );
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin={false}
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  // Technicians retain their existing Edit capability.
+  expect(
+    screen.getByRole("button", {
+      name: "Edit Interaction",
+    }),
+  ).toBeInTheDocument();
+
+  // Archive is an administrator-only action.
+  expect(
+    screen.queryByRole("button", {
+      name: "Archive Interaction",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Confirm Archive",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(archiveInteraction).not.toHaveBeenCalled();
+});
+
+test("failed Interaction archive preserves confirmation and allows retry", async () => {
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  let archiveCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () =>
+    archiveCompleted
+      ? listResponse([])
+      : listResponse([interaction]),
+  );
+
+  vi.mocked(archiveInteraction)
+    .mockRejectedValueOnce(new Error("Service unavailable"))
+    .mockImplementationOnce(async () => {
+      archiveCompleted = true;
+      return archivedInteraction;
+    });
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  expect(
+    await screen.findByRole("alert"),
+  ).toHaveTextContent(
+    "Unable to archive the Interaction. Please try again.",
+  );
+
+  // The confirmation remains open after failure.
+  expect(
+    screen.getByText("Archive Interaction?"),
+  ).toBeInTheDocument();
+
+  // The selected Interaction remains available.
+  expect(
+    screen.getByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
+
+  // Retry the same operation.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(archiveInteraction).toHaveBeenCalledTimes(2);
+  });
+
+  expect(archiveInteraction).toHaveBeenLastCalledWith(
+    "facility-a",
+    "interaction-1",
+  );
+
+  // The successful retry refreshes the active list.
+  expect(
+    await screen.findByText("No Interactions found."),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Archive Interaction?"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
+  ).not.toBeInTheDocument();
+});
+
+test("pending Interaction archive prevents duplicate PATCH requests", async () => {
+  let resolveArchive:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingArchive = new Promise<Interaction>((resolve) => {
+    resolveArchive = resolve;
+  });
+
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  let archiveCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () =>
+    archiveCompleted
+      ? listResponse([])
+      : listResponse([interaction]),
+  );
+
+  vi.mocked(archiveInteraction).mockReturnValue(pendingArchive);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  const confirmButton = screen.getByRole("button", {
+    name: "Confirm Archive",
+  });
+
+  // Attempt to submit twice while the first request is pending.
+  fireEvent.click(confirmButton);
+  fireEvent.click(confirmButton);
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
+
+  expect(
+    screen.getByRole("button", {
+      name: "Archiving...",
+    }),
+  ).toBeDisabled();
+
+  // Complete the pending archive.
+  await act(async () => {
+    archiveCompleted = true;
+    resolveArchive?.(archivedInteraction);
+    await pendingArchive;
+  });
+
+  expect(
+    await screen.findByText("No Interactions found."),
+  ).toBeInTheDocument();
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
+
+  expect(
+    screen.queryByText("Archive Interaction?"),
+  ).not.toBeInTheDocument();
+});
+
+test("pending Interaction archive cannot modify another Facility after switching", async () => {
+  let resolveOldArchive:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingArchive = new Promise<Interaction>((resolve) => {
+    resolveOldArchive = resolve;
+  });
+
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  const facilityBInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-b",
+    facilityId: "facility-b",
+    summary: "Facility B meeting",
+  };
+
+  vi.mocked(getInteractions).mockImplementation(async (facilityId) => {
+    return facilityId === "facility-b"
+      ? listResponse([facilityBInteraction])
+      : listResponse([interaction]);
+  });
+
+  vi.mocked(getInteraction).mockImplementation(async (_facilityId, interactionId) => {
+    return interactionId === "interaction-b"
+      ? facilityBInteraction
+      : interaction;
+  });
+
+  vi.mocked(archiveInteraction).mockReturnValue(pendingArchive);
+
+  const { rerender } = render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(archiveInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+    );
+  });
+
+  // Switch Facilities without remounting the component.
+  rerender(
+    <InteractionsPage
+      facilityId="facility-b"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  expect(
+    await screen.findByText("Facility B meeting"),
+  ).toBeInTheDocument();
+
+  const listRequestsBeforeCompletion =
+    vi.mocked(getInteractions).mock.calls.length;
+
+  // The old archive response arrives after Facility B has loaded.
+  await act(async () => {
+    resolveOldArchive?.(archivedInteraction);
+    await pendingArchive;
+  });
+
+  // The old completion must not refresh Facility B.
+  expect(getInteractions).toHaveBeenCalledTimes(
+    listRequestsBeforeCompletion,
+  );
+
+  expect(
+    screen.getByText("Facility B meeting"),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Service agreement discussion"),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Archive Interaction?"),
+  ).not.toBeInTheDocument();
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  [
+    "mismatched Interaction ID",
+    {
+      ...interaction,
+      _id: "unexpected-interaction",
+      archivedAt: "2026-08-26T12:00:00.000Z",
+      archivedBy: "user-1",
+    },
+  ],
+  [
+    "mismatched Facility ID",
+    {
+      ...interaction,
+      facilityId: "facility-b",
+      archivedAt: "2026-08-26T12:00:00.000Z",
+      archivedBy: "user-1",
+    },
+  ],
+  [
+    "missing archive timestamp",
+    {
+      ...interaction,
+      archivedAt: null,
+      archivedBy: null,
+    },
+  ],
+])(
+  "unexpected archive response (%s) does not report verified success",
+  async (_scenario, response) => {
+    vi.mocked(archiveInteraction).mockResolvedValue(
+      response as Interaction,
+    );
+
+    render(
+      <InteractionsPage
+        facilityId="facility-a"
+        facilityTimezone="America/New_York"
+        isAdmin
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Service agreement discussion/,
+      }),
+    );
+
+    expect(
+      await screen.findByText("Reviewed contract renewal options."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Archive Interaction",
+      }),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Confirm Archive",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent(
+      "Unable to verify the archive result. Refresh before retrying.",
+    );
+
+    // The application must not falsely report archive success.
+    expect(
+      screen.getByText("Archive Interaction?"),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByText("Reviewed contract renewal options."),
+    ).toBeInTheDocument();
+
+    // No list reconciliation is triggered for an unverified response.
+    expect(getInteractions).toHaveBeenCalledTimes(1);
+
+    expect(archiveInteraction).toHaveBeenCalledTimes(1);
+    expect(archiveInteraction).toHaveBeenCalledWith(
+      "facility-a",
+      "interaction-1",
+    );
+  },
+);
+
+test("pending archive does not clear a newer Interaction selection", async () => {
+  let resolveArchive:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingArchive = new Promise<Interaction>((resolve) => {
+    resolveArchive = resolve;
+  });
+
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  const secondInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-2",
+    summary: "Second vendor meeting",
+    body: "Separate service discussion.",
+  };
+
+  let archiveCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () =>
+    archiveCompleted
+      ? listResponse([secondInteraction])
+      : listResponse([interaction, secondInteraction]),
+  );
+
+  vi.mocked(getInteraction).mockImplementation(
+    async (_facilityId, interactionId) =>
+      interactionId === "interaction-2"
+        ? secondInteraction
+        : interaction,
+  );
+
+  vi.mocked(archiveInteraction).mockReturnValue(pendingArchive);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  // Select Interaction A and begin archiving.
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(archiveInteraction).toHaveBeenCalledTimes(1);
+  });
+
+  // Select Interaction B while the archive of A is pending.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Second vendor meeting/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Separate service discussion."),
+  ).toBeInTheDocument();
+
+  // Complete the archive of A.
+  await act(async () => {
+    archiveCompleted = true;
+    resolveArchive?.(archivedInteraction);
+    await pendingArchive;
+  });
+
+  // The active list should refresh.
+  await waitFor(() => {
+    expect(getInteractions).toHaveBeenCalledTimes(2);
+  });
+
+  // Interaction B must remain selected.
+  expect(
+    screen.getByRole("heading", {
+      name: "Second vendor meeting",
+    }),
+  ).toBeInTheDocument();
+
+  expect(
+    screen.getByText("Separate service discussion."),
+  ).toBeInTheDocument();
+
+  // Archived Interaction A must no longer appear.
+  expect(
+    screen.queryByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+test("archive reconciliation clears newer selection when absent from backend results", async () => {
+  let resolveArchive:
+    | ((value: Interaction) => void)
+    | undefined;
+
+  const pendingArchive = new Promise<Interaction>((resolve) => {
+    resolveArchive = resolve;
+  });
+
+  const archivedInteraction: Interaction = {
+    ...interaction,
+    archivedAt: "2026-08-26T12:00:00.000Z",
+    archivedBy: "user-1",
+  };
+
+  const secondInteraction: Interaction = {
+    ...interaction,
+    _id: "interaction-2",
+    summary: "Second vendor meeting",
+    body: "Separate service discussion.",
+  };
+
+  let archiveCompleted = false;
+
+  vi.mocked(getInteractions).mockImplementation(async () =>
+    archiveCompleted
+      ? listResponse([])
+      : listResponse([interaction, secondInteraction]),
+  );
+
+  vi.mocked(getInteraction).mockImplementation(
+    async (_facilityId, interactionId) =>
+      interactionId === "interaction-2"
+        ? secondInteraction
+        : interaction,
+  );
+
+  vi.mocked(archiveInteraction).mockReturnValue(pendingArchive);
+
+  render(
+    <InteractionsPage
+      facilityId="facility-a"
+      facilityTimezone="America/New_York"
+      isAdmin
+    />,
+  );
+
+  // Open Interaction A.
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Service agreement discussion/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Reviewed contract renewal options."),
+  ).toBeInTheDocument();
+
+  // Begin archiving A.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Archive Interaction",
+    }),
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Confirm Archive",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(archiveInteraction).toHaveBeenCalledTimes(1);
+  });
+
+  // Select B while A's archive remains pending.
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: /Second vendor meeting/,
+    }),
+  );
+
+  expect(
+    await screen.findByText("Separate service discussion."),
+  ).toBeInTheDocument();
+
+  // Archive A completes, but backend no longer returns B either.
+  await act(async () => {
+    archiveCompleted = true;
+    resolveArchive?.(archivedInteraction);
+    await pendingArchive;
+  });
+
+  await waitFor(() => {
+    expect(getInteractions).toHaveBeenCalledTimes(2);
+  });
+
+  expect(
+    await screen.findByText("No Interactions found."),
+  ).toBeInTheDocument();
+
+  // Neither A nor B should remain selected.
+  expect(
+    screen.queryByRole("heading", {
+      name: "Second vendor meeting",
+    }),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Separate service discussion."),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.queryByText("Reviewed contract renewal options."),
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.getByText(
+      "Select an Interaction to view its details.",
+    ),
+  ).toBeInTheDocument();
+
+  expect(archiveInteraction).toHaveBeenCalledTimes(1);
 });

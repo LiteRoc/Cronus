@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { effectiveTimeZone } from "@/pages/FollowUps/dateTime";
 import {
+  archiveInteraction,
   createInteraction,
   getInteraction,
   getInteractions,
@@ -56,6 +57,11 @@ export default function InteractionsPage({
   const [showEdit, setShowEdit] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  const [archiveTarget, setArchiveTarget] = useState<Interaction | null>(null);
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   const createGeneration = useRef(0);
@@ -64,10 +70,13 @@ export default function InteractionsPage({
   const editGeneration = useRef(0);
   const editInFlight = useRef(false);
 
+  const archiveGeneration = useRef(0);
+  const archiveInFlight = useRef(false);
+
   const listGeneration = useRef(0);
   const detailGeneration = useRef(0);
 
-  const pendingEditSelection = useRef<{
+  const pendingSelectionRestore = useRef<{
     interaction: Interaction;
     facilityId: string;
     search: string;
@@ -77,6 +86,9 @@ export default function InteractionsPage({
     isAdmin: boolean;
   } | null>(null);
 
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+
   const facilityRef = useRef(facilityId);
   facilityRef.current = facilityId;
 
@@ -85,8 +97,8 @@ export default function InteractionsPage({
 
     // Preserve the edited record only for this reconciliation request.
     // Ordinary filter, pagination, and Facility changes clear selection.
-    const pendingSelection = pendingEditSelection.current;
-    pendingEditSelection.current = null;
+    const pendingSelection = pendingSelectionRestore.current;
+    pendingSelectionRestore.current = null;
 
     const restoreSelection =
       pendingSelection &&
@@ -319,7 +331,7 @@ export default function InteractionsPage({
 
       // Preserve the server-returned record only if the refreshed
       // backend list still includes it.
-      pendingEditSelection.current = {
+      pendingSelectionRestore.current = {
         interaction: updated,
         facilityId: requestedFacility,
         search,
@@ -352,6 +364,124 @@ export default function InteractionsPage({
       ) {
         editInFlight.current = false;
         setEditSubmitting(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setArchiveTarget(null);
+    setArchiveError(null);
+
+    return () => {
+      ++archiveGeneration.current;
+      archiveInFlight.current = false;
+    };
+  }, [facilityId, isAdmin]);
+
+  const closeArchive = () => {
+    if (archiveInFlight.current) return;
+
+    setArchiveTarget(null);
+    setArchiveError(null);
+  };
+
+  const confirmArchive = async (): Promise<void> => {
+    if (
+      !isAdmin ||
+      !facilityId ||
+      !archiveTarget ||
+      !selected ||
+      archiveInFlight.current
+    ) {
+      return;
+    }
+
+    if (
+      archiveTarget.facilityId !== facilityId ||
+      selected._id !== archiveTarget._id
+    ) {
+      return;
+    }
+
+    const requestedFacility = facilityId;
+    const interactionId = archiveTarget._id;
+    const generation = ++archiveGeneration.current;
+
+    archiveInFlight.current = true;
+    setArchiveSubmitting(true);
+    setArchiveError(null);
+
+    try {
+      const archived = await archiveInteraction(
+        requestedFacility,
+        interactionId,
+      );
+
+      if (
+        generation !== archiveGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      if (
+        archived._id !== interactionId ||
+        archived.facilityId !== requestedFacility ||
+        !archived.archivedAt
+      ) {
+        setArchiveError(
+          "Unable to verify the archive result. Refresh before retrying.",
+        );
+        return;
+      }
+
+      // Preserve a newer selection only if the refreshed backend list
+      // confirms that it remains active and visible.
+      const currentSelection = selectedRef.current;
+
+      pendingSelectionRestore.current =
+        currentSelection &&
+        currentSelection._id !== interactionId &&
+        currentSelection.facilityId === requestedFacility
+          ? {
+              interaction: currentSelection,
+              facilityId: requestedFacility,
+              search,
+              type,
+              direction,
+              page,
+              isAdmin,
+            }
+          : null;
+
+      // Invalidate outstanding detail requests and let the authoritative
+      // list determine whether the newer selection can be restored.
+      ++detailGeneration.current;
+      setSelected(null);
+
+      setArchiveTarget(null);
+      setArchiveError(null);
+
+      // Reload active Interactions, excluding the archived record.
+      setRefreshVersion((current) => current + 1);
+    } catch {
+      if (
+        generation !== archiveGeneration.current ||
+        facilityRef.current !== requestedFacility
+      ) {
+        return;
+      }
+
+      setArchiveError(
+        "Unable to archive the Interaction. Please try again.",
+      );
+    } finally {
+      if (
+        generation === archiveGeneration.current &&
+        facilityRef.current === requestedFacility
+      ) {
+        archiveInFlight.current = false;
+        setArchiveSubmitting(false);
       }
     }
   };
@@ -575,7 +705,7 @@ export default function InteractionsPage({
             <p role="status">Loading details…</p>
           ) : selected ? (
             <div className="space-y-3">
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
                 <Button
                   type="button"
                   onClick={() => {
@@ -585,6 +715,19 @@ export default function InteractionsPage({
                 >
                   Edit Interaction
                 </Button>
+
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      setArchiveError(null);
+                      setArchiveTarget(selected);
+                    }}
+                  >
+                    Archive Interaction
+                  </Button>
+                )}
               </div>
 
               <InteractionDetail
@@ -600,6 +743,57 @@ export default function InteractionsPage({
           )}
         </section>
       </div>
+
+      <Modal
+        isOpen={archiveTarget !== null}
+        onClose={closeArchive}
+        title="Archive Interaction?"
+        className="relative w-[min(520px,calc(100vw-2rem))]"
+      >
+        {archiveTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              You are about to archive:
+            </p>
+
+            <p className="font-semibold">
+              {archiveTarget.summary}
+            </p>
+
+            <p className="text-sm text-gray-600">
+              This Interaction will be removed from active activity
+              history. Its historical record will be retained.
+            </p>
+
+            {archiveError && (
+              <p role="alert" className="text-sm text-red-700">
+                {archiveError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                disabled={archiveSubmitting}
+                onClick={closeArchive}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={archiveSubmitting}
+                onClick={() => void confirmArchive()}
+              >
+                {archiveSubmitting
+                  ? "Archiving..."
+                  : "Confirm Archive"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={showEdit}
