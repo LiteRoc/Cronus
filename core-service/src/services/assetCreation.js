@@ -82,15 +82,17 @@ function verifyPreflight(plan, snapshot) {
     if (!item || row.proposed.departmentId !== item.create.departmentId || row.proposed.templateId !== item.create.templateId) fail('A department or template match changed; regenerate the plan before creation.');
   }
 }
-function checkAsset(asset, item, facilityId, final = false) {
+function checkAsset(asset, item, facilityId, final = false, expectedAssetId = null) {
   const refId = ref => ref && typeof ref === 'object' ? ref._id : ref;
   if (!asset || !validId(asset._id) || refId(asset.facilityId) !== facilityId || asset.ctrlNumber !== text(item.ctrlNumber) || refId(asset.departmentId) !== item.create.departmentId || (refId(asset.templateId) ?? null) !== item.create.templateId) fail('Asset identity or reference response requires reconciliation.');
+  if (expectedAssetId !== null && asset._id !== expectedAssetId) fail('Returned asset ID differs from the created asset; reconciliation is required.');
   for (const key of ['manufacturer', 'model', 'serialNumber', 'locationNote']) {
     if (item.create[key] != null && asset[key] !== text(item.create[key])) fail('Asset text response requires reconciliation.');
   }
   for (const key of ['description', 'notes']) if (item.create[key] != null && asset[key] !== item.create[key]) fail('Asset source text requires reconciliation.');
   if (!isDeepStrictEqual(asset.attributes?.truAssetImport, item.create.attributes.truAssetImport)) fail('Original source data was not preserved.');
   if (asset.purchaseCost != null || asset.purchase?.price != null) fail('Verified cost was unexpectedly populated.');
+  if (asset.installationDate != null || asset.serviceStartDate != null) fail('An unexpected installation or service-start date requires review.');
   if (Object.values(asset.maintenanceSchedule || {}).some(value => value != null)) fail('An inferred maintenance schedule requires review.');
   if (asset.duplicateOf) fail('The creation API reported a possible duplicate.');
   if (final) for (const [key, value] of Object.entries(item.followUp)) {
@@ -125,11 +127,11 @@ async function runAssetCreation(plan, { execute = false, confirmFacilityId, api 
       stage = 'follow-up';
       if (Object.keys(item.followUp).length) {
         const updated = await api.updateAsset(plan.facilityId, assetId, structuredClone(item.followUp));
-        checkAsset(updated?.asset, item, plan.facilityId, true);
+        checkAsset(updated?.asset, item, plan.facilityId, true, assetId);
       }
       stage = 'read-back';
       const saved = await api.getAsset(plan.facilityId, assetId);
-      checkAsset(saved?.asset ?? saved, item, plan.facilityId, true);
+      checkAsset(saved?.asset ?? saved, item, plan.facilityId, true, assetId);
       results.push({ ctrlNumber: item.ctrlNumber, assetId, status: 'completed' });
     } catch {
       // Any write/response can be uncertain. Never retry, delete, or continue the batch.

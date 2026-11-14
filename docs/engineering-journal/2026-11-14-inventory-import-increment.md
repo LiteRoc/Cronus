@@ -9,10 +9,12 @@ It does not add an automatic batch-import endpoint or a live execution CLI.
 The original preparation documents describe the pre-execution stage; this entry
 records the subsequent operator-reported deployment and verification.
 
-Source changes remain subject to final Ubuntu verification and Git review before
-commit. No commit, merge, or push is claimed by this entry. Operational datasets,
-snapshots, request packets, record IDs, and customer-specific status plans stay
-outside version control.
+The operator reported saving the baseline increment as local commit `a33d081` on
+`feat/inventory-import`, with a clean Ubuntu worktree after commit. No merge or
+push was reported. The review corrections described below have been applied to the
+isolated Ubuntu feature worktree and tested there; they are not committed or deployed. Operational
+datasets, snapshots, request packets, record IDs, and customer-specific status
+plans stay outside version control.
 
 ## Accepted data-handling decisions
 
@@ -64,15 +66,16 @@ expanded by those router changes.
 
 ## Verification evidence
 
-The full local synthetic suite passed 70 tests: parser, planner, reference exporter,
+Before the review corrections, the full local synthetic suite passed 70 tests: parser, planner, reference exporter,
 department workflow, and asset workflow. Tests use synthetic data, in-memory
 adapters, local schema validation, and temporary loopback HTTP listeners. No real
 database is accessed by those tests. Direct asset-handler tests replace reference
 and persistence dependencies; they are not real-database integration tests.
 
-The operator separately reported 17 department tests and 41 asset/parser/planner
-tests passing on Ubuntu. The exporter tests are included in the final handoff for
-a complete final Ubuntu run; that final combined result is not yet asserted here.
+The operator first reported 17 department tests and 41 asset/parser/planner tests
+passing on Ubuntu, then reported all 70 tests passing in the complete combined
+Ubuntu run, including the exporter tests. Those results belong to the baseline
+increment; the follow-up Ubuntu results are recorded below.
 
 Following separate approvals, the operator reported deploying the department
 runtime changes and the focused asset-router changes. Checks included backups,
@@ -91,6 +94,31 @@ flag. Two assets intentionally have no template. These are operator-reported liv
 results; the assistant did not independently query the operational database.
 Private local status artifacts mark all three complete and prevent preparation
 from those completion records. No further database work is part of wrap-up.
+
+## Review corrections verified on Ubuntu
+
+Review of `a33d081` found two gaps in the generic asset verifier. It validated
+response IDs as well-formed but did not require update/read-back IDs to equal the
+ID returned by creation. It also omitted explicit rejection of unexpected
+installation and service-start dates in API responses. The operator's earlier
+one-asset browser checks included the expected ID and unset-service-date checks;
+these findings do not contradict those reported successful live verifications.
+
+The local verifier now compares update and read-back IDs to the captured creation
+ID. It rejects non-null installation or service-start dates in creation, update,
+and read-back responses. Missing and explicitly null dates remain acceptable.
+Failures retain the original created ID and affected stage, stop before later
+assets, and do not trigger retry, deletion, or automatic rollback. No API payload,
+schema, endpoint, or authorization policy was changed by these corrections.
+
+Eight new negative regression cases reproduced the original gaps before the fix:
+wrong IDs in two response stages and each unexpected date in three stages. A
+ninth new case confirms that null dates remain acceptable. After the corrections,
+all 24 asset-workflow tests and all 79 tests in the full local synthetic suite
+passed. The operator subsequently reported all 24 asset-workflow tests and all
+79 tests in the complete synthetic suite passing on Ubuntu. No real database was
+accessed by these tests. Review and a separate follow-up commit remain pending;
+no new push, deployment, or operational database action was performed.
 
 ## Remaining constraints
 

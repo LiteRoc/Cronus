@@ -186,6 +186,62 @@ test('metadata update failure records created ID and stops without retry, rollba
   assert.equal(f.calls.some(c => c.startsWith('read:')), false);
 });
 
+for (const method of ['updateAsset', 'getAsset']) test(`${method} rejects a different returned asset ID and retains the created ID for reconciliation`, async () => {
+  const f = fixture(), original = f.api[method];
+  f.api[method] = async (...args) => {
+    const response = await original(...args);
+    const asset = response.asset ?? response;
+    asset._id = oid(999);
+    return response;
+  };
+  const result = await execute(f);
+  assert.equal(result.status, 'reconciliation-required');
+  assert.deepEqual(result.results.map(r => r.status), ['reconciliation-required', 'not-attempted', 'not-attempted']);
+  assert.equal(result.results[0].assetId, oid(100));
+  assert.equal(result.results[0].stage, method === 'updateAsset' ? 'follow-up' : 'read-back');
+  assert.equal(f.records.size, 1);
+  assert.equal(f.calls.filter(c => c.startsWith('create:')).length, 1);
+  assert.equal(f.calls.filter(c => c.startsWith('update:')).length, 1);
+  assert.equal(f.calls.filter(c => c.startsWith('read:')).length, method === 'updateAsset' ? 0 : 1);
+});
+
+for (const field of ['installationDate', 'serviceStartDate']) {
+  for (const method of ['createAsset', 'updateAsset', 'getAsset']) test(`${method} rejects an unexpected ${field} without continuing or retrying`, async () => {
+    const f = fixture(), original = f.api[method];
+    f.api[method] = async (...args) => {
+      const response = await original(...args);
+      const asset = response.asset ?? response;
+      asset[field] = '2026-01-01T00:00:00.000Z';
+      return response;
+    };
+    const result = await execute(f);
+    assert.equal(result.status, 'reconciliation-required');
+    assert.deepEqual(result.results.map(r => r.status), ['reconciliation-required', 'not-attempted', 'not-attempted']);
+    assert.equal(result.results[0].assetId, oid(100));
+    assert.equal(result.results[0].stage, { createAsset: 'create', updateAsset: 'follow-up', getAsset: 'read-back' }[method]);
+    assert.equal(f.records.size, 1);
+    assert.equal(f.calls.filter(c => c.startsWith('create:')).length, 1);
+    assert.equal(f.calls.filter(c => c.startsWith('update:')).length, method === 'createAsset' ? 0 : 1);
+    assert.equal(f.calls.filter(c => c.startsWith('read:')).length, method === 'getAsset' ? 1 : 0);
+  });
+}
+
+test('explicitly null service dates remain acceptable in all response stages', async () => {
+  const f = fixture();
+  for (const method of ['createAsset', 'updateAsset', 'getAsset']) {
+    const original = f.api[method];
+    f.api[method] = async (...args) => {
+      const response = await original(...args), asset = response.asset ?? response;
+      asset.installationDate = null;
+      asset.serviceStartDate = null;
+      return response;
+    };
+  }
+  const result = await execute(f);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.results.length, 3);
+});
+
 test('missing provenance or populated verified cost in create/read-back response requires reconciliation', async () => {
   for (const stage of ['createAsset', 'getAsset']) for (const change of ['source', 'cost']) {
     const f = fixture(), original = f.api[stage];
