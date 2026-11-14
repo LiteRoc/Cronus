@@ -215,7 +215,7 @@ assetRouter.get('/:id', authenticateToken, async (req, res) => {
         const benchmarkComparison = computeBenchmarkComparison(asset, asset.templateId);
 
         res.status(200).json({
-          ...asset.toObject(),
+          ...asset.toObject({ flattenMaps: true }),
           workOrders: relatedWorkOrders,
           benchmarkComparison,
         });
@@ -249,8 +249,6 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
       maintenanceSchedule,
       attributes,
     } = input;
-
-    console.log('Incoming created Asset:', req.body);
 
     if (typeof ctrlNumber !== 'string' || !ctrlNumber.trim()) {
       return res.status(400).json({ error: 'ctrlNumber is required' });
@@ -348,12 +346,6 @@ assetRouter.post('/', authenticateToken, authorizeRoles('admin', 'tech'), async 
         warning: 'Potential duplicate detected based on Tag# or Serial#',
       });
     }
-
-    console.log("attributes type:", typeof payload.attributes, Array.isArray(payload.attributes));
-    console.dir(payload.attributes, { depth: 5 });
-
-
-    console.log("Final payload to create Asset:", payload);
 
     const asset = await saveAsset();
     return res.status(201).json({ message: 'Asset created successfully', asset });
