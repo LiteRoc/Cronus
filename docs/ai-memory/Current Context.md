@@ -1,5 +1,26 @@
 # Current Context
 
+## Month-end operations - November 16, 2026
+
+Owner confirmed Open PM deployed/browser-verified after controlled update. New
+month-end report reviewed for owner-authorized commit/local main merge on
+feat/month-end-report from f8e02f1: current
+completion-date cohort, recorded whole-WO hours/costs and separately labeled
+current backlog. Owner requested graphs: three colorful count charts plus text
+counts and CSV data. No historical backlog/period-expense/compliance claim.
+After owner backlog clarification and EOM PDF reference, added Sigma/hospital/month
+header and current Open PM/Open corrective/Other breakdown with counts/overdue/
+missing dates, chart and CSV. Pure Core13/13, frontend focused7/7 and full479/479, application bundle,
+application/preview TypeScript and synthetic
+in-memory build PASS. Owner final targeted19/19 and full Core42 suites/1884 tests
+PASS. Owner confirmed sample/archived/current-month graphs, updated backlog split
+and all four empty/error/role/Facility checks. Attached CSV verified55 unique
+completions9301–9355, charts28 Planned/27 Corrective,110 labor/27.5 travel,
+known5500/blank complete total and separate2-row backlog (PM1/corrective1/other0).
+Publication and deployment remain pending.
+No real-data/runtime/dependency/schema changes. See the
+[month-end journal](../engineering-journal/2026-11-16-Month-End-Report.md).
+
 ## Open PM reporting - November 16, 2026
 
 Owner confirmed Work Order reports deployed at ebe6876; Ubuntu local patches

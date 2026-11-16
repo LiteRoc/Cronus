@@ -14,6 +14,7 @@ const reportRouter = express.Router();
 reportRouter.use('/inventory', require('./inventoryReportRouter'));
 reportRouter.use('/asset-history', require('./assetHistoryReportRouter'));
 reportRouter.use('/work-orders', require('./workOrderReportRouter'));
+reportRouter.use('/month-end', require('./monthEndReportRouter'));
 
 // Helper function to build queries dynamically
 const buildQuery = (queryParams) => {

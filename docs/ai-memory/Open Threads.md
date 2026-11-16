@@ -1,5 +1,19 @@
 # Open Threads
 
+## Month-end verification - November 16, 2026
+
+Local feat/month-end-report implements bounded hospital report with completion
+activity, current backlog, count charts and full CSV. Owner requested explicit
+PM/corrective/other backlog split and supplied EOM reference; split/chart/CSV and
+Sigma header added. Core pure13 and frontend479 pass; owner final targeted19/19
+and full Core42 suites/1884 tests PASS. Graph/default/archived/current-month and
+all four boundary checks passed; attached55-completion/2-backlog CSV verified.
+Owner authorized commit and local main merge. Publication and controlled deployment
+remain pending; preserve existing Ubuntu patches.
+Open PM f8e02f1 is now published/deployed and owner-confirmed; pending PM delivery
+entries below are historical. See the
+[month-end journal](../engineering-journal/2026-11-16-Month-End-Report.md).
+
 ## Open PM verification - November 16, 2026
 
 Local feat/open-pm-report adds PM mode and /reports/open-pm; pure Core28 and
