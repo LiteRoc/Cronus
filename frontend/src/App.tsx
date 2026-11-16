@@ -27,6 +27,7 @@ import FollowUpRoute from "@/pages/FollowUps/FollowUpRoute";
 import InteractionRoute from "@/pages/Interactions/InteractionRoute";
 import ReportsRoute from './pages/Reports/ReportsRoute';
 import AssetHistoryReportPage from './pages/Reports/AssetHistoryReportPage';
+import WorkOrderReportPage from './pages/Reports/WorkOrderReportPage';
 
 function RootRedirect() {
   const { user } = useUser();
@@ -49,6 +50,7 @@ export default function App() {
           {/* Authenticated routes wrapped in SidebarLayout */}
           <Route path="/reports" element={<SidebarLayout><PrivateRoute><ReportsRoute /></PrivateRoute></SidebarLayout>} />
           <Route path="/reports/asset-history" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<AssetHistoryReportPage />} /></PrivateRoute></SidebarLayout>} />
+          <Route path="/reports/work-orders" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<WorkOrderReportPage />} /></PrivateRoute></SidebarLayout>} />
           <Route
             path="/dashboard"
             element={

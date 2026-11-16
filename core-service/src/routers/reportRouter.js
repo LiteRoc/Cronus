@@ -13,6 +13,7 @@ const path = require('path');
 const reportRouter = express.Router();
 reportRouter.use('/inventory', require('./inventoryReportRouter'));
 reportRouter.use('/asset-history', require('./assetHistoryReportRouter'));
+reportRouter.use('/work-orders', require('./workOrderReportRouter'));
 
 // Helper function to build queries dynamically
 const buildQuery = (queryParams) => {

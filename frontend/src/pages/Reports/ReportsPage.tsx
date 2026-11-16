@@ -54,6 +54,7 @@ export default function ReportsPage() {
   return <main className="p-6 space-y-5">
     <header><h1 className="text-2xl font-semibold">Reports</h1><p className="text-gray-600">Generate a report for the hospital selected in the sidebar.</p></header>
     <Link to="/reports/asset-history" className="inline-block text-blue-700 underline">Asset Detail and Service History</Link>
+    <Link to="/reports/work-orders" className="inline-block text-blue-700 underline">Work Order Reports</Link>
     <section className="rounded-xl border bg-white p-5 space-y-4" aria-label="Asset Inventory">
       <h2 className="text-xl font-semibold">Asset Inventory</h2>
       <p className="text-sm text-gray-600">Current equipment identifiers, location, status and recorded PM schedule. Archived assets are excluded by default.</p>

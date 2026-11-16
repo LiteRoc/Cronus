@@ -1,5 +1,20 @@
 # Current Context
 
+## Work Order reporting - November 16, 2026
+
+Asset Detail/History a5cddcc published and owner browser-verified after controlled
+Ubuntu update; three existing local files checksum-preserved. Next implementation
+is reviewed for owner-authorized commit/local main merge on feat/work-order-reports: current open backlog and
+completion-date closed activity, optional dated Archived records, exact Facility,
+bounded read-only queries, canonical known/unknown costs, paginated UI and full CSV.
+Pure Core16/16; frontend49 files/470 tests and application/preview TypeScript PASS.
+Synthetic preview build excludes live adapters. Owner verified targeted Core22/22
+and full Core38 suites/1848 tests. Sample open/closed/date/archive checks,
+pagination and all four empty/error/role/Facility scenarios passed. Attached CSV
+verified all55 unique WOs9101–9155, known5500 and blank unknown complete total.
+Publication/deployment pending. No real data/runtime/dependency/schema changes.
+See [Work Order journal](../engineering-journal/2026-11-16-Work-Order-Reports.md).
+
 ## Asset Detail and Service History — November 16, 2026
 
 Reviewed for owner-authorized commit and local main merge on owner-created `feat/asset-detail-history-report`, based on

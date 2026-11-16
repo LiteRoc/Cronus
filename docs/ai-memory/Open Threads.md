@@ -1,5 +1,17 @@
 # Open Threads
 
+## Work Order report verification - November 16, 2026
+
+Local feat/work-order-reports adds current open backlog and completion-date closed
+activity. Core16 pure and frontend470 tests pass. Owner verified targeted22/22
+and full Core38 suites/1848 tests; sample/date/archive/pagination checks and all
+four boundary scenarios passed. Attached55-row CSV verified. Owner authorized
+commit and local main merge. Publication and controlled deployment remain pending;
+preserve existing Ubuntu local patches. See the
+[Work Order journal](../engineering-journal/2026-11-16-Work-Order-Reports.md).
+Prior Asset Detail/History delivery is now published and owner browser-verified
+at a5cddcc; earlier pending-delivery entries below are historical checkpoints.
+
 ## Asset Detail / History verification — November 16, 2026
 
 New report implemented locally on `feat/asset-detail-history-report` from774a50a.
