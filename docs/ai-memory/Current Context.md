@@ -1,5 +1,21 @@
 # Current Context
 
+## Asset Detail and Service History — November 16, 2026
+
+Reviewed for owner-authorized commit and local main merge on owner-created `feat/asset-detail-history-report`, based on
+`774a50a` (owner confirmed Inventory deployed). Added scoped Core history report,
+Reports page and inventory-row links, current Asset summary, direct-linked WO
+timeline including archived WOs, recorded service notes/parts/hours and canonical
+known/unknown costs; all captured rows exported as CSV. No invented resolutions,
+rates, historical coverage, period expenses or PM compliance. Core15 pure tests,
+frontend464/464, TypeScript/build, syntax/whitespace PASS. Owner verified new Core
+suites33/33 and full Core36 suites/1826 tests. Synthetic history browser preview
+prepared at frontend/verification/asset-history-preview (127.0.0.1:5190). Owner
+confirmed sample/date/notes/vendor-hour checks, pagination and all four
+empty/error/role/Facility scenarios. Attached CSV verified all 30 unique WOs,
+60 internal labor hours and 3000 complete direct cost. Publication and deployment
+remain pending; no real data/runtime, dependency or schema changes. See the [history journal](../engineering-journal/2026-11-16-Asset-Detail-History-Report.md).
+
 ## Asset Inventory implementation — November 16, 2026
 
 Implemented on owner-created `feat/asset-inventory-report`, based on `aeb65e0`.

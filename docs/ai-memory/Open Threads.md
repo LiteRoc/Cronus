@@ -1,5 +1,25 @@
 # Open Threads
 
+## Asset Detail / History verification — November 16, 2026
+
+New report implemented locally on `feat/asset-detail-history-report` from774a50a.
+Core15 pure tests and frontend464/464 plus TypeScript/build pass. Owner verified
+targeted Core33/33 and full Core36 suites/1826 tests. Owner synthetic browser
+and CSV checks passed, including all 30 exported WOs. Owner authorized commit
+and local main merge; publication and controlled deployment remain pending.
+No real-data operation occurred. Current recorded WO totals
+are not period expenses; missing cost evidence remains unknown. See the
+[history journal](../engineering-journal/2026-11-16-Asset-Detail-History-Report.md).
+
+## Reporting execution architecture - November 16, 2026
+
+Keep current bounded reports in their owning services. Before substantial
+month/year-end, scheduled or multi-hospital exports, assess a queued reporting
+worker with limited concurrency and resource limits. A separate container does
+not remove shared database load or add host capacity. Measure query duration and
+database load before choosing further isolation. No worker, queue or infrastructure
+change is implemented or authorized by this planning discussion.
+
 ## Asset Inventory verification — November 16, 2026
 
 Implementation on `feat/asset-inventory-report` based on `aeb65e0` is reviewed;

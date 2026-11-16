@@ -53,6 +53,7 @@ export default function ReportsPage() {
   }
   return <main className="p-6 space-y-5">
     <header><h1 className="text-2xl font-semibold">Reports</h1><p className="text-gray-600">Generate a report for the hospital selected in the sidebar.</p></header>
+    <Link to="/reports/asset-history" className="inline-block text-blue-700 underline">Asset Detail and Service History</Link>
     <section className="rounded-xl border bg-white p-5 space-y-4" aria-label="Asset Inventory">
       <h2 className="text-xl font-semibold">Asset Inventory</h2>
       <p className="text-sm text-gray-600">Current equipment identifiers, location, status and recorded PM schedule. Archived assets are excluded by default.</p>
@@ -75,7 +76,7 @@ export default function ReportsPage() {
         <details className="text-sm"><summary>Report basis</summary><ul className="list-disc pl-5">{report.notes.map(note => <li key={note}>{note}</li>)}</ul></details>
         <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b">{['Control number', 'Manufacturer / model', 'Serial number', 'Equipment class', 'Department / location', 'Status', 'PM frequency', 'Last PM (UTC)', 'Next PM (UTC)'].map(label => <th className="pr-4 py-2" key={label}>{label}</th>)}</tr></thead>
           <tbody>{report.rows.slice(page * 50, page * 50 + 50).map(row => <tr className="border-b" key={row.id}>
-            <td className="pr-4 py-2"><Link className="text-blue-700 underline" to={`/assets/edit/${row.id}`}>{row.ctrlNumber || row.id}</Link><p className="text-xs text-gray-600">{row.description}</p></td>
+            <td className="pr-4 py-2"><Link className="text-blue-700 underline" to={`/assets/edit/${row.id}`}>{row.ctrlNumber || row.id}</Link><p className="text-xs text-gray-600">{row.description}</p><Link className="text-xs text-blue-700 underline" to={`/reports/asset-history?assetId=${row.id}`}>Service history report</Link></td>
             <td className="pr-4">{row.manufacturer} / {row.model}</td><td className="pr-4">{row.serialNumber || 'Not recorded'}</td><td className="pr-4">{row.equipmentClass || 'Not recorded'}</td>
             <td className="pr-4">{row.department || (row.departmentState === 'unassigned' ? 'Unassigned' : 'Unavailable reference')}<p>{row.location}</p></td><td className="pr-4">{row.status}{row.isArchived ? ' (Archived)' : ''}</td>
             <td className="pr-4">{row.pmFrequency || 'Not recorded'}</td><td className="pr-4">{row.lastPM?.slice(0, 10) ?? 'Not recorded'}</td><td>{row.nextPM?.slice(0, 10) ?? 'Not recorded'}</td>
