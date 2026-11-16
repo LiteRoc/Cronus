@@ -18,7 +18,11 @@ contractClient.interceptors.request.use(
     }
 
     // Only add facilityId if the request isn't for auth
-    if (facilityId && !config.url?.includes("/auth")) {
+    if (
+      facilityId &&
+      !config.url?.includes("/auth") &&
+      !config.headers.has("x-facility-id")
+    ) {
       config.headers["x-facility-id"] = facilityId;
     }
 

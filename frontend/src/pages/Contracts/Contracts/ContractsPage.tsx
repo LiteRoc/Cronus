@@ -1,3 +1,7 @@
+import { useEffect, useState } from "react";
+import { useUser } from "@/context/UserContext";
+import { useFacility } from "@/context/FacilityContext";
+import AddContractForm from "../components/AddContractForm";
 // src/pages/Contracts/Contracts/ContractsPage.tsx
 
 import { useFacilityContracts } from "@/hooks/useFacilityContracts";
@@ -24,17 +28,48 @@ const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
 };
 
 export default function ContractsPage() {
+  const [adding, setAdding] = useState(false);
+  const { user } = useUser();
+  const { selectedFacilityId, availableFacilities } = useFacility();
+  const facility = availableFacilities.find(f => f._id === selectedFacilityId);
+  useEffect(() => { setAdding(false); }, [selectedFacilityId, user?._id, user?.role]);
   const nav = useNavigate();
-  const { contracts, isLoading } = useFacilityContracts();
+  const { contracts, isLoading, isError, mutate } = useFacilityContracts();
 
-  if (isLoading) return <ContractsListSkeleton />;
-  if (!contracts?.length) return <div className="p-6">No contracts yet.</div>;
+
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Contracts</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Contracts</h1>
+        {user?.role === "admin" && (
+          <button
+            disabled={!facility || adding}
+            onClick={() => setAdding(true)}
+            className="rounded bg-blue-700 px-4 py-2 text-white disabled:opacity-50"
+          >
+            Add Contract
+          </button>
+        )}
+      </div>
+      {user?.role === "admin" && !facility && (
+        <p>Select a hospital to add a contract.</p>
+      )}
+      {adding && (
+        <AddContractForm
+          onCancel={() => setAdding(false)}
+          onCreated={contract => {
+            setAdding(false);
+            void mutate();
+            nav(`/contracts/${contract._id}`);
+          }}
+        />
+      )}
+      {isLoading && <ContractsListSkeleton />}
+      {isError && <p role="alert">Unable to load contracts.</p>}
+      {!isLoading && !isError && !contracts?.length && <p>No contracts yet.</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {contracts.map((c: Contract) => {
+        {(contracts ?? []).map((c: Contract) => {
           const dLeft = daysLeft(c.endDate as unknown as string);
           return (
             <button

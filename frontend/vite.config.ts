@@ -10,6 +10,18 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    proxy: {
+      "/core-api": {
+        target: "http://192.168.1.185:4000",
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/core-api/, ""),
+      },
+      "/contract-api": {
+        target: "http://192.168.1.185:5001",
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/contract-api/, ""),
+      },
+    },
     watch: {
       usePolling: true,
       interval: 100,

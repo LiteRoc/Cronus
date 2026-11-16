@@ -815,7 +815,7 @@ export default function ContractDetailPage() {
                         <td className="px-3 py-2 font-medium">{a.amendmentNumber ?? "—"}</td>
                         <td className="px-3 py-2">{a.status}</td>
                         <td className="px-3 py-2">
-                          {a.date ? new Date(a.date).toLocaleDateString() : "—"}
+                          {a.date ? new Date(a.date).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—"}
                         </td>
                         <td className="px-3 py-2">{a.changeType}</td>
                         <td className="px-3 py-2">{fmtMoney(a.totalDelta ?? 0)}</td>
