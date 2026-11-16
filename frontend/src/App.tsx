@@ -51,6 +51,7 @@ export default function App() {
           <Route path="/reports" element={<SidebarLayout><PrivateRoute><ReportsRoute /></PrivateRoute></SidebarLayout>} />
           <Route path="/reports/asset-history" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<AssetHistoryReportPage />} /></PrivateRoute></SidebarLayout>} />
           <Route path="/reports/work-orders" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<WorkOrderReportPage />} /></PrivateRoute></SidebarLayout>} />
+          <Route path="/reports/open-pm" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<WorkOrderReportPage initialMode="pm" />} /></PrivateRoute></SidebarLayout>} />
           <Route
             path="/dashboard"
             element={

@@ -1,5 +1,20 @@
 # Current Context
 
+## Open PM reporting - November 16, 2026
+
+Owner confirmed Work Order reports deployed at ebe6876; Ubuntu local patches
+checksum-preserved. Open PM reviewed for owner-authorized commit/local main merge
+on feat/open-pm-report reuses current
+report API/page/CSV with exact Planned Maintenance/Preventive Maintenance/PM types,
+open statuses and due selection (all/overdue/next30/missing/inclusive UTC range).
+No PM compliance or inferred asset obligations. Core pure28/28, frontend472/472,
+TypeScript and application/preview builds PASS. Owner targeted39/39 and full Core
+40 suites/1865 tests PASS. Synthetic sample and four due selections plus four
+empty/error/role/Facility checks passed. Attached CSV verified55 unique PM WOs
+9201–9255, known5500 and blank complete total. Publication/deployment pending.
+No real-data/runtime/schema or
+dependency changes. See [PM journal](../engineering-journal/2026-11-16-Open-PM-Report.md).
+
 ## Work Order reporting - November 16, 2026
 
 Asset Detail/History a5cddcc published and owner browser-verified after controlled

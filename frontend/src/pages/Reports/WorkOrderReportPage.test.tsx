@@ -48,3 +48,17 @@ test('pagination shows 50 rows but CSV contains all captured rows with formula s
   expect(screen.queryByText('Work Order 51')).not.toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Next' })); expect(screen.getByText('Work Order 51')).toBeInTheDocument();
   const csv = workOrderReportCsv(report); expect(csv.charCodeAt(0)).toBe(0xFEFF); expect(csv).toContain('"wo-50"'); expect(csv).toContain('"\'=FORMULA,""quoted"""'); expect(csv).toContain('"Complete direct cost total",""');
 });
+test('PM route initializes PM mode, hides type override, sends due selection and clears incompatible range', async () => {
+  render(<MemoryRouter><ReportsRoute content={<WorkOrderReportPage initialMode="pm" />} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Open PM Report' })).toBeInTheDocument(); expect(screen.queryByLabelText('Work Order type')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('PM due selection'), { target: { value: 'range' } });
+  fireEvent.change(screen.getByLabelText('PM due start (UTC)'), { target: { value: '2026-02-01' } }); fireEvent.change(screen.getByLabelText('PM due end (UTC, inclusive)'), { target: { value: '2026-02-28' } }); generate();
+  await screen.findByRole('button', { name: 'Download Work Order CSV' }); expect(state.get).toHaveBeenLastCalledWith('facility-a', { mode: 'pm', dueStatus: 'range', startDate: '2026-02-01', endDate: '2026-02-28' });
+  fireEvent.change(screen.getByLabelText('PM due selection'), { target: { value: 'missing' } }); expect(screen.queryByRole('button', { name: 'Download Work Order CSV' })).not.toBeInTheDocument(); generate();
+  await screen.findByRole('button', { name: 'Download Work Order CSV' }); expect(state.get).toHaveBeenLastCalledWith('facility-a', { mode: 'pm', dueStatus: 'missing' });
+});
+test('PM selection survives hospital reset without retaining report or due filters', async () => {
+  const content = () => <MemoryRouter><WorkOrderReportPage initialMode="pm" /></MemoryRouter>;
+  const view = render(content()); fireEvent.change(screen.getByLabelText('PM due selection'), { target: { value: 'overdue' } });
+  state.facility = 'facility-b'; view.rerender(content()); expect(screen.getByLabelText('Report')).toHaveValue('pm'); expect(screen.getByLabelText('PM due selection')).toHaveValue('all');
+});

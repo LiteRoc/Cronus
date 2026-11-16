@@ -1,5 +1,5 @@
 import type { HistoryCost } from './AssetHistoryReport';
-export interface WorkOrderReportFilters { mode: 'open' | 'closed'; startDate?: string; endDate?: string; priority?: string; workOrderType?: string; includeArchived?: string }
+export interface WorkOrderReportFilters { mode: 'open' | 'closed' | 'pm'; startDate?: string; endDate?: string; priority?: string; workOrderType?: string; includeArchived?: string; dueStatus?: string }
 export interface WorkOrderReport {
   schemaVersion: 'work-order-report-v1'; generatedAt: string; facility: { id: string; name: string }; filters: WorkOrderReportFilters;
   summary: { count: number; overdue: number; missingDueDates: number; missingRequestDates: number; unavailableAssets: number; archived: number; cost: HistoryCost };

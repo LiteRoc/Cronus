@@ -1,5 +1,15 @@
 # Open Threads
 
+## Open PM verification - November 16, 2026
+
+Local feat/open-pm-report adds PM mode and /reports/open-pm; pure Core28 and
+frontend472 pass. Owner targeted39/39 and full Core40 suites/1865 tests PASS.
+Synthetic sample/due-boundary and empty/error/role/Facility checks passed;
+attached55-row CSV verified. Owner authorized commit/local main merge.
+Publication and controlled deployment remain pending; preserve Ubuntu patches.
+Work Order ebe6876 delivery below is now published/deployed and owner-confirmed.
+See [PM journal](../engineering-journal/2026-11-16-Open-PM-Report.md).
+
 ## Work Order report verification - November 16, 2026
 
 Local feat/work-order-reports adds current open backlog and completion-date closed
