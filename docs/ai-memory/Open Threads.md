@@ -1,5 +1,17 @@
 # Open Threads
 
+## Asset Inventory verification — November 16, 2026
+
+Implementation on `feat/asset-inventory-report` based on `aeb65e0` is reviewed;
+owner authorized commit. Frontend full452/452, TypeScript/build, new Core31/31
+and full Core1793/1793 pass. Synthetic browser default/filter/error/role/Facility
+checks passed by owner; attached all60-row CSV verified. Next is publication and
+separately controlled deployment, preserving any Ubuntu local changes. Synthetic
+checks do not establish deployed behavior. No real database/runtime
+changes occurred. Report is current inventory only; PM compliance, coverage,
+history, XLSX/PDF and historical snapshots remain outside this slice. See the
+[inventory journal](../engineering-journal/2026-11-16-Asset-Inventory-Report.md).
+
 ## Sigma report delivery - November 16, 2026
 
 First single-Contract internal report is implemented locally and uncommitted.

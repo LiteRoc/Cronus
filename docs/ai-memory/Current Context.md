@@ -1,5 +1,22 @@
 # Current Context
 
+## Asset Inventory implementation — November 16, 2026
+
+Implemented on owner-created `feat/asset-inventory-report`, based on `aeb65e0`.
+New Reports page/sidebar for admin/technician, current Asset Inventory with
+Facility/Department/status/archive/equipment-class/literal-search filters,
+generation metadata, data gaps, paginated preview and full captured-results CSV.
+Exact Facility scope and owned Department validation; 5,000-row limit fails closed.
+No historical coverage, PM compliance, financial metrics or schema changes.
+Final frontend regression 45 files/452 tests PASS; TypeScript/build PASS. Owner
+verified both new Core suites (31/31) and full Core34/1793 tests. Synthetic browser
+screenshot and owner confirmation establish default figures, Department/archive
+filters and empty/error/role/Facility behavior. Attached CSV verified all60 unique
+control numbers SYN-001 through SYN-060 with report metadata. Final review found
+no blocking issues; owner authorized commit. Publication/deployment remain separate;
+no operational data/runtime/dependency changes. See the
+[inventory journal](../engineering-journal/2026-11-16-Asset-Inventory-Report.md).
+
 ## Add Contract UI — November 16, 2026
 
 Implemented on `feat/add-contract-ui`, based on `64e565b`; not yet committed,

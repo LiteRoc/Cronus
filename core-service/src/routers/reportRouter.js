@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const reportRouter = express.Router();
+reportRouter.use('/inventory', require('./inventoryReportRouter'));
 
 // Helper function to build queries dynamically
 const buildQuery = (queryParams) => {

@@ -62,6 +62,10 @@ export const useSidebarLinks = (
     { to: "/admin", label: "Admin", icon: <FaUserShield /> },
   ];
 
+  if (role === 'admin' || role === 'technician') {
+    commonLinks.push({ to: '/reports', label: 'Reports', icon: <FaClipboardList /> });
+  }
+
   if (role === "admin") return [...commonLinks, ...adminLinks];
   return commonLinks;
 };

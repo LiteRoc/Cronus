@@ -16,7 +16,7 @@ const SidebarLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const { user, setUser } = useUser() || {};
   const normalizedRole = (() => {
     if (user?.role === "tech") return "technician";
-    if (user?.role === "admin" || user?.role === "customer" || user?.role === "viewer") {
+    if (user?.role === "admin" || user?.role === "technician" || user?.role === "customer" || user?.role === "viewer") {
       return user.role;
     }
     return "viewer";

@@ -25,6 +25,7 @@ import ContractDetailsPage from "@/pages/Contracts/Contracts/ContractDetailPage"
 import ContactRoute from "@/pages/Contacts/ContactRoute";
 import FollowUpRoute from "@/pages/FollowUps/FollowUpRoute";
 import InteractionRoute from "@/pages/Interactions/InteractionRoute";
+import ReportsRoute from './pages/Reports/ReportsRoute';
 
 function RootRedirect() {
   const { user } = useUser();
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/signin" element={<SignInPage />} />
 
           {/* Authenticated routes wrapped in SidebarLayout */}
+          <Route path="/reports" element={<SidebarLayout><PrivateRoute><ReportsRoute /></PrivateRoute></SidebarLayout>} />
           <Route
             path="/dashboard"
             element={
