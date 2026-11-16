@@ -81,6 +81,9 @@ vi.mock('../components/ContractTimelineTable', () => ({
 vi.mock('../components/ContractLifecycleIntelligenceCard', () => ({
   default: () => null
 }));
+vi.mock('../components/SigmaContractReport', () => ({
+  default: () => null
+}));
 import Page from './ContractDetailPage';
 const renderPage = () => render(<MemoryRouter initialEntries={['/contracts/C']}><Routes><Route path="/contracts/:id" element={<Page />} /></Routes></MemoryRouter>);
 beforeEach(() => {

@@ -1,9 +1,17 @@
 //src/services/contractAPI.ts
 
 import contractClient from "./contractClient";
+import type { SigmaReport } from '../types/SigmaReport';
 import { AmendmentChangeType, AmendmentItem, Contract } from "@/types/Contract";
 import { ContractValueResponse } from "@/types";
 import { ContractLifecycleIntelligenceResponse } from "@/types/ContractLifecycle";
+
+export async function getSigmaContractReport(contractId: string, startDate: string, endDate: string, facilityId: string): Promise<SigmaReport> {
+  const { data } = await contractClient.get(`/contracts/${contractId}/sigma-report`, {
+    params: { startDate, endDate }, headers: { 'x-facility-id': facilityId },
+  });
+  return data.data;
+}
 
 const unwrap = <T,>(resp: any): T => {
   // supports both { success:true, data } and raw payloads

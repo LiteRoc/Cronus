@@ -1,5 +1,30 @@
 # Current Context
 
+## Sigma internal Contract reporting - November 16, 2026
+
+First report implementation is local/uncommitted on the existing main checkout:
+admin-only Contract-page preview, inclusive UTC date range, prorated Contract
+value, canonical known/unknown costs, current activity, supporting Work Orders,
+and Excel-compatible CSV. Costs are whole-Work-Order totals for explicitly linked
+records requested in the period, not period expenses. Margin/contribution remain
+unavailable. Exact Facility equality and upstream row scope checks apply.
+17 focused native synthetic tests, JS syntax and whitespace checks passed.
+Frontend follow-up: owner installed locked dependencies; two test-harness/runner
+compatibility issues corrected, existing coverage assertions preserved, nine report
+UI cases added. Frontend 423/423, TypeScript with deprecation override, and Vite
+bundle PASS. Owner verified Core 32/32 suites, 1762/1762 tests and Contract 14/14
+suites, 229/229 tests, including 24 authenticated report HTTP tests after Windows
+test-tooling fixes. Owner confirmed synthetic preview partial/complete figures,
+empty/error states, role hiding and Facility-change clearing. Attached synthetic
+CSV contents verified against its November 1-16 dates; Excel rendering and local
+placeholder Work Order navigation were not separately confirmed. Code review is
+owner-complete; Git commit preparation requested. Production end-to-end smoke is
+not established by synthetic checks. No agent dependency installation or real-database/runtime operation,
+Git commit/push/branch change or deployment occurred. See the
+[reporting journal](../engineering-journal/2026-11-15-Sigma-Contract-Reporting.md)
+for definitions, test command, files/components and remaining verification.
+This checkpoint does not resolve the historical CRM integration/runtime items below.
+
 ## CRM Interaction backend integration — November 9, 2026
 
 **Current development checkpoint:** CRM Interaction Phase 1 backend has been

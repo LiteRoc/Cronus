@@ -3,7 +3,7 @@ module.exports = {
   testMatch: ['**/_tests_/**/*.test.mjs', '**/__tests__/**/*.test.mjs'],
   // Operational routers bridge four existing ESM helpers into CommonJS.
   transform: {
-    '/src/(middleware/forwardContractHeaders|services/lifecycleMaintenance|services/templateLifecycleBenchmarks|utils/lifecycleBenchmark)\\.js$':
+    [String.raw`[/\\]src[/\\](middleware[/\\]forwardContractHeaders|services[/\\]lifecycleMaintenance|services[/\\]templateLifecycleBenchmarks|utils[/\\]lifecycleBenchmark)\.js$`]:
       '<rootDir>/src/test/facilityReproductionTransform.cjs',
   },
   moduleNameMapper: {

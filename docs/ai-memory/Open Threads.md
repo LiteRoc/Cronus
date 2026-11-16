@@ -1,5 +1,22 @@
 # Open Threads
 
+## Sigma report delivery - November 16, 2026
+
+First single-Contract internal report is implemented locally and uncommitted.
+17 focused native tests pass. Frontend 423/423, TypeScript with compatibility
+override and Vite bundle pass after correcting the coverage-test child stub and
+renaming the Node-native CSV check to avoid Vitest discovery. Owner verified Core
+1762/1762 and Contract 229/229 regression tests, including 24 authenticated report
+HTTP cases. Owner confirmed partial/complete synthetic preview figures and all
+four empty/error/role/Facility scenarios. Attached CSV contents verified; actual
+Excel rendering and placeholder Work Order navigation are not separately confirmed.
+Owner completed code review and requested commit preparation. Commit/push and
+deployment have not occurred; production smoke remains separate. No real data or
+production runtime was accessed. See the
+[reporting journal](../engineering-journal/2026-11-15-Sigma-Contract-Reporting.md).
+Period margin is intentionally unavailable until expense-date and vendor payout
+attribution policies exist. All-hospital/fiscal-YTD/XLSX/PDF are future scope.
+
 ## CRM Interaction integration — November 9, 2026
 
 The CRM Interaction Phase 1 backend has been brought into the isolated

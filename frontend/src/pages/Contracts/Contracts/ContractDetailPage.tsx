@@ -1,6 +1,7 @@
 // src/pages/Contracts/Contracts/ContractDetailPage.tsx
 
 import React from "react";
+import SigmaContractReport from '../components/SigmaContractReport';
 import VendorResponsibilityPicker from '../components/VendorResponsibilityPicker';
 import { useNavigate, useParams } from "react-router-dom";
 import { createDraftAmendment, getContractLifecycleIntelligence } from "@/services/contractAPI";
@@ -711,6 +712,7 @@ export default function ContractDetailPage() {
       {/* -------------------- Header -------------------- */}
       <h1 className="text-2xl font-semibold">{contract.name}</h1>
       <p className="text-gray-500">{contract.type}</p>
+      <SigmaContractReport contractId={contractId || ''} contractType={contract.type} />
 
       {valueError && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

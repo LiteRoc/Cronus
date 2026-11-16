@@ -30,6 +30,7 @@ import {
 } from "../controllers/contractController.js";
 
 import { getContractValue } from "../controllers/contractValueController.js";
+import { getSigmaContractReport } from '../controllers/sigmaReportController.js';
 import { getContractLifecycleIntelligence } from "../controllers/contractLifecycleController.js";
 
 const router = express.Router();
@@ -61,6 +62,7 @@ router.post('/:id/amendments/:idx/void', ...adminMutation, voidAmendment);
 
 // VALUE ROUTES
 router.get('/:id/value', authenticateToken, getContractValue);
+router.get('/:id/sigma-report', authenticateToken, authorizeRoles('admin'), getSigmaContractReport);
 
 // VENDOR ROUTES
 router.post('/:id/vendor-links', ...adminMutation, addVendorLink);
