@@ -57,6 +57,7 @@ export default function ReportsPage() {
     <Link to="/reports/work-orders" className="inline-block text-blue-700 underline">Work Order Reports</Link>
     <Link to="/reports/open-pm" className="inline-block text-blue-700 underline">Open PM Report</Link>
     <Link to="/reports/month-end" className="inline-block text-blue-700 underline">Month-end Operations</Link>
+    <Link to="/reports/year-end" className="inline-block text-blue-700 underline">Year-end Operations</Link>
     <section className="rounded-xl border bg-white p-5 space-y-4" aria-label="Asset Inventory">
       <h2 className="text-xl font-semibold">Asset Inventory</h2>
       <p className="text-sm text-gray-600">Current equipment identifiers, location, status and recorded PM schedule. Archived assets are excluded by default.</p>

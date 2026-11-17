@@ -6,14 +6,15 @@ import ReportsRoute from './ReportsRoute';
 import { fixture } from '../../../verification/month-end-preview/synthetic';
 import { monthEndReportCsv } from '../../utils/monthEndReportCsv';
 import type { MonthEndReport } from '../../types/MonthEndReport';
-const state = vi.hoisted(() => ({ facility: 'facility-a' as string | null, role: 'admin', get: vi.fn() }));
+const state = vi.hoisted(() => ({ facility: 'facility-a' as string | null, role: 'admin', get: vi.fn(), save: vi.fn(), build: vi.fn() }));
 vi.mock('../../context/UserContext', () => ({ useUser: () => ({ user: { _id: 'a', role: state.role } }) }));
 vi.mock('../../context/FacilityContext', () => ({ useFacility: () => ({ selectedFacilityId: state.facility }) }));
 vi.mock('../../services/monthEndReportAPI', () => ({ getMonthEndReport: state.get }));
+vi.mock('../../utils/operationsReportPdf', () => ({ buildOperationsReportPdf: state.build }));
 vi.mock('recharts', () => ({ ResponsiveContainer: () => null, BarChart: () => null, Bar: () => null, Cell: () => null, XAxis: () => null, YAxis: () => null, CartesianGrid: () => null, Tooltip: () => null, LineChart: () => null, Line: () => null }));
 const page = () => <MemoryRouter><ReportsRoute content={<MonthEndReportPage />} /></MemoryRouter>;
 function generate() { fireEvent.change(screen.getByLabelText('Month (UTC)'), { target: { value: '2026-10' } }); fireEvent.click(screen.getByRole('button', { name: 'Generate month-end report' })); }
-beforeEach(() => { vi.clearAllMocks(); state.facility = 'facility-a'; state.role = 'admin'; state.get.mockResolvedValue(fixture()); });
+beforeEach(() => { vi.clearAllMocks(); state.facility = 'facility-a'; state.role = 'admin'; state.get.mockResolvedValue(fixture()); state.build.mockReturnValue({ save: state.save }); });
 test('chart counts accessible with clearly separate cohorts and export invalidated on month changes', async () => {
   render(page()); generate(); await screen.findByRole('button', { name: 'Download month-end CSV' }); expect(state.get).toHaveBeenCalledWith('facility-a', { month: '2026-10', includeArchived: 'false' });
   expect(screen.getByRole('region', { name: 'Completed activity by Work Order type' })).toBeInTheDocument(); expect(screen.getByRole('region', { name: 'Current backlog by priority — at generation' })).toBeInTheDocument(); expect(screen.getByRole('region', { name: 'Completion activity across the month' })).toBeInTheDocument();
@@ -31,4 +32,8 @@ test('current PM/corrective/other backlog categories appear separately in chart,
   expect(screen.getByRole('region', { name: 'Current backlog by work category - at generation' })).toBeInTheDocument();
   for (const label of ['Open PM', 'Open corrective', 'Other open work']) expect(screen.getByRole('heading', { name: label })).toBeInTheDocument();
   const csv = monthEndReportCsv(r); expect(csv).toContain('"Open PM","1","1","0"'); expect(csv).toContain('"Open corrective","1","0","1"'); expect(csv).toContain('"Other open work","0","0","0"');
+});
+test('month-end PDF saves captured summary without fetching new data and hides after filter changes', async () => {
+  render(page()); generate(); await screen.findByRole('button', { name: 'Download month-end PDF' }); fireEvent.click(screen.getByRole('button', { name: 'Download month-end PDF' })); await vi.waitFor(() => expect(state.save).toHaveBeenCalled());
+  expect(state.get).toHaveBeenCalledTimes(1); expect(state.build).toHaveBeenCalledWith(fixture()); fireEvent.change(screen.getByLabelText('Month (UTC)'), { target: { value: '2026-09' } }); expect(screen.queryByRole('button', { name: 'Download month-end PDF' })).not.toBeInTheDocument();
 });

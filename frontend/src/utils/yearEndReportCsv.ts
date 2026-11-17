@@ -1,0 +1,11 @@
+import type { YearEndReport } from '../types/YearEndReport';
+import { workOrderReportCsv } from './workOrderReportCsv';
+const cell = (v: unknown) => { const s = v == null ? '' : String(v); return `"${(/^[\s\uFEFF]*[=+@-]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`; };
+export function yearEndReportCsv(report: YearEndReport) {
+  const rows: unknown[][] = [['Year-end operational report', report.period.yearEnding], ['Hospital', report.facility.name], ['Hospital ID', report.facility.id], ['Generated (UTC)', report.generatedAt], ['Year start month', report.period.startMonth], ['Period start (UTC)', report.period.start], ['Period end exclusive (UTC)', report.period.endExclusive], ['Year in progress', report.period.isInProgress], ['Include archived', report.filters.includeArchived],
+    ...report.notes.map(n => ['Report basis', n]), [], ['Annual completion cohort summary'], ...Object.entries(report.activity.summary).filter(([k]) => k !== 'cost').map(([k, v]) => [k, v]), ['Known direct cost subtotal', report.activity.summary.cost.knownSubtotal], ['Complete direct cost total', report.activity.summary.cost.total],
+    [], ['Month (UTC)', 'State', 'Completions', 'Internal labor hours', 'Internal travel hours', 'Known direct cost', 'Complete direct cost'], ...report.months.map(m => [m.month, m.state, ...[m.summary.count, m.summary.laborHours, m.summary.travelHours, m.summary.cost.knownSubtotal, m.summary.cost.total].map(v => m.state === 'future' ? null : v)]),
+    [], ['Completed by type', 'Count'], ...report.charts.completedByType.map(r => [r.label, r.count]), [], ['Current backlog category - at generation', 'Work Orders', 'Overdue', 'Missing due dates'], ...report.backlogBreakdown.map(r => [r.label, r.count, r.overdue, r.missingDueDates]),
+    [], ['Completion cohort Work Orders'], ['Work Order', 'ID', 'Status', 'Type', 'Completed (UTC)', 'Internal labor hours', 'Internal travel hours', 'Known direct cost', 'Complete direct cost'], ...report.activity.rows.map(r => [r.number, r.id, r.status, r.type, r.completed, r.laborHours, r.travelHours, r.cost.knownSubtotal, r.cost.total])];
+  return '\uFEFF' + rows.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n\r\n"CURRENT BACKLOG AT GENERATION - NOT YEAR-END BACKLOG"\r\n' + workOrderReportCsv(report.backlog).slice(1);
+}

@@ -18,6 +18,8 @@ export default function MonthEndReportPage() {
   const [filters, setFilters] = React.useState<MonthEndFilters>({ month: '', includeArchived: 'false' });
   const [captured, setCaptured] = React.useState<{ key: string; report: MonthEndReport } | null>(null), [loading, setLoading] = React.useState(false), [error, setError] = React.useState(''), [page, setPage] = React.useState(0);
   const identity = `${user?._id}|${user?.role}|${selectedFacilityId}`, key = `${identity}|${JSON.stringify(filters)}`;
+  const [pdfBusy, setPdfBusy] = React.useState(false), [pdfError, setPdfError] = React.useState<{ key: string; message: string } | null>(null);
+  const currentKey = React.useRef(key); currentKey.current = key;
   const sequence = React.useRef(0), current = React.useRef(identity); current.current = identity;
   React.useEffect(() => { sequence.current++; setCaptured(null); setError(''); setLoading(false); setPage(0); }, [identity]);
   const report = !loading && !error && captured?.key === key ? captured.report : null;
@@ -28,14 +30,22 @@ export default function MonthEndReportPage() {
     catch (failure: any) { if (ticket === sequence.current && current.current === requestIdentity) setError(failure?.response?.data?.error ?? 'Unable to generate month-end report.'); }
     finally { if (ticket === sequence.current && current.current === requestIdentity) setLoading(false); }
   }
+  async function downloadPdf() {
+    if (!report || pdfBusy) return;
+    const requestKey = key; setPdfBusy(true); setPdfError(null);
+    try { const { buildOperationsReportPdf } = await import('../../utils/operationsReportPdf'); if (currentKey.current !== requestKey) return; const doc = buildOperationsReportPdf(report); if (currentKey.current === requestKey) doc.save('month-end-' + report.facility.id + '-' + report.period.month + '.pdf'); }
+    catch { if (currentKey.current === requestKey) setPdfError({ key: requestKey, message: 'Unable to create PDF. Please try again.' }); }
+    finally { setPdfBusy(false); }
+  }
   function download() { if (!report) return; const url = URL.createObjectURL(new Blob([monthEndReportCsv(report)], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a'); a.href = url; a.download = `month-end-${report.facility.id}-${report.period.month}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
   return <main className="p-6 space-y-5"><Link className="text-blue-700 underline" to="/reports">Back to Reports</Link>
     <header className="rounded-xl border-t-4 border-blue-800 bg-white shadow-sm p-6"><p className="text-sm font-semibold tracking-wide text-blue-800">The Sigma Asset Management Group</p><h1 className="text-2xl font-semibold mt-2">Month-end Operations</h1>{report && <p className="text-xl text-teal-800 mt-1">{report.facility.name} · {report.period.month}</p>}<p className="text-slate-600 mt-2">Recorded completion activity and current backlog for one hospital.</p></header>
     <form className="flex flex-wrap items-end gap-3" onSubmit={generate}><label>Month (UTC)<input required type="month" className="block border rounded p-2" value={filters.month} onChange={e => { setFilters(f => ({ ...f, month: e.target.value })); setError(''); }} /></label>
       <label>Completion cohort<select className="block border rounded p-2" value={filters.includeArchived} onChange={e => { setFilters(f => ({ ...f, includeArchived: e.target.value })); setError(''); }}><option value="false">Completed only</option><option value="true">Include archived with completion dates</option></select></label>
       <button disabled={loading || !selectedFacilityId || !filters.month} className="bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50">{loading ? 'Generating...' : 'Generate month-end report'}</button>
-      {report && <button type="button" onClick={download} className="border rounded px-4 py-2">Download month-end CSV</button>}</form>
-    {!selectedFacilityId && <p>Select a hospital in the sidebar.</p>}{error && <p role="alert" className="text-red-700">{error}</p>}
+      {report && <button type="button" onClick={download} className="border rounded px-4 py-2">Download month-end CSV</button>}
+      {report && <button type="button" onClick={downloadPdf} disabled={pdfBusy} className="bg-teal-700 text-white rounded px-4 py-2 disabled:opacity-50">{pdfBusy ? 'Creating PDF...' : 'Download month-end PDF'}</button>}</form>
+    {!selectedFacilityId && <p>Select a hospital in the sidebar.</p>}{error && <p role="alert" className="text-red-700">{error}</p>}{pdfError?.key === key && <p role="alert" className="text-red-700">{pdfError.message}</p>}
     {report && <><p><strong>{report.facility.name}</strong> · {report.period.month} · Generated {report.generatedAt} (UTC)</p>
       {report.period.isInProgress && <p className="rounded bg-amber-100 p-3 text-amber-900">Month in progress — this is a provisional report.</p>}
       <div className="grid gap-4 md:grid-cols-3"><section className="rounded-xl bg-blue-50 border border-blue-200 p-5"><h2>Completion cohort</h2><p className="text-3xl font-bold text-blue-800">{report.activity.summary.count}</p><p>{report.activity.summary.archived} archived; {report.activity.summary.unavailableAssets} unavailable assets</p></section>

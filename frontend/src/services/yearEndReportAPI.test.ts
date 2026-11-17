@@ -1,0 +1,3 @@
+import { expect, test, vi } from 'vitest'; import apiClient from './apiClient'; import { getYearEndReport } from './yearEndReportAPI'; import { fixture } from '../../verification/year-end-preview/synthetic';
+vi.mock('./apiClient', () => ({ default: { get: vi.fn() } }));
+test('explicit facility and fiscal year boundaries validated in response', async () => { const r = fixture(); vi.mocked(apiClient.get).mockResolvedValue({ data: r }); await expect(getYearEndReport(r.facility.id, r.filters)).resolves.toEqual(r); await expect(getYearEndReport('foreign', r.filters)).rejects.toThrow(); await expect(getYearEndReport(r.facility.id, { ...r.filters, startMonth: '7' })).rejects.toThrow(); });

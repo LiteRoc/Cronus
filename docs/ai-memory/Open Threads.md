@@ -1,5 +1,14 @@
 # Open Threads
 
+## Annual operations and PDF verification - November 17, 2026
+
+On feat/year-end-report: calendar/fiscal year report plus month/year PDF summaries
+implemented and verified: owner Core 19 targeted/1903 full tests, frontend 489,
+preview/fiscal/provisional/access checks, both PDF layouts and 55-record fiscal CSV.
+Owner authorized commit/local main merge. Remaining: publish and controlled
+deployment preserving the three Ubuntu local overrides. See journal
+2026-11-17-Year-End-Reporting-and-PDF.md and annual preview README.
+
 ## Month-end verification - November 16, 2026
 
 Local feat/month-end-report implements bounded hospital report with completion

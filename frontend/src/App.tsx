@@ -29,6 +29,7 @@ import ReportsRoute from './pages/Reports/ReportsRoute';
 import AssetHistoryReportPage from './pages/Reports/AssetHistoryReportPage';
 import WorkOrderReportPage from './pages/Reports/WorkOrderReportPage';
 import MonthEndReportPage from './pages/Reports/MonthEndReportPage';
+import YearEndReportPage from './pages/Reports/YearEndReportPage';
 
 function RootRedirect() {
   const { user } = useUser();
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/reports/work-orders" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<WorkOrderReportPage />} /></PrivateRoute></SidebarLayout>} />
           <Route path="/reports/open-pm" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<WorkOrderReportPage initialMode="pm" />} /></PrivateRoute></SidebarLayout>} />
           <Route path="/reports/month-end" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<MonthEndReportPage />} /></PrivateRoute></SidebarLayout>} />
+          <Route path="/reports/year-end" element={<SidebarLayout><PrivateRoute><ReportsRoute content={<YearEndReportPage />} /></PrivateRoute></SidebarLayout>} />
           <Route
             path="/dashboard"
             element={

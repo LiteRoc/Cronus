@@ -1,5 +1,18 @@
 # Current Context
 
+## Year-end reporting and PDF exports - November 17, 2026
+
+Owner confirmed month-end 50960f1 deployed and working. Active development branch
+feat/year-end-report adds facility-scoped calendar/fiscal annual reporting and
+owner-requested PDF export for both operations reports. PDFs contain charts,
+summary totals, separate current backlog and report basis; detailed rows remain
+in CSV. No new dependencies or reporting service. Frontend 489/489, pure annual
+Core 13/13, application TypeScript and synthetic preview build pass. Owner-run
+targeted Core 19/19 and full Core 44 suites/1903 tests PASS. Owner confirmed preview
+checks and PDF layouts; attached fiscal CSV reconciled all 55 records and totals.
+Final source review found no blockers. Owner authorized commit/local main merge;
+publication and deployment pending. See 2026-11-17-Year-End-Reporting-and-PDF journal.
+
 ## Month-end operations - November 16, 2026
 
 Owner confirmed Open PM deployed/browser-verified after controlled update. New
