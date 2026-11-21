@@ -69,7 +69,7 @@ router.post('/:id/vendor-links', ...adminMutation, addVendorLink);
 router.patch('/:id/vendor-links/:linkId', ...adminMutation, updateVendorLink);
 router.post('/:id/vendor-links/:linkId/assets', ...adminMutation, updateVendorLinkAssets);
 router.get("/:id/vendor-links/:linkId/overview", authenticateToken, getVendorLinkOverview);
-router.get("/:id/profitability", authenticateToken, getContractProfitability);
+router.get("/:id/profitability", authenticateToken, authorizeRoles("admin"), getContractProfitability);
 router.get('/:id/lifecycle-intelligence', authenticateToken, getContractLifecycleIntelligence);
 
 export default router;

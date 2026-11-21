@@ -932,10 +932,21 @@ export const getVendorLinkOverview = async (req, res) => {
 // GET /contracts/:id/profitability?asOf=YYYY-MM-DD
 export const getContractProfitability = async (req, res) => {
   try {
-    const tenantFilter = buildTenantFilter(req);
+    if (!req.user) return res.status(401).json({ error: "Authentication required" });
+    if (req.user.role !== "admin") return res.status(403).json({ error: "Forbidden" });
+    const facilityId = req.headers["x-facility-id"];
+    if (typeof facilityId !== "string" || !/^[a-f0-9]{24}$/i.test(facilityId) || !/^[a-f0-9]{24}$/i.test(req.params.id)) {
+      return res.status(400).json({ error: "A valid Contract and selected Facility are required" });
+    }
+    const asOf = req.query.asOf;
+    const now = asOf === undefined ? new Date() : new Date(String(asOf));
+    if (asOf !== undefined && (typeof asOf !== "string" || !Number.isFinite(+now) || now.toISOString().slice(0, 10) !== asOf)) {
+      return res.status(400).json({ error: "Invalid as-of date. Use YYYY-MM-DD." });
+    }
+    res.setHeader("Cache-Control", "no-store");
     const { id: contractId } = req.params;
 
-    const contract = await Contract.findOne({ _id: contractId, ...tenantFilter }).lean();
+    const contract = await Contract.findOne({ _id: contractId, facilityId }).lean();
     if (!contract) return res.status(404).json({ error: "Contract not found" });
 
     if (contract.type !== "customer") {
@@ -945,7 +956,6 @@ export const getContractProfitability = async (req, res) => {
     const laborRate = null;
     const travelRate = null;
 
-    const now = req.query.asOf ? new Date(String(req.query.asOf)) : new Date();
     const ytdStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));
 
     // Customer contract window (for proration)

@@ -44,6 +44,7 @@ vi.mock('@/hooks/useVendors', () => ({
     }]
   })
 }));
+vi.mock('../components/ContractProfitabilityPanel', () => ({ default: () => null }));
 vi.mock('swr', () => ({
   default: () => ({
     data: null,

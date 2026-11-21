@@ -20,8 +20,8 @@ import { ContractValueChart } from "../components/ContractValueChart";
 import { ContractTimelineTable } from "../components/ContractTimelineTable";
 import { TimelineEventDetailsModal } from "../Modals/TimelineEventDetailModal";
 import type { ContractValueTimelineEvent } from "@/types/ContractValue";
-import { fmtMoney, safeDiv } from "@/utils/format";
-import { ytdFraction } from "@/utils/dateUtils";
+import { fmtMoney } from "@/utils/format";
+import ContractProfitabilityPanel from "../components/ContractProfitabilityPanel";
 import { showSuccess, showError } from "@/utils/toastUtils";
 import { useVendors } from "@/hooks/useVendors";
 import ContractLifecycleIntelligenceCard from "../components/ContractLifecycleIntelligenceCard"
@@ -603,8 +603,6 @@ export default function ContractDetailPage() {
     loading,
     error,
     data,
-    assetCount,
-    revenueYTD,
   }: {
     open: boolean;
     onClose: () => void;
@@ -612,8 +610,6 @@ export default function ContractDetailPage() {
     loading: boolean;
     error: string | null;
     data: any;
-    assetCount: number;
-    revenueYTD: number;
   }) {
     if (!open || !link) return null;
 
@@ -629,13 +625,6 @@ export default function ContractDetailPage() {
       overview?.metrics?.pmCompliance ??
       link.metricsCache?.pmCompliance ??
       null;
-
-    const vendorAssetCount = link.coveredAssetIds?.length ?? 0;
-    const payoutYTD = (Number(link.annualCost ?? 0) || 0) * ytdFraction();
-    const allocatedRevenueYTD = assetCount
-      ? revenueYTD * (vendorAssetCount / assetCount)
-      : 0;
-    const estNetYTD = null; // Coverage/payment attribution is not yet reconciled.
 
     return (
       <div className="fixed inset-0 z-50">
@@ -659,14 +648,6 @@ export default function ContractDetailPage() {
               {!loading && !error && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div className="rounded-lg border p-4">
-                    <div className="text-gray-500">Payout YTD (prorated)</div>
-                    <div className="text-lg font-semibold">{fmtMoney(payoutYTD)}</div>
-                  </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-gray-500">Allocated Revenue YTD</div>
-                    <div className="text-lg font-semibold">{fmtMoney(allocatedRevenueYTD)}</div>
-                  </div>
-                  <div className="rounded-lg border p-4">
                     <div className="text-gray-500">WO Count YTD</div>
                     <div className="text-lg font-semibold">{woCountYTD}</div>
                   </div>
@@ -680,16 +661,9 @@ export default function ContractDetailPage() {
                     <div className="text-gray-500">Cost-to-Serve YTD</div>
                     <div className="text-lg font-semibold">{fmtMoney(costToServeYTD)}</div>
                   </div>
-                  <div className="rounded-lg border p-4">
-                    <div className="text-gray-500">Est. Net YTD</div>
-                    <div className="text-lg font-semibold">{fmtMoney(estNetYTD)}</div>
-                  </div>
                 </div>
               )}
 
-              <div className="text-xs text-gray-500">
-                Allocated Revenue uses flat allocation: Contract Revenue YTD / Total Assets × Vendor Covered Assets.
-              </div>
             </div>
 
             <div className="p-5 border-t flex justify-end">
@@ -1010,118 +984,9 @@ export default function ContractDetailPage() {
         loading={vendorKpiLoading}
         error={vendorKpiError}
         data={vendorKpiData}
-        assetCount={assets?.length ?? 0}
-        revenueYTD={value?.proratedRangeValue ?? (value?.annualValueAsOf ?? 0) * ytdFraction()}
       />
 
-      {/* -------------------- Contract Performance -------------------- */}
-      <FormCard title="Contract Performance (MVP)">
-        {!value ? (
-          <p className="text-gray-500 italic">Loading contract value…</p>
-        ) : !financiallyLive ? (
-          <div className="text-sm space-y-2">
-            <div className="text-gray-700">
-              This contract is <span className="font-semibold">{contract.status}</span>. Financials begin once it’s approved/active.
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-60">
-              <div>
-                <div className="text-gray-500">Annual Revenue (as-of)</div>
-                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Revenue YTD (prorated)</div>
-                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
-              </div>
-              <div>
-                <div className="text-gray-500">Remaining Term Value</div>
-                <div className="text-lg font-semibold">{fmtMoney(null)}</div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          (() => {
-            const assetCount = assets?.length ?? 0;
-
-            const annualRevenue = value.annualValueAsOf ?? 0;
-            const revenueYTD = value.proratedRangeValue ?? annualRevenue * ytdFraction();
-            // Costs come from the core-service canonical scopes.
-            const partsCostYTD = parts?.totalPartCost ?? null;
-            const laborCostYTD = overview.labor?.costYTD ?? null;
-            const travelCostYTD = overview.travel?.costYTD ?? null;
-            const totalCostYTD = overview.performance?.costToServeYTD ?? null;
-
-            const grossMarginYTD = null; // Only the reconciled profitability endpoint may certify a margin.
-            const grossMarginPercent: number | null = null;
-
-            const revenuePerAsset = safeDiv(annualRevenue, assetCount);
-            const partsCostPerAsset = partsCostYTD === null ? null : safeDiv(partsCostYTD, assetCount);
-            const wosPerAsset = safeDiv(workOrders.totalYTD ?? 0, assetCount);
-
-            return (
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-gray-500">Annual Revenue (as-of)</div>
-                    <div className="text-lg font-semibold">{fmtMoney(annualRevenue)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">Revenue YTD (prorated)</div>
-                    <div className="text-lg font-semibold">{fmtMoney(revenueYTD)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">Remaining Term Value</div>
-                    <div className="text-lg font-semibold">{fmtMoney(value.remainingTermValue)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">Covered Assets</div>
-                    <div className="text-lg font-semibold">{assetCount || "—"}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t">
-                  <div>
-                    <div className="text-gray-500">Revenue / Asset (annual)</div>
-                    <div className="font-semibold">{fmtMoney(revenuePerAsset)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">Parts Cost (YTD)</div>
-                    <div className="font-semibold">{fmtMoney(partsCostYTD)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">Parts Cost / Asset (YTD)</div>
-                    <div className="font-semibold">{fmtMoney(partsCostPerAsset)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-gray-500">WO / Asset (YTD)</div>
-                    <div className="font-semibold">{wosPerAsset.toFixed(2)}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-gray-500">Cost-to-Serve YTD</div>
-                  <div className="text-lg font-semibold">{fmtMoney(totalCostYTD)}</div>
-                  {totalCostYTD === null && <p>Incomplete direct costs. Known subtotal: {fmtMoney(overview.performance?.economics?.directMaintenance.knownSubtotal)}</p>}
-                  <div className="text-xs text-gray-500">
-                    Parts {fmtMoney(partsCostYTD)} · Labor {fmtMoney(laborCostYTD)} · Travel {fmtMoney(travelCostYTD)}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-gray-500">Margin YTD</div>
-                  <div className="text-lg font-semibold">{fmtMoney(grossMarginYTD)}</div>
-                  <div className="text-xs text-gray-500">{(grossMarginPercent === null ? "Unknown" : Number(grossMarginPercent).toFixed(1))}%</div>
-                </div>
-              </div>
-            );
-          })()
-        )}
-      </FormCard>
+      <ContractProfitabilityPanel contractId={contractId} contractType={contract.type} financiallyLive={financiallyLive} asOf={asOf} />
 
       <ContractLifecycleIntelligenceCard
         lifecycle={lifecycle}
@@ -1139,7 +1004,6 @@ export default function ContractDetailPage() {
             );
 
             const topCosts = (overview.assetCosts ?? []).slice(0, 5);
-            const assetCount = overview.assets?.length ?? 0;
 
             return (
               <div className="overflow-x-auto">
@@ -1152,7 +1016,6 @@ export default function ContractDetailPage() {
                       <th className="py-2">Travel</th>
                       <th className="py-2">Parts</th>
                       <th className="py-2">Cost</th>
-                      <th className="py-2">Est. Margin</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1162,8 +1025,6 @@ export default function ContractDetailPage() {
                         ? `${a.manufacturer ?? ""} ${a.model ?? ""} (${a.serialNumber ?? "SN?"})`
                         : row.assetId;
 
-                      const estMargin = null; // Do not imply reconciled per-asset profitability.
-
                       return (
                         <tr key={row.assetId} className="border-b last:border-b-0">
                           <td className="py-2 pr-4">{label}</td>
@@ -1172,16 +1033,12 @@ export default function ContractDetailPage() {
                           <td className="py-2">{row.travelHours.toFixed(2)}h</td>
                           <td className="py-2">{fmtMoney(row.partsCost)}</td>
                           <td className="py-2 font-medium">{fmtMoney(row.totalCost)}</td>
-                          <td className="py-2">{fmtMoney(estMargin)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
 
-                <div className="text-xs text-gray-500 mt-2">
-                  Est. Margin uses flat revenue allocation: Revenue YTD / {assetCount || "—"} assets.
-                </div>
               </div>
             );
           })()

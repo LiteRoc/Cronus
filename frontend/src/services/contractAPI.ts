@@ -156,10 +156,23 @@ export const getVendorLinkOverview = async (contractId: string, linkId: string) 
   return unwrap<any>(data);
 };
 
-export const getContractProfitability = async (contractId: string) => {
-  const { data } = await contractClient.get(`/contracts/${contractId}/profitability`);
-  return unwrap<any>(data);
-};
+export interface ContractProfitability {
+  asOf: string;
+  revenue: { annual: number; ytd: number };
+  vendorPayout: { ytd: number };
+  internalCostToServe: { ytd_allAssets: number | null; leakage_onVendorAssets: number | null };
+  economicScopes: { directMaintenance: { total: number | null; knownSubtotal: number } };
+  net: { ytd: number | null; marginPct: number | null };
+  incompleteReason: string | null;
+  byVendor: { linkId: string; nameSnapshot: string; payoutYTD: number }[];
+}
+
+export async function getContractProfitability(contractId: string, asOf: string, facilityId: string) {
+  const { data } = await contractClient.get(`/contracts/${contractId}/profitability`, {
+    params: { asOf }, headers: { 'x-facility-id': facilityId },
+  });
+  return unwrap<ContractProfitability>(data);
+}
 
 export const getContractLifecycleIntelligence = async (
   contractId: string

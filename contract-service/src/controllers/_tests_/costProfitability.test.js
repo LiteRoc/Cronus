@@ -31,7 +31,7 @@ const row = () => ({
     }
   }
 });
-async function run(workOrder, vendorLinks = []) {
+async function run(workOrder, vendorLinks = [], amendments = []) {
   const contract = {
     type: 'customer',
     totalValue: 3650,
@@ -39,7 +39,7 @@ async function run(workOrder, vendorLinks = []) {
     endDate: '2027-01-01',
     coveredAssets: [assetId],
     vendorLinks,
-    amendments: []
+    amendments
   };
   jest.spyOn(Contract, 'findOne').mockReturnValue({
     lean: async () => contract
@@ -51,7 +51,7 @@ async function run(workOrder, vendorLinks = []) {
     query: {
       asOf: '2026-07-01'
     },
-    headers: {},
+    headers: { 'x-facility-id': '000000000000000000000003' },
     user: {
       role: 'admin'
     },
@@ -64,6 +64,7 @@ async function run(workOrder, vendorLinks = []) {
     }
   };
   const res = {
+    setHeader: jest.fn(),
     status: jest.fn().mockReturnThis(),
     json: jest.fn()
   };
@@ -107,4 +108,51 @@ test('annual vendor payout stays separate and unresolved overlap with direct exp
   expect(result.economicScopes.directMaintenance.total).toBe(100);
   expect(result.net.ytd).toBeNull();
   expect(result.incompleteReason).toBe('vendor_payout_attribution_unreconciled');
+});
+
+test.each([
+  [null, '000000000000000000000003', '2026-07-01', 401],
+  ['technician', '000000000000000000000003', '2026-07-01', 403],
+  ['customer', '000000000000000000000003', '2026-07-01', 403],
+  ['admin', undefined, '2026-07-01', 400],
+  ['admin', 'invalid', '2026-07-01', 400],
+  ['admin', '000000000000000000000003', '2026-02-30', 400],
+])('validates role %s, facility %s and date %s before reading data', async (role, facility, asOf, expected) => {
+  const lookup = jest.spyOn(Contract, 'findOne');
+  const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+  await getContractProfitability({
+    user: role && { role }, headers: { 'x-facility-id': facility },
+    params: { id: assetId }, query: { asOf },
+  }, res);
+  expect(res.status).toHaveBeenCalledWith(expected);
+  expect(lookup).not.toHaveBeenCalled();
+});
+
+test('lookup requires an exact selected facility and hides an absent contract', async () => {
+  const facility = '000000000000000000000003';
+  const lookup = jest.spyOn(Contract, 'findOne').mockReturnValue({ lean: async () => null });
+  const res = { status: jest.fn().mockReturnThis(), json: jest.fn(), setHeader: jest.fn() };
+  await getContractProfitability({
+    user: { role: 'admin' }, headers: { 'x-facility-id': facility }, params: { id: assetId }, query: {},
+  }, res);
+  expect(lookup).toHaveBeenCalledWith({ _id: assetId, facilityId: facility });
+  expect(res.status).toHaveBeenCalledWith(404);
+});
+
+test('midyear amendment, vendor payout and unknown labor retain distinct financial results', async () => {
+  const work = row();
+  const unknown = { ...scope(0), total: null, isComplete: false, missingComponents: [{ reason: 'labor_unknown' }] };
+  work.costs.components.internalLabor = unknown;
+  work.costs.scopes.internal = unknown;
+  work.costs.scopes.directMaintenance = { ...unknown, knownSubtotal: 25 };
+  const vendor = { _id: 'link', vendorId: 'vendor', annualCost: 365, coveredAssetIds: [assetId] };
+  const amendment = { status: 'applied', date: '2026-04-01', changeType: 'update', totalDelta: 3650 };
+  const result = await run(work, [vendor], [amendment]);
+  expect(result.revenue.annual).toBe(7300);
+  // 90 days at $10/day, then 91 days at $20/day.
+  expect(result.revenue.ytd).toBe(2720);
+  expect(result.byVendor[0].payoutYTD).toBe(result.vendorPayout.ytd);
+  expect(result.vendorPayout.ytd).toBeGreaterThan(0);
+  expect(result.internalCostToServe.ytd_allAssets).toBeNull();
+  expect(result.net).toEqual({ ytd: null, marginPct: null });
 });
